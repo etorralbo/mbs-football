@@ -11,7 +11,16 @@ from app.core.config import get_settings
 from app.db.base import Base
 
 # Import all models so they're registered with Base.metadata
-from app.models import Team, UserProfile  # noqa: F401
+# This ensures Alembic autogenerate can detect all tables
+from app.models import (  # noqa: F401
+    BlockExercise,
+    Exercise,
+    MediaAsset,
+    Team,
+    UserProfile,
+    WorkoutBlock,
+    WorkoutTemplate,
+)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
