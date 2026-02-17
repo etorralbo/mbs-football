@@ -8,11 +8,26 @@ class Settings(BaseSettings):
     ENV: str = "local"
     DATABASE_URL: str
 
+    # Supabase JWT settings
+    SUPABASE_URL: str
+    SUPABASE_JWT_AUD: str = "authenticated"
+    SUPABASE_JWT_ISSUER: str = ""  # Will be derived from SUPABASE_URL if not set
+    SUPABASE_JWKS_URL: str = ""  # Will be derived from SUPABASE_URL if not set
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=True
     )
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Derive issuer from SUPABASE_URL if not explicitly set
+        if not self.SUPABASE_JWT_ISSUER:
+            self.SUPABASE_JWT_ISSUER = f"{self.SUPABASE_URL}/auth/v1"
+        # Derive JWKS URL from SUPABASE_URL if not explicitly set
+        if not self.SUPABASE_JWKS_URL:
+            self.SUPABASE_JWKS_URL = f"{self.SUPABASE_URL}/auth/v1/.well-known/jwks.json"
 
 
 @lru_cache
