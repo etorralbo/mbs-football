@@ -2,9 +2,13 @@ from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.api.v1.router import api_router
 from app.db.session import get_db
 
 app = FastAPI(title="Football MVP API")
+
+# Include API v1 router
+app.include_router(api_router)
 
 
 @app.get("/health")
