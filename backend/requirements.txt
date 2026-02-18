@@ -8,3 +8,8 @@ pydantic-settings==2.6.1
 python-dotenv==1.0.1
 PyJWT[crypto]==2.10.1
 requests==2.32.3
+
+# Testing dependencies
+pytest==8.3.4
+httpx==0.28.1
+pytest-mock==3.14.0
