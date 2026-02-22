@@ -10,6 +10,10 @@ class Settings(BaseSettings):
 
     # Supabase JWT settings
     SUPABASE_URL: str
+
+    # AI settings
+    OPENAI_API_KEY: str = ""   # empty string keeps startup safe without key
+    AI_MODEL: str = "gpt-4o-mini"
     SUPABASE_JWT_AUD: str = "authenticated"
     SUPABASE_JWT_ISSUER: str = ""  # Will be derived from SUPABASE_URL if not set
     SUPABASE_JWKS_URL: str = ""  # Will be derived from SUPABASE_URL if not set
