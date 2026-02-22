@@ -9,11 +9,12 @@ Provides:
 """
 import time
 import uuid
+from contextlib import contextmanager
 from typing import Generator
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core import dependencies
@@ -101,6 +102,33 @@ def client(db_session: Session) -> Generator[TestClient, None, None]:
         yield test_client
 
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def count_queries():
+    """
+    Return a context manager that captures every SQL statement fired
+    against test_engine while inside the block.
+
+    Usage:
+        with count_queries() as stmts:
+            client.post(...)
+        exercise_selects = [s for s in stmts if "exercises" in s.lower()]
+    """
+    @contextmanager
+    def _capture():
+        statements: list[str] = []
+
+        def _listener(conn, cursor, statement, parameters, context, executemany):
+            statements.append(statement)
+
+        event.listen(test_engine, "before_cursor_execute", _listener)
+        try:
+            yield statements
+        finally:
+            event.remove(test_engine, "before_cursor_execute", _listener)
+
+    return _capture
 
 
 @pytest.fixture
@@ -216,3 +244,64 @@ def exercise_team_a(db_session: Session, team_a: Team) -> Exercise:
     db_session.commit()
     db_session.refresh(exercise)
     return exercise
+
+
+# ---------------------------------------------------------------------------
+# Fixtures for POST /v1/workout-templates/from-ai tests
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def onboarded_coach(db_session: Session) -> UserProfile:
+    """Create an onboarded coach with their own isolated team."""
+    team = Team(id=uuid.uuid4(), name="From-AI Team")
+    db_session.add(team)
+    db_session.flush()
+    coach = UserProfile(
+        id=uuid.uuid4(),
+        supabase_user_id=uuid.uuid4(),
+        team_id=team.id,
+        role=Role.COACH,
+        name="From-AI Coach",
+    )
+    db_session.add(coach)
+    db_session.commit()
+    db_session.refresh(coach)
+    return coach
+
+
+@pytest.fixture
+def onboarded_coach_jwt(onboarded_coach: UserProfile, mock_jwt) -> UserProfile:
+    """Activate mock JWT for onboarded_coach; returns the coach for team_id access."""
+    mock_jwt(str(onboarded_coach.supabase_user_id))
+    return onboarded_coach
+
+
+@pytest.fixture
+def coach_team_exercise_id(db_session: Session, onboarded_coach: UserProfile) -> uuid.UUID:
+    """Create one exercise in the onboarded coach's team; return its ID."""
+    exercise = Exercise(
+        id=uuid.uuid4(),
+        team_id=onboarded_coach.team_id,
+        name="Coach Team Exercise",
+        description="Owned by the coach's team",
+    )
+    db_session.add(exercise)
+    db_session.commit()
+    return exercise.id
+
+
+@pytest.fixture
+def foreign_team_exercise_id(db_session: Session) -> uuid.UUID:
+    """Create one exercise on a completely different team; return its ID."""
+    other_team = Team(id=uuid.uuid4(), name="Foreign Team")
+    db_session.add(other_team)
+    db_session.flush()
+    exercise = Exercise(
+        id=uuid.uuid4(),
+        team_id=other_team.id,
+        name="Foreign Exercise",
+        description="Belongs to another team",
+    )
+    db_session.add(exercise)
+    db_session.commit()
+    return exercise.id
