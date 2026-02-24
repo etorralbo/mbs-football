@@ -7,7 +7,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core import dependencies as auth_deps
@@ -31,8 +31,12 @@ router = APIRouter(tags=["onboarding"])
 # ---------------------------------------------------------------------------
 
 class OnboardingRequest(BaseModel):
-    team_name: str = Field(..., min_length=1, max_length=255)
-    name: str = Field(..., min_length=1, max_length=255)
+    team_name: str = Field(
+        ...,
+        min_length=1,
+        max_length=255,
+        validation_alias=AliasChoices("team_name", "name"),
+    )
 
 
 class OnboardingResponse(BaseModel):
@@ -56,7 +60,7 @@ def _to_command(payload: OnboardingRequest, supabase_user_id: uuid.UUID) -> Onbo
     return OnboardUserCommand(
         supabase_user_id=supabase_user_id,
         team_name=payload.team_name,
-        name=payload.name,
+        name=payload.team_name,
     )
 
 
