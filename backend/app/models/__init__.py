@@ -15,6 +15,10 @@ from app.models.workout_template import WorkoutTemplate
 from app.models.workout_block import WorkoutBlock
 from app.models.block_exercise import BlockExercise
 
+# Sprint 3: Workout assignment models (import order: assignment before session)
+from app.models.workout_assignment import WorkoutAssignment
+from app.models.workout_session import WorkoutSession
+
 __all__ = [
     # Base models
     "Team",
@@ -27,4 +31,7 @@ __all__ = [
     "WorkoutTemplate",
     "WorkoutBlock",
     "BlockExercise",
+    # Sprint 3 models
+    "WorkoutAssignment",
+    "WorkoutSession",
 ]
