@@ -17,7 +17,6 @@ ENDPOINT = "/v1/onboarding"
 
 _VALID_PAYLOAD = {
     "team_name": "Test FC",
-    "name": "Test Coach",
 }
 
 
@@ -92,7 +91,7 @@ class TestOnboardingSuccess:
         ).scalar_one_or_none()
         assert profile is not None
         assert str(profile.team_id) == response.json()["team_id"]
-        assert profile.name == _VALID_PAYLOAD["name"]
+        assert profile.name == _VALID_PAYLOAD["team_name"]
 
     def test_role_is_always_coach(self, client: TestClient, mock_jwt):
         """Default role must be COACH regardless of payload."""
