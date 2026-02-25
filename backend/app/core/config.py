@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,15 +9,29 @@ class Settings(BaseSettings):
     ENV: str = "local"
     DATABASE_URL: str
 
+    # CORS — comma-separated list of allowed origins for non-local environments
+    CORS_ALLOW_ORIGINS: list[str] = []
+
     # Supabase JWT settings
     SUPABASE_URL: str
 
     # AI settings
     OPENAI_API_KEY: str = ""   # empty string keeps startup safe without key
     AI_MODEL: str = "gpt-4o-mini"
+    # Stub mode: only active when ENV=="local" AND AI_STUB=="true".
+    # Guards against accidental activation in non-local environments.
+    AI_STUB: bool = False
     SUPABASE_JWT_AUD: str = "authenticated"
     SUPABASE_JWT_ISSUER: str = ""  # Will be derived from SUPABASE_URL if not set
     SUPABASE_JWKS_URL: str = ""  # Will be derived from SUPABASE_URL if not set
+
+    @field_validator("CORS_ALLOW_ORIGINS", mode="before")
+    @classmethod
+    def _parse_cors_origins(cls, v: object) -> list[str]:
+        """Accept both a JSON array and a plain comma-separated string."""
+        if isinstance(v, str):
+            return [o.strip() for o in v.split(",") if o.strip()]
+        return v  # type: ignore[return-value]
 
     model_config = SettingsConfigDict(
         env_file=".env",

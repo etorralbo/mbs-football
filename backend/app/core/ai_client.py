@@ -50,10 +50,12 @@ def call_llm(system_prompt: str, user_prompt: str) -> dict[str, Any]:
             response_format={"type": "json_object"},
             temperature=0.7,
         )
-    except OpenAIError as exc:
+    except OpenAIError:
+        # Do NOT surface the raw exception — it may contain API key fragments,
+        # rate-limit details, or other upstream internals.
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"AI service error: {exc}",
+            detail="AI service unavailable. Please try again later.",
         )
 
     raw = response.choices[0].message.content or ""

@@ -137,6 +137,54 @@ def _match_exercises(
 
 
 # ---------------------------------------------------------------------------
+# Stub: deterministic intents used when AI_STUB=true in local dev
+# ---------------------------------------------------------------------------
+
+_STUB_INTENTS: dict[str, str] = {
+    "Preparation to Movement": "Mobility and activation warm-up",
+    "Plyometrics": "Explosive power and reactive drills",
+    "Primary Strength": "Main compound lift – high intensity",
+    "Secondary Strength": "Accessory compound movement",
+    "Auxiliary Strength": "Isolation and stabilisation work",
+    "Recovery": "Cool-down, stretching, and tissue care",
+}
+
+
+def generate_stub_draft(
+    db: Session,
+    team_id: uuid.UUID,
+    prompt: str,
+    language: str = "en",  # noqa: ARG001 — kept for API parity with generate_template_draft
+) -> AiTemplateDraft:
+    """
+    Return a deterministic draft without calling OpenAI.
+
+    Only reachable when ENV=="local" AND AI_STUB==True (enforced by the
+    endpoint handler).  Uses the same team-scoped exercise fetch and the
+    same keyword-matching logic as the real function so the output looks
+    realistic and tenant isolation is preserved.
+    """
+    exercises: list[Exercise] = list(
+        db.execute(
+            select(Exercise).where(Exercise.team_id == team_id)
+        ).scalars()
+    )
+
+    title = f"[STUB] {prompt[:60].strip()}"
+
+    blocks = [
+        AiBlockDraft(
+            name=block_name,
+            notes=_STUB_INTENTS[block_name],
+            suggested_exercises=_match_exercises(_STUB_INTENTS[block_name], exercises),
+        )
+        for block_name in BASE_BLOCKS
+    ]
+
+    return AiTemplateDraft(title=title, blocks=blocks)
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
