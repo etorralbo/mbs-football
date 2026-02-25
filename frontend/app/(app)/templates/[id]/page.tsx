@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { request } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
+import { SkeletonList } from '@/app/_shared/components/Skeleton'
 import type { WorkoutTemplateDetail } from '@/app/_shared/api/types'
 
 export default function TemplateDetailPage() {
@@ -26,30 +28,53 @@ export default function TemplateDetailPage() {
       .finally(() => setLoading(false))
   }, [id, router])
 
-  if (loading) return <p className="text-sm text-gray-500">Loading…</p>
-  if (notFound || !template) return <p className="text-sm text-gray-500">Template not found.</p>
+  if (loading)
+    return (
+      <div>
+        <span className="sr-only">Loading…</span>
+        <SkeletonList rows={4} />
+      </div>
+    )
+
+  if (notFound || !template)
+    return (
+      <p className="text-sm text-zinc-500">Template not found.</p>
+    )
 
   return (
     <>
-      <h1 className="text-2xl font-semibold text-gray-900">{template.title}</h1>
+      <div className="flex items-center gap-2">
+        <Link href="/templates" className="text-sm text-zinc-500 hover:text-zinc-700">
+          Templates
+        </Link>
+        <span className="text-zinc-300">/</span>
+        <span className="text-sm text-zinc-900">{template.title}</span>
+      </div>
+
+      <h1 className="mt-4 text-xl font-semibold text-zinc-900">{template.title}</h1>
       {template.description && (
-        <p className="mt-2 text-sm text-gray-500">{template.description}</p>
+        <p className="mt-1 text-sm text-zinc-500">{template.description}</p>
       )}
 
-      <div className="mt-8 space-y-8">
+      <div className="mt-8 space-y-4">
         {template.blocks.map((block) => (
-          <section key={block.id}>
-            <h2 className="text-lg font-medium text-gray-900">{block.name}</h2>
+          <section key={block.id} className="rounded-lg border border-zinc-200 bg-white p-5">
+            <h2 className="text-sm font-semibold text-zinc-900">{block.name}</h2>
             {block.notes && (
-              <p className="mt-1 text-sm text-gray-500">{block.notes}</p>
+              <p className="mt-1 text-xs text-zinc-500">{block.notes}</p>
             )}
-            <ul className="mt-3 space-y-1">
-              {block.items.map((item) => (
-                <li key={item.id} className="text-sm text-gray-700">
-                  {item.exercise.name}
-                </li>
-              ))}
-            </ul>
+            {block.items.length > 0 ? (
+              <ul className="mt-3 space-y-1.5">
+                {block.items.map((item) => (
+                  <li key={item.id} className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" aria-hidden="true" />
+                    <span className="text-sm text-zinc-700">{item.exercise.name}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-xs text-zinc-400">No exercises assigned.</p>
+            )}
           </section>
         ))}
       </div>

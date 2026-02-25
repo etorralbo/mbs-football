@@ -10,6 +10,10 @@ vi.mock('next/link', () => ({
   ),
 }))
 
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/',
+}))
+
 describe('NavBar', () => {
   it('renders the Templates link', () => {
     render(<NavBar />)

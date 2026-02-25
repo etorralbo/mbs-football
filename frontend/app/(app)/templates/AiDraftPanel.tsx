@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { request, ValidationError } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
+import { Button } from '@/app/_shared/components/Button'
 import type { AiDraftResponse, SaveFromAiRequest } from '@/app/_shared/api/types'
 
 // ---------------------------------------------------------------------------
@@ -92,12 +93,15 @@ export function AiDraftPanel() {
   }
 
   return (
-    <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-6">
-      <h2 className="text-lg font-semibold text-gray-900">AI Workout Draft</h2>
+    <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
+      <h2 className="text-base font-semibold text-zinc-900">AI Workout Draft</h2>
+      <p className="mt-1 text-sm text-zinc-500">
+        Describe the workout and the AI will generate a structured plan with six training blocks.
+      </p>
 
       <form onSubmit={handleGenerate} className="mt-4 space-y-4">
         <div>
-          <label htmlFor="ai-prompt" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="ai-prompt" className="block text-sm font-medium text-zinc-700">
             Describe the workout
           </label>
           <textarea
@@ -106,20 +110,20 @@ export function AiDraftPanel() {
             onChange={(e) => setPrompt(e.target.value)}
             rows={3}
             maxLength={2000}
-            className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="mt-1.5 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             placeholder="e.g. explosive power session for a midfielder, focus on lower body"
           />
         </div>
 
         <div>
-          <label htmlFor="ai-language" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="ai-language" className="block text-sm font-medium text-zinc-700">
             Language
           </label>
           <select
             id="ai-language"
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
-            className="mt-1 rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="mt-1.5 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           >
             <option value="en">English</option>
             <option value="es">Spanish</option>
@@ -132,39 +136,39 @@ export function AiDraftPanel() {
           </p>
         )}
 
-        <button
-          type="submit"
-          disabled={!prompt.trim() || draftLoading}
-          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-        >
+        <Button type="submit" disabled={!prompt.trim()} loading={draftLoading}>
           {draftLoading ? 'Generating…' : 'Generate draft'}
-        </button>
+        </Button>
       </form>
 
       {draft && (
-        <div className="mt-8">
-          <h3 className="text-base font-semibold text-gray-900">{draft.title}</h3>
+        <div className="mt-8 border-t border-zinc-100 pt-6">
+          <h3 className="text-sm font-semibold text-zinc-900">{draft.title}</h3>
 
-          <div className="mt-4 space-y-6">
+          <div className="mt-4 space-y-4">
             {draft.blocks.map((block) => (
-              <section key={block.name} aria-label={block.name}>
-                <h4 className="font-medium text-gray-900">{block.name}</h4>
+              <section
+                key={block.name}
+                aria-label={block.name}
+                className="rounded-md border border-zinc-100 bg-zinc-50 p-4"
+              >
+                <h4 className="text-sm font-medium text-zinc-900">{block.name}</h4>
                 {block.notes && (
-                  <p className="mt-1 text-sm text-gray-500">{block.notes}</p>
+                  <p className="mt-1 text-xs text-zinc-500">{block.notes}</p>
                 )}
                 {block.suggested_exercises.length > 0 ? (
                   <ul className="mt-2 space-y-1">
                     {block.suggested_exercises.map((ex) => (
-                      <li key={ex.exercise_id} className="text-sm text-gray-700">
+                      <li key={ex.exercise_id} className="text-xs text-zinc-600">
                         {ex.reason}{' '}
-                        <span className="text-xs text-gray-400">
+                        <span className="text-zinc-400">
                           ({Math.round(ex.score * 100)}%)
                         </span>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="mt-2 text-sm text-gray-400">No exercises suggested.</p>
+                  <p className="mt-2 text-xs text-zinc-400">No exercises suggested.</p>
                 )}
               </section>
             ))}
@@ -176,13 +180,14 @@ export function AiDraftPanel() {
             </p>
           )}
 
-          <button
+          <Button
+            variant="primary"
             onClick={handleSave}
-            disabled={saving}
-            className="mt-6 rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+            loading={saving}
+            className="mt-6"
           >
             {saving ? 'Saving…' : 'Confirm & Save'}
-          </button>
+          </Button>
         </div>
       )}
     </div>

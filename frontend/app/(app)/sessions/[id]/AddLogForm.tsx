@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { request, ValidationError } from '@/app/_shared/api/httpClient'
+import { Button } from '@/app/_shared/components/Button'
 import { BLOCK_NAMES } from '@/app/_shared/api/types'
 
 interface EntryRow {
@@ -21,6 +22,9 @@ function parseOpt(value: string): number | null {
   const n = parseFloat(value)
   return isNaN(n) ? null : n
 }
+
+const inputCls =
+  'rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500'
 
 export function AddLogForm({ sessionId, onSuccess }: Props) {
   const [blockName, setBlockName] = useState<string>(BLOCK_NAMES[0])
@@ -92,14 +96,14 @@ export function AddLogForm({ sessionId, onSuccess }: Props) {
     <form onSubmit={handleSubmit} className="mt-4 space-y-4">
       {/* Block name */}
       <div>
-        <label htmlFor="log-block" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="log-block" className="block text-sm font-medium text-zinc-700">
           Block
         </label>
         <select
           id="log-block"
           value={blockName}
           onChange={(e) => setBlockName(e.target.value)}
-          className="mt-1 rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className={`mt-1.5 ${inputCls}`}
         >
           {BLOCK_NAMES.map((name) => (
             <option key={name} value={name}>
@@ -111,7 +115,7 @@ export function AddLogForm({ sessionId, onSuccess }: Props) {
 
       {/* Exercise ID */}
       <div>
-        <label htmlFor="log-exercise-id" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="log-exercise-id" className="block text-sm font-medium text-zinc-700">
           Exercise ID
         </label>
         <input
@@ -120,24 +124,24 @@ export function AddLogForm({ sessionId, onSuccess }: Props) {
           value={exerciseId}
           onChange={(e) => setExerciseId(e.target.value)}
           placeholder="Paste exercise UUID"
-          className="mt-1 w-full rounded border border-gray-300 px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className={`mt-1.5 w-full font-mono ${inputCls}`}
         />
       </div>
 
       {/* Sets */}
       <div>
-        <p className="text-sm font-medium text-gray-700">Sets</p>
+        <p className="text-sm font-medium text-zinc-700">Sets</p>
         <div className="mt-2 space-y-2">
           {entries.map((entry, i) => (
             <div key={i} className="flex items-center gap-2">
-              <span className="w-5 text-sm text-gray-500">{i + 1}</span>
+              <span className="w-5 text-sm text-zinc-400">{i + 1}</span>
               <input
                 type="number"
                 value={entry.reps}
                 onChange={(e) => updateEntry(i, 'reps', e.target.value)}
                 placeholder="Reps"
                 min={0}
-                className="w-20 rounded border border-gray-300 px-2 py-1 text-sm"
+                className={`w-20 ${inputCls}`}
                 aria-label={`Set ${i + 1} reps`}
               />
               <input
@@ -147,7 +151,7 @@ export function AddLogForm({ sessionId, onSuccess }: Props) {
                 placeholder="kg"
                 min={0}
                 step={0.5}
-                className="w-20 rounded border border-gray-300 px-2 py-1 text-sm"
+                className={`w-20 ${inputCls}`}
                 aria-label={`Set ${i + 1} weight`}
               />
               <input
@@ -158,7 +162,7 @@ export function AddLogForm({ sessionId, onSuccess }: Props) {
                 min={1}
                 max={10}
                 step={0.5}
-                className="w-20 rounded border border-gray-300 px-2 py-1 text-sm"
+                className={`w-20 ${inputCls}`}
                 aria-label={`Set ${i + 1} RPE`}
               />
               {entries.length > 1 && (
@@ -166,7 +170,7 @@ export function AddLogForm({ sessionId, onSuccess }: Props) {
                   type="button"
                   onClick={() => removeEntry(i)}
                   aria-label={`Remove set ${i + 1}`}
-                  className="text-sm text-red-500 hover:text-red-700"
+                  className="text-sm text-zinc-400 hover:text-red-500 transition-colors"
                 >
                   ×
                 </button>
@@ -178,7 +182,7 @@ export function AddLogForm({ sessionId, onSuccess }: Props) {
           <button
             type="button"
             onClick={addEntry}
-            className="mt-2 text-sm text-blue-600 hover:underline"
+            className="mt-2 text-xs font-medium text-indigo-600 hover:text-indigo-700"
           >
             + Add set
           </button>
@@ -187,7 +191,7 @@ export function AddLogForm({ sessionId, onSuccess }: Props) {
 
       {/* Notes */}
       <div>
-        <label htmlFor="log-notes" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="log-notes" className="block text-sm font-medium text-zinc-700">
           Notes
         </label>
         <textarea
@@ -195,7 +199,7 @@ export function AddLogForm({ sessionId, onSuccess }: Props) {
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={2}
-          className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className={`mt-1.5 w-full ${inputCls}`}
           placeholder="Optional notes"
         />
       </div>
@@ -206,13 +210,9 @@ export function AddLogForm({ sessionId, onSuccess }: Props) {
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={!exerciseId.trim() || loading}
-        className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-      >
+      <Button type="submit" disabled={!exerciseId.trim()} loading={loading}>
         {loading ? 'Saving…' : 'Save log'}
-      </button>
+      </Button>
     </form>
   )
 }
