@@ -5,11 +5,9 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { request } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
+import { Badge } from '@/app/_shared/components/Badge'
+import { SkeletonList } from '@/app/_shared/components/Skeleton'
 import type { WorkoutSessionSummary } from '@/app/_shared/api/types'
-
-function statusLabel(session: WorkoutSessionSummary): string {
-  return session.completed_at ? 'Completed' : 'Pending'
-}
 
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<WorkoutSessionSummary[]>([])
@@ -32,9 +30,14 @@ export default function SessionsPage() {
 
   return (
     <>
-      <h1 className="text-2xl font-semibold text-gray-900">Workout Sessions</h1>
+      <h1 className="text-xl font-semibold text-zinc-900">Workout Sessions</h1>
 
-      {loading && <p className="mt-6 text-sm text-gray-500">Loading…</p>}
+      {loading && (
+        <div className="mt-6">
+          <span className="sr-only">Loading…</span>
+          <SkeletonList rows={3} />
+        </div>
+      )}
 
       {error && (
         <p role="alert" className="mt-6 text-sm text-red-600">
@@ -43,23 +46,29 @@ export default function SessionsPage() {
       )}
 
       {!loading && !error && sessions.length === 0 && (
-        <p className="mt-6 text-sm text-gray-500">No sessions assigned yet.</p>
+        <p className="mt-6 text-sm text-zinc-500">No sessions assigned yet.</p>
       )}
 
       {!loading && sessions.length > 0 && (
-        <ul className="mt-6 divide-y divide-gray-200">
+        <ul className="mt-6 space-y-2">
           {sessions.map((s) => (
-            <li key={s.id} className="py-4">
+            <li key={s.id}>
               <Link
                 href={`/sessions/${s.id}`}
-                className="font-medium text-gray-900 hover:underline"
+                className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300 hover:bg-zinc-50"
               >
-                Session {s.id.slice(0, 8)}…
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm font-medium text-zinc-900">
+                    Session {s.id.slice(0, 8)}…
+                  </span>
+                  {s.scheduled_for && (
+                    <span className="text-xs text-zinc-500">{s.scheduled_for}</span>
+                  )}
+                </div>
+                <Badge variant={s.completed_at ? 'completed' : 'pending'}>
+                  {s.completed_at ? 'Completed' : 'Pending'}
+                </Badge>
               </Link>
-              <div className="mt-1 flex gap-4 text-sm text-gray-500">
-                <span>{statusLabel(s)}</span>
-                {s.scheduled_for && <span>{s.scheduled_for}</span>}
-              </div>
             </li>
           ))}
         </ul>

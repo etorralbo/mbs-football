@@ -4,7 +4,7 @@ import { RequireAuth } from '@/app/_shared/auth/RequireAuth'
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <RequireAuth>
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-zinc-50">
         <NavBar />
         <main className="mx-auto max-w-5xl px-6 py-8">{children}</main>
       </div>

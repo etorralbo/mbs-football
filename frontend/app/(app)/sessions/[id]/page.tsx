@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { request } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
+import { Badge } from '@/app/_shared/components/Badge'
+import { Button } from '@/app/_shared/components/Button'
+import { SkeletonList } from '@/app/_shared/components/Skeleton'
 import { AddLogForm } from './AddLogForm'
 import type { WorkoutSessionDetail } from '@/app/_shared/api/types'
 
@@ -44,7 +47,7 @@ export default function SessionDetailPage() {
       try {
         handleApiError(err, router)
       } catch {
-        // Non-redirectable error; stay on page (could show a toast here)
+        // Non-redirectable error; stay on page
       }
     } finally {
       setCompleting(false)
@@ -57,8 +60,16 @@ export default function SessionDetailPage() {
       .catch(() => {})
   }
 
-  if (loading) return <p className="text-sm text-gray-500">Loading…</p>
-  if (notFound || !session) return <p className="text-sm text-gray-500">Session not found.</p>
+  if (loading)
+    return (
+      <div>
+        <span className="sr-only">Loading…</span>
+        <SkeletonList rows={4} />
+      </div>
+    )
+
+  if (notFound || !session)
+    return <p className="text-sm text-zinc-500">Session not found.</p>
 
   const isCompleted = session.status === 'completed'
 
@@ -67,65 +78,58 @@ export default function SessionDetailPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Session</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Status:{' '}
-            <span
-              className={
-                isCompleted ? 'font-medium text-green-600' : 'font-medium text-yellow-600'
-              }
-            >
+          <h1 className="text-xl font-semibold text-zinc-900">Session</h1>
+          <div className="mt-2 flex items-center gap-3">
+            <Badge variant={isCompleted ? 'completed' : 'pending'}>
               {isCompleted ? 'Completed' : 'Pending'}
-            </span>
-          </p>
-          {session.scheduled_for && (
-            <p className="mt-1 text-sm text-gray-500">
-              Scheduled: {session.scheduled_for}
-            </p>
-          )}
+            </Badge>
+            {session.scheduled_for && (
+              <span className="text-sm text-zinc-500">{session.scheduled_for}</span>
+            )}
+          </div>
         </div>
 
         {!isCompleted && (
-          <button
+          <Button
+            variant="secondary"
             onClick={handleComplete}
-            disabled={completing}
-            className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+            loading={completing}
           >
             {completing ? 'Completing…' : 'Complete session'}
-          </button>
+          </Button>
         )}
       </div>
 
       {/* Logs */}
       {session.logs.length > 0 && (
         <div className="mt-8">
-          <h2 className="text-lg font-semibold text-gray-900">Exercise Logs</h2>
-          <div className="mt-4 space-y-6">
+          <h2 className="text-base font-semibold text-zinc-900">Exercise Logs</h2>
+          <div className="mt-4 space-y-4">
             {session.logs.map((log) => (
-              <section key={log.log_id} className="rounded border border-gray-200 p-4">
-                <h3 className="font-medium text-gray-900">{log.block_name}</h3>
-                <p className="text-sm text-gray-500">
-                  Exercise: {log.exercise_id.slice(0, 8)}…
+              <section key={log.log_id} className="rounded-lg border border-zinc-200 bg-white p-4">
+                <h3 className="text-sm font-medium text-zinc-900">{log.block_name}</h3>
+                <p className="mt-0.5 font-mono text-xs text-zinc-400">
+                  {log.exercise_id.slice(0, 8)}…
                 </p>
                 {log.notes && (
-                  <p className="mt-1 text-sm text-gray-500">{log.notes}</p>
+                  <p className="mt-1 text-sm text-zinc-500">{log.notes}</p>
                 )}
                 <table className="mt-3 w-full text-sm">
                   <thead>
-                    <tr className="text-left text-xs text-gray-500">
-                      <th className="pr-4 font-medium">Set</th>
-                      <th className="pr-4 font-medium">Reps</th>
-                      <th className="pr-4 font-medium">Weight</th>
-                      <th className="font-medium">RPE</th>
+                    <tr className="text-left text-xs text-zinc-400">
+                      <th className="pb-1.5 pr-4 font-medium">Set</th>
+                      <th className="pb-1.5 pr-4 font-medium">Reps</th>
+                      <th className="pb-1.5 pr-4 font-medium">Weight</th>
+                      <th className="pb-1.5 font-medium">RPE</th>
                     </tr>
                   </thead>
                   <tbody>
                     {log.entries.map((entry) => (
-                      <tr key={entry.set_number} className="border-t border-gray-100">
-                        <td className="py-1 pr-4">{entry.set_number}</td>
-                        <td className="py-1 pr-4">{entry.reps ?? '—'}</td>
-                        <td className="py-1 pr-4">{entry.weight ?? '—'}</td>
-                        <td className="py-1">{entry.rpe ?? '—'}</td>
+                      <tr key={entry.set_number} className="border-t border-zinc-100">
+                        <td className="py-1.5 pr-4 text-zinc-700">{entry.set_number}</td>
+                        <td className="py-1.5 pr-4 text-zinc-700">{entry.reps ?? '—'}</td>
+                        <td className="py-1.5 pr-4 text-zinc-700">{entry.weight ?? '—'}</td>
+                        <td className="py-1.5 text-zinc-700">{entry.rpe ?? '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -139,7 +143,7 @@ export default function SessionDetailPage() {
       {/* Add log form — only when session is still pending */}
       {!isCompleted && (
         <div className="mt-8">
-          <h2 className="text-lg font-semibold text-gray-900">Add Exercise Log</h2>
+          <h2 className="text-base font-semibold text-zinc-900">Add Exercise Log</h2>
           <AddLogForm sessionId={id} onSuccess={refreshSession} />
         </div>
       )}

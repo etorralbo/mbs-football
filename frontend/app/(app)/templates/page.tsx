@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { request } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
+import { Button } from '@/app/_shared/components/Button'
+import { SkeletonList } from '@/app/_shared/components/Skeleton'
 import { AiDraftPanel } from './AiDraftPanel'
 import type { WorkoutTemplate } from '@/app/_shared/api/types'
 
@@ -15,7 +17,9 @@ export default function TemplatesPage() {
   const [showAiPanel, setShowAiPanel] = useState(false)
   const router = useRouter()
 
-  useEffect(() => {
+  function fetchTemplates() {
+    setLoading(true)
+    setError(null)
     request<WorkoutTemplate[]>('/v1/workout-templates')
       .then(setTemplates)
       .catch((err: unknown) => {
@@ -26,49 +30,67 @@ export default function TemplatesPage() {
         }
       })
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    fetchTemplates()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
 
   return (
     <>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-900">Workout Templates</h1>
-        <button
+        <h1 className="text-xl font-semibold text-zinc-900">Workout Templates</h1>
+        <Button
+          variant={showAiPanel ? 'secondary' : 'primary'}
           onClick={() => setShowAiPanel((v) => !v)}
-          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
           {showAiPanel ? 'Close' : 'Create with AI'}
-        </button>
+        </Button>
       </div>
 
       {showAiPanel && <AiDraftPanel />}
 
-      {loading && <p className="mt-6 text-sm text-gray-500">Loading…</p>}
+      {loading && (
+        <div className="mt-6">
+          <span className="sr-only">Loading…</span>
+          <SkeletonList rows={3} />
+        </div>
+      )}
 
       {error && (
-        <p role="alert" className="mt-6 text-sm text-red-600">
-          {error}
-        </p>
+        <div role="alert" className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4">
+          <p className="text-sm text-red-700">{error}</p>
+          <button
+            className="mt-2 text-sm font-medium text-red-700 underline"
+            onClick={fetchTemplates}
+          >
+            Try again
+          </button>
+        </div>
       )}
 
       {!loading && !error && templates.length === 0 && (
-        <p className="mt-6 text-sm text-gray-500">
-          No templates yet. Use &quot;Create with AI&quot; to get started.
-        </p>
+        <div className="mt-6">
+          <p className="text-sm text-zinc-500">
+            No templates yet. Use &quot;Create with AI&quot; to get started.
+          </p>
+        </div>
       )}
 
       {!loading && templates.length > 0 && (
-        <ul className="mt-6 divide-y divide-gray-200">
+        <ul className="mt-6 space-y-2">
           {templates.map((t) => (
-            <li key={t.id} className="py-4">
+            <li key={t.id}>
               <Link
                 href={`/templates/${t.id}`}
-                className="text-base font-medium text-gray-900 hover:underline"
+                className="flex flex-col rounded-lg border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300 hover:bg-zinc-50"
               >
-                {t.title}
+                <span className="text-sm font-medium text-zinc-900">{t.title}</span>
+                {t.description && (
+                  <span className="mt-1 text-xs text-zinc-500">{t.description}</span>
+                )}
               </Link>
-              {t.description && (
-                <p className="mt-1 text-sm text-gray-500">{t.description}</p>
-              )}
             </li>
           ))}
         </ul>

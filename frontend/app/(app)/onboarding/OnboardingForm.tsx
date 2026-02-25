@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { request, UnauthorizedError, ValidationError } from '@/app/_shared/api/httpClient'
+import { Button } from '@/app/_shared/components/Button'
 
 export function OnboardingForm() {
   const [teamName, setTeamName] = useState('')
@@ -42,7 +43,7 @@ export function OnboardingForm() {
   return (
     <form onSubmit={handleSubmit} className="mt-6 space-y-4">
       <div>
-        <label htmlFor="team-name" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="team-name" className="block text-sm font-medium text-zinc-700">
           Team name
         </label>
         <input
@@ -50,7 +51,7 @@ export function OnboardingForm() {
           type="text"
           value={teamName}
           onChange={(e) => setTeamName(e.target.value)}
-          className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="mt-1.5 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           placeholder="e.g. FC Barcelona"
         />
       </div>
@@ -61,13 +62,9 @@ export function OnboardingForm() {
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={!teamName.trim() || loading}
-        className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-      >
+      <Button type="submit" disabled={!teamName.trim()} loading={loading} className="w-full">
         {loading ? 'Saving…' : 'Create team'}
-      </button>
+      </Button>
     </form>
   )
 }
