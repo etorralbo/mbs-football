@@ -3,6 +3,9 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Optional
 
+from app.persistence.repositories.exercise_repository import (
+    AbstractExerciseRepository,
+)
 from app.persistence.repositories.workout_session_log_repository import (
     AbstractWorkoutSessionLogRepository,
     NewLogEntry,
@@ -10,9 +13,22 @@ from app.persistence.repositories.workout_session_log_repository import (
 from app.persistence.repositories.workout_session_repository import (
     AbstractWorkoutSessionRepository,
 )
-from app.persistence.repositories.workout_template_repository import (
-    AbstractWorkoutTemplateRepository,
-)
+
+
+# ---------------------------------------------------------------------------
+# Domain constants
+# ---------------------------------------------------------------------------
+
+VALID_BLOCK_NAMES: frozenset[str] = frozenset({
+    "Preparation to Movement",
+    "Plyometrics",
+    "Primary Strength",
+    "Secondary Strength",
+    "Auxiliary Strength",
+    "Recovery",
+})
+
+MAX_ENTRIES_PER_LOG = 50
 
 
 # ---------------------------------------------------------------------------
@@ -20,11 +36,11 @@ from app.persistence.repositories.workout_template_repository import (
 # ---------------------------------------------------------------------------
 
 class NotFoundError(Exception):
-    """Session not found or the caller is not the assigned athlete."""
+    """Session or exercise not found / caller not authorised."""
 
 
 class ValidationError(Exception):
-    """block_name or exercise_id is not valid for this session's template."""
+    """block_name is not in the allowed list, or entries limit exceeded."""
 
 
 # ---------------------------------------------------------------------------
@@ -57,26 +73,25 @@ class CreateWorkoutSessionLogResult:
 
 class CreateWorkoutSessionLogUseCase:
     """
-    Validates ownership, checks block_name and exercise_id against the
-    session's template, then persists the log with its entries.
+    Validates ownership, exercise team membership, block_name, and entries
+    count, then persists the log with its entries in a single transaction.
 
-    Validation rules:
-    - session must be owned by requesting_athlete_id → NotFoundError otherwise
-    - block_name must match a WorkoutBlock.name in the session's template
-      → ValidationError otherwise
-    - exercise_id must be referenced by a BlockExercise in the template
-      → ValidationError otherwise
+    Validation rules (in order):
+    1. session owned by requesting_athlete_id          → NotFoundError
+    2. exercise_id belongs to team                     → NotFoundError
+    3. block_name in VALID_BLOCK_NAMES                 → ValidationError
+    4. len(entries) <= MAX_ENTRIES_PER_LOG             → ValidationError
     """
 
     def __init__(
         self,
         session_repo: AbstractWorkoutSessionRepository,
-        template_repo: AbstractWorkoutTemplateRepository,
         log_repo: AbstractWorkoutSessionLogRepository,
+        exercise_repo: AbstractExerciseRepository,
     ) -> None:
         self._session_repo = session_repo
-        self._template_repo = template_repo
         self._log_repo = log_repo
+        self._exercise_repo = exercise_repo
 
     def execute(
         self,
@@ -87,36 +102,29 @@ class CreateWorkoutSessionLogUseCase:
             command.session_id, command.requesting_athlete_id
         )
         if session is None:
-            raise NotFoundError(
-                f"Session {command.session_id} not found"
-            )
+            raise NotFoundError(f"Session {command.session_id} not found")
 
-        # 2. Load template for validation (scoped to caller's team)
-        template = self._template_repo.get_by_id(
-            session.workout_template_id, command.requesting_team_id
+        # 2. Exercise must belong to the team
+        exercise = self._exercise_repo.get_by_id(
+            command.exercise_id, command.requesting_team_id
         )
-        if template is None:
+        if exercise is None:
             raise NotFoundError(
-                f"Template for session {command.session_id} not found"
+                f"Exercise {command.exercise_id} not found in team"
             )
 
-        # 3. Validate block_name against the template's actual block names
-        valid_block_names = {block.name for block in template.blocks}
-        if command.block_name not in valid_block_names:
+        # 3. block_name must be in the canonical fixed list
+        if command.block_name not in VALID_BLOCK_NAMES:
             raise ValidationError(
-                f"'{command.block_name}' is not a valid block for this template. "
-                f"Valid blocks: {sorted(valid_block_names)}"
+                f"'{command.block_name}' is not a valid block name. "
+                f"Valid names: {sorted(VALID_BLOCK_NAMES)}"
             )
 
-        # 4. Validate exercise_id: must appear in at least one block of the template
-        template_exercise_ids = {
-            be.exercise_id
-            for block in template.blocks
-            for be in block.items
-        }
-        if command.exercise_id not in template_exercise_ids:
+        # 4. Guard against oversized entry lists
+        if len(command.entries) > MAX_ENTRIES_PER_LOG:
             raise ValidationError(
-                f"Exercise {command.exercise_id} is not part of this template"
+                f"A log may contain at most {MAX_ENTRIES_PER_LOG} entries "
+                f"(received {len(command.entries)})"
             )
 
         # 5. Persist log + entries atomically

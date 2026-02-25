@@ -4,11 +4,13 @@ TDD RED phase — integration tests for workout session execution endpoints.
 Endpoints under test:
     POST  /v1/workout-sessions/{session_id}/logs
     GET   /v1/workout-sessions/{session_id}
-    PATCH /v1/workout-sessions/{session_id}/complete  (idempotency)
+    PATCH /v1/workout-sessions/{session_id}/complete
 
-TestLogCreation and TestSessionDetail are expected to FAIL because neither
-endpoint exists yet.  TestSessionCompleteIdempotency exercises already-
-implemented behaviour so it may be green.
+TARGET API CONTRACT (tests are RED until implementation matches):
+  - POST entries use "set_number" (not "set")
+  - GET response returns workout_template_id (UUID), athlete_profile_id, scheduled_for
+  - Exercise not belonging to the team -> 404
+  - PATCH /complete: ATHLETE owns session, COACH scoped to team, both idempotent
 """
 import uuid
 
@@ -32,9 +34,7 @@ from app.models.workout_assignment import AssignmentTargetType
 HEADERS = {"Authorization": "Bearer test-token"}
 SESSIONS_ENDPOINT = "/v1/workout-sessions"
 
-# The block name that exists in the test template fixture.
 VALID_BLOCK_NAME = "Primary Strength"
-# A block name that does NOT exist in any test template.
 INVALID_BLOCK_NAME = "Does Not Exist Block"
 
 
@@ -45,7 +45,7 @@ INVALID_BLOCK_NAME = "Does Not Exist Block"
 
 @pytest.fixture
 def athlete_b(db_session: Session, team_b: Team) -> UserProfile:
-    """Athlete belonging to team B (for cross-team isolation tests)."""
+    """Athlete belonging to team B (cross-team isolation)."""
     athlete = UserProfile(
         id=uuid.uuid4(),
         supabase_user_id=uuid.uuid4(),
@@ -61,7 +61,7 @@ def athlete_b(db_session: Session, team_b: Team) -> UserProfile:
 
 @pytest.fixture
 def athlete_a2(db_session: Session, team_a: Team) -> UserProfile:
-    """Second athlete in team A."""
+    """Second athlete in team A (same-team peer isolation)."""
     athlete = UserProfile(
         id=uuid.uuid4(),
         supabase_user_id=uuid.uuid4(),
@@ -99,14 +99,15 @@ def template_with_block(
     db_session.add(block)
     db_session.flush()
 
-    block_exercise = BlockExercise(
-        id=uuid.uuid4(),
-        workout_block_id=block.id,
-        exercise_id=exercise_team_a.id,
-        order_index=0,
-        prescription_json={"sets": 3, "reps": 5},
+    db_session.add(
+        BlockExercise(
+            id=uuid.uuid4(),
+            workout_block_id=block.id,
+            exercise_id=exercise_team_a.id,
+            order_index=0,
+            prescription_json={"sets": 3, "reps": 5},
+        )
     )
-    db_session.add(block_exercise)
     db_session.commit()
     db_session.refresh(template)
     return template
@@ -148,11 +149,11 @@ def session_b(
     team_b: Team,
     coach_b: UserProfile,
 ) -> WorkoutSession:
-    """Workout session belonging to team B (for cross-team isolation tests)."""
+    """Workout session belonging to team B (cross-team isolation)."""
     template = WorkoutTemplate(
         id=uuid.uuid4(),
         team_id=team_b.id,
-        title="Team B Execution Workout",
+        title="Team B Workout",
     )
     db_session.add(template)
     db_session.flush()
@@ -180,7 +181,7 @@ def session_b(
 
 
 # ---------------------------------------------------------------------------
-# Shared helpers
+# Helpers
 # ---------------------------------------------------------------------------
 
 
@@ -197,13 +198,13 @@ def _complete_url(session_id: uuid.UUID) -> str:
 
 
 def _valid_log_payload(exercise_id: uuid.UUID) -> dict:
-    """Minimal valid log payload matching the API contract."""
+    """Minimal valid payload using the target API contract (set_number)."""
     return {
         "block_name": VALID_BLOCK_NAME,
         "exercise_id": str(exercise_id),
         "entries": [
-            {"set": 1, "reps": 5, "weight": 80, "rpe": 8},
-            {"set": 2, "reps": 5, "weight": 80, "rpe": 8},
+            {"set_number": 1, "reps": 5, "weight": 80.0, "rpe": 8.0},
+            {"set_number": 2, "reps": 5, "weight": 80.0, "rpe": 8.0},
         ],
         "notes": "Felt strong",
     }
@@ -215,15 +216,11 @@ def _valid_log_payload(exercise_id: uuid.UUID) -> dict:
 
 
 class TestLogCreation:
-    """POST /v1/workout-sessions/{session_id}/logs — execution log creation."""
+    """POST /{session_id}/logs — execution log creation."""
 
     # ── Auth guards ────────────────────────────────────────────────────────
 
-    def test_requires_auth(
-        self,
-        client: TestClient,
-        session_a: WorkoutSession,
-    ):
+    def test_requires_auth(self, client: TestClient, session_a: WorkoutSession):
         """Missing Authorization header → 401."""
         response = client.post(
             _log_url(session_a.id),
@@ -293,7 +290,7 @@ class TestLogCreation:
         session_a: WorkoutSession,
         exercise_team_a: Exercise,
     ):
-        """Athlete logging to a teammate's session (same team) → 404."""
+        """Athlete logging to a same-team peer's session → 404."""
         mock_jwt(str(athlete_a2.supabase_user_id))
         response = client.post(
             _log_url(session_a.id),
@@ -304,25 +301,25 @@ class TestLogCreation:
 
     # ── Payload validation ─────────────────────────────────────────────────
 
-    def test_exercise_not_in_template_returns_400(
+    def test_exercise_not_in_team_returns_404(
         self,
         client: TestClient,
         mock_jwt,
         athlete_a: UserProfile,
         session_a: WorkoutSession,
     ):
-        """exercise_id not present in the session's template → 400."""
+        """exercise_id not belonging to the team → 404."""
         mock_jwt(str(athlete_a.supabase_user_id))
         response = client.post(
             _log_url(session_a.id),
             headers=HEADERS,
             json={
                 "block_name": VALID_BLOCK_NAME,
-                "exercise_id": str(uuid.uuid4()),
-                "entries": [{"set": 1, "reps": 5, "weight": 80, "rpe": 8}],
+                "exercise_id": str(uuid.uuid4()),  # random — not in any team
+                "entries": [{"set_number": 1, "reps": 5, "weight": 80.0}],
             },
         )
-        assert response.status_code == 400
+        assert response.status_code == 404
 
     def test_block_name_not_in_template_returns_400(
         self,
@@ -332,7 +329,7 @@ class TestLogCreation:
         session_a: WorkoutSession,
         exercise_team_a: Exercise,
     ):
-        """block_name that does not match any block in the template → 400."""
+        """block_name not matching any block in the template → 400."""
         mock_jwt(str(athlete_a.supabase_user_id))
         response = client.post(
             _log_url(session_a.id),
@@ -340,7 +337,7 @@ class TestLogCreation:
             json={
                 "block_name": INVALID_BLOCK_NAME,
                 "exercise_id": str(exercise_team_a.id),
-                "entries": [{"set": 1, "reps": 5, "weight": 80, "rpe": 8}],
+                "entries": [{"set_number": 1, "reps": 5, "weight": 80.0}],
             },
         )
         assert response.status_code == 400
@@ -367,7 +364,7 @@ class TestLogCreation:
         assert "log_id" in data
         uuid.UUID(data["log_id"])  # raises ValueError if not a valid UUID
 
-    def test_log_without_optional_notes_is_accepted(
+    def test_log_without_optional_fields_is_accepted(
         self,
         client: TestClient,
         mock_jwt,
@@ -375,7 +372,7 @@ class TestLogCreation:
         session_a: WorkoutSession,
         exercise_team_a: Exercise,
     ):
-        """notes is optional; omitting it still returns 201."""
+        """notes, rpe, weight are optional; omitting them still returns 201."""
         mock_jwt(str(athlete_a.supabase_user_id))
         response = client.post(
             _log_url(session_a.id),
@@ -383,7 +380,7 @@ class TestLogCreation:
             json={
                 "block_name": VALID_BLOCK_NAME,
                 "exercise_id": str(exercise_team_a.id),
-                "entries": [{"set": 1, "reps": 10, "weight": 60}],
+                "entries": [{"set_number": 1, "reps": 10}],
             },
         )
         assert response.status_code == 201
@@ -397,7 +394,7 @@ class TestLogCreation:
         session_a: WorkoutSession,
         exercise_team_a: Exercise,
     ):
-        """A second log call for the same session returns a distinct log_id."""
+        """Two POST calls for the same session return distinct log_id values."""
         mock_jwt(str(athlete_a.supabase_user_id))
         payload = _valid_log_payload(exercise_team_a.id)
 
@@ -415,15 +412,11 @@ class TestLogCreation:
 
 
 class TestSessionDetail:
-    """GET /v1/workout-sessions/{session_id} — per-session detail with logs."""
+    """GET /{session_id} — per-session detail with logs."""
 
     # ── Auth guards ────────────────────────────────────────────────────────
 
-    def test_requires_auth(
-        self,
-        client: TestClient,
-        session_a: WorkoutSession,
-    ):
+    def test_requires_auth(self, client: TestClient, session_a: WorkoutSession):
         """Missing Authorization header → 401."""
         response = client.get(_detail_url(session_a.id))
         assert response.status_code == 401
@@ -461,7 +454,7 @@ class TestSessionDetail:
         athlete_a2: UserProfile,
         session_a: WorkoutSession,
     ):
-        """Athlete requesting a session that belongs to a teammate → 404."""
+        """Athlete requesting a session belonging to a teammate → 404."""
         mock_jwt(str(athlete_a2.supabase_user_id))
         response = client.get(_detail_url(session_a.id), headers=HEADERS)
         assert response.status_code == 404
@@ -476,15 +469,18 @@ class TestSessionDetail:
         session_a: WorkoutSession,
         template_with_block: WorkoutTemplate,
     ):
-        """ATHLETE fetching their own session → 200 with required top-level fields."""
+        """ATHLETE fetching their own session → 200 with all required fields."""
         mock_jwt(str(athlete_a.supabase_user_id))
         response = client.get(_detail_url(session_a.id), headers=HEADERS)
 
         assert response.status_code == 200
         data = response.json()
+
         assert data["id"] == str(session_a.id)
         assert "status" in data
-        assert data["template_title"] == template_with_block.title
+        assert data["workout_template_id"] == str(template_with_block.id)
+        assert data["athlete_profile_id"] == str(athlete_a.id)
+        assert "scheduled_for" in data  # nullable date field
         assert "logs" in data
         assert isinstance(data["logs"], list)
 
@@ -495,16 +491,34 @@ class TestSessionDetail:
         coach_a: UserProfile,
         session_a: WorkoutSession,
         template_with_block: WorkoutTemplate,
+        athlete_a: UserProfile,
     ):
-        """COACH fetching a session in their team → 200 with required fields."""
+        """COACH fetching a session in their team → 200 with all required fields."""
         mock_jwt(str(coach_a.supabase_user_id))
         response = client.get(_detail_url(session_a.id), headers=HEADERS)
 
         assert response.status_code == 200
         data = response.json()
+
         assert data["id"] == str(session_a.id)
-        assert data["template_title"] == template_with_block.title
+        assert data["workout_template_id"] == str(template_with_block.id)
+        assert data["athlete_profile_id"] == str(athlete_a.id)
+        assert "scheduled_for" in data
         assert "logs" in data
+
+    def test_session_detail_logs_are_empty_initially(
+        self,
+        client: TestClient,
+        mock_jwt,
+        athlete_a: UserProfile,
+        session_a: WorkoutSession,
+    ):
+        """A fresh session returns an empty logs list."""
+        mock_jwt(str(athlete_a.supabase_user_id))
+        response = client.get(_detail_url(session_a.id), headers=HEADERS)
+
+        assert response.status_code == 200
+        assert response.json()["logs"] == []
 
     def test_session_detail_shows_logs_after_logging(
         self,
@@ -526,8 +540,7 @@ class TestSessionDetail:
 
         detail_resp = client.get(_detail_url(session_a.id), headers=HEADERS)
         assert detail_resp.status_code == 200
-        data = detail_resp.json()
-        assert len(data["logs"]) >= 1
+        assert len(detail_resp.json()["logs"]) >= 1
 
     def test_session_status_is_pending_before_completion(
         self,
@@ -536,12 +549,11 @@ class TestSessionDetail:
         athlete_a: UserProfile,
         session_a: WorkoutSession,
     ):
-        """A newly created session reports a non-completed status."""
+        """A fresh session reports a non-completed status."""
         mock_jwt(str(athlete_a.supabase_user_id))
         response = client.get(_detail_url(session_a.id), headers=HEADERS)
 
         assert response.status_code == 200
-        # Status must not indicate completion on a fresh session
         assert response.json()["status"] != "completed"
 
     def test_session_status_is_completed_after_patch(
@@ -551,8 +563,9 @@ class TestSessionDetail:
         athlete_a: UserProfile,
         session_a: WorkoutSession,
     ):
-        """Status field reflects completed after PATCH /complete."""
+        """Status reflects 'completed' after PATCH /complete."""
         mock_jwt(str(athlete_a.supabase_user_id))
+
         patch_resp = client.patch(_complete_url(session_a.id), headers=HEADERS)
         assert patch_resp.status_code == 204
 
@@ -562,16 +575,60 @@ class TestSessionDetail:
 
 
 # ===========================================================================
-# 3) PATCH /v1/workout-sessions/{session_id}/complete — idempotency
+# 3) PATCH /v1/workout-sessions/{session_id}/complete
 # ===========================================================================
 
 
-class TestSessionCompleteIdempotency:
-    """PATCH complete endpoint — idempotency guarantee.
+class TestSessionComplete:
+    """PATCH /{session_id}/complete — completion + COACH admin access."""
 
-    Ownership and cross-team coverage lives in test_workout_assignments.py.
-    This class verifies only that repeated completion calls are safe.
-    """
+    def test_athlete_can_complete_own_session(
+        self,
+        client: TestClient,
+        mock_jwt,
+        athlete_a: UserProfile,
+        session_a: WorkoutSession,
+    ):
+        """ATHLETE completing their own session → 204."""
+        mock_jwt(str(athlete_a.supabase_user_id))
+        response = client.patch(_complete_url(session_a.id), headers=HEADERS)
+        assert response.status_code == 204
+
+    def test_athlete_cannot_complete_another_athletes_session(
+        self,
+        client: TestClient,
+        mock_jwt,
+        athlete_a2: UserProfile,
+        session_a: WorkoutSession,
+    ):
+        """ATHLETE completing a teammate's session → 404."""
+        mock_jwt(str(athlete_a2.supabase_user_id))
+        response = client.patch(_complete_url(session_a.id), headers=HEADERS)
+        assert response.status_code == 404
+
+    def test_coach_can_complete_session_in_own_team(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+        session_a: WorkoutSession,
+    ):
+        """COACH completing a session in their team → 204 (admin use case)."""
+        mock_jwt(str(coach_a.supabase_user_id))
+        response = client.patch(_complete_url(session_a.id), headers=HEADERS)
+        assert response.status_code == 204
+
+    def test_coach_cannot_complete_session_in_other_team(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+        session_b: WorkoutSession,
+    ):
+        """COACH completing a session in another team → 404."""
+        mock_jwt(str(coach_a.supabase_user_id))
+        response = client.patch(_complete_url(session_b.id), headers=HEADERS)
+        assert response.status_code == 404
 
     def test_complete_is_idempotent(
         self,
@@ -584,8 +641,5 @@ class TestSessionCompleteIdempotency:
         mock_jwt(str(athlete_a.supabase_user_id))
         url = _complete_url(session_a.id)
 
-        first = client.patch(url, headers=HEADERS)
-        assert first.status_code == 204
-
-        second = client.patch(url, headers=HEADERS)
-        assert second.status_code == 204
+        assert client.patch(url, headers=HEADERS).status_code == 204
+        assert client.patch(url, headers=HEADERS).status_code == 204

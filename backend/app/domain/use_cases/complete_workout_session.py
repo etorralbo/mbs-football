@@ -3,6 +3,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Optional
 
+from app.domain.use_cases._session_scope import resolve_session
 from app.models.user_profile import Role
 from app.persistence.repositories.workout_session_repository import (
     AbstractWorkoutSessionRepository,
@@ -48,15 +49,13 @@ class CompleteWorkoutSessionUseCase:
         Idempotent: calling again on an already-completed session still returns
         successfully (no error, no duplicate update).
         """
-        if command.requesting_role == Role.ATHLETE:
-            session = self._session_repo.get_by_id_and_athlete(
-                command.session_id, command.requesting_athlete_id
-            )
-        else:
-            session = self._session_repo.get_by_id_and_team(
-                command.session_id, command.requesting_team_id
-            )
-
+        session = resolve_session(
+            session_id=command.session_id,
+            role=command.requesting_role,
+            team_id=command.requesting_team_id,
+            athlete_id=command.requesting_athlete_id,
+            session_repo=self._session_repo,
+        )
         if session is None:
             raise NotFoundError(f"Session {command.session_id} not found")
 

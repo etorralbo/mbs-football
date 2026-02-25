@@ -1,17 +1,16 @@
 """Domain use case: retrieve a single workout session with its execution logs."""
 import uuid
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Optional
 
+from app.domain.use_cases._session_scope import resolve_session
 from app.models.user_profile import Role
 from app.persistence.repositories.workout_session_log_repository import (
     AbstractWorkoutSessionLogRepository,
 )
 from app.persistence.repositories.workout_session_repository import (
     AbstractWorkoutSessionRepository,
-)
-from app.persistence.repositories.workout_template_repository import (
-    AbstractWorkoutTemplateRepository,
 )
 
 
@@ -54,10 +53,10 @@ class SessionLogItem:
 @dataclass
 class WorkoutSessionDetailResult:
     id: uuid.UUID
-    # "pending" until completed_at is set, then "completed"
-    status: str
-    template_title: str
-    athlete_id: uuid.UUID
+    status: str                          # "pending" | "completed"
+    workout_template_id: uuid.UUID       # denormalized from session
+    athlete_profile_id: uuid.UUID        # the athlete who owns the session
+    scheduled_for: Optional[date]        # nullable; set when assignment has a date
     logs: list[SessionLogItem] = field(default_factory=list)
 
 
@@ -80,9 +79,9 @@ class GetWorkoutSessionDetailQuery:
 
 class GetWorkoutSessionDetailUseCase:
     """
-    Fetches a single session with its template title and grouped logs.
+    Fetches a single session with its grouped logs.
 
-    Access rules (identical to the existing list/complete use cases):
+    Access rules:
     - ATHLETE: session must be assigned to requesting_athlete_id → NotFoundError otherwise
     - COACH:   session must belong to a team athlete of requesting_team_id → NotFoundError otherwise
     """
@@ -90,45 +89,36 @@ class GetWorkoutSessionDetailUseCase:
     def __init__(
         self,
         session_repo: AbstractWorkoutSessionRepository,
-        template_repo: AbstractWorkoutTemplateRepository,
         log_repo: AbstractWorkoutSessionLogRepository,
     ) -> None:
         self._session_repo = session_repo
-        self._template_repo = template_repo
         self._log_repo = log_repo
 
     def execute(
         self,
         query: GetWorkoutSessionDetailQuery,
     ) -> WorkoutSessionDetailResult:
-        # 1. Access-scoped fetch — mirrors the rules in CompleteWorkoutSessionUseCase
-        if query.requesting_role == Role.ATHLETE:
-            session = self._session_repo.get_by_id_and_athlete(
-                query.session_id, query.requesting_athlete_id
-            )
-        else:
-            session = self._session_repo.get_by_id_and_team(
-                query.session_id, query.requesting_team_id
-            )
-
+        # 1. Access-scoped fetch
+        session = resolve_session(
+            session_id=query.session_id,
+            role=query.requesting_role,
+            team_id=query.requesting_team_id,
+            athlete_id=query.requesting_athlete_id,
+            session_repo=self._session_repo,
+        )
         if session is None:
             raise NotFoundError(f"Session {query.session_id} not found")
 
-        # 2. Template title (scoped to the same team for safety)
-        template = self._template_repo.get_by_id(
-            session.workout_template_id, query.requesting_team_id
-        )
-        template_title = template.title if template is not None else ""
-
-        # 3. Logs with their entries
+        # 2. Logs with their entries
         logs = self._log_repo.list_by_session(session.id)
 
-        # 4. Build result
+        # 3. Build result — workout_template_id and scheduled_for are on the session row
         return WorkoutSessionDetailResult(
             id=session.id,
             status="completed" if session.completed_at is not None else "pending",
-            template_title=template_title,
-            athlete_id=session.athlete_id,
+            workout_template_id=session.workout_template_id,
+            athlete_profile_id=session.athlete_id,
+            scheduled_for=session.scheduled_for,
             logs=[
                 SessionLogItem(
                     log_id=log.id,
