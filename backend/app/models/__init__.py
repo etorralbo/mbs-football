@@ -19,6 +19,10 @@ from app.models.block_exercise import BlockExercise
 from app.models.workout_assignment import WorkoutAssignment
 from app.models.workout_session import WorkoutSession
 
+# Sprint 4: Workout execution log models (log before entries)
+from app.models.workout_session_log import WorkoutSessionLog
+from app.models.workout_session_log_entry import WorkoutSessionLogEntry
+
 __all__ = [
     # Base models
     "Team",
@@ -34,4 +38,7 @@ __all__ = [
     # Sprint 3 models
     "WorkoutAssignment",
     "WorkoutSession",
+    # Sprint 4 models
+    "WorkoutSessionLog",
+    "WorkoutSessionLogEntry",
 ]

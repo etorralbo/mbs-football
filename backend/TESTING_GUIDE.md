@@ -46,6 +46,16 @@ VALUES (
 ```
 
 ### 4. Get a JWT Token
+> **Before every manual testing session**, load your env vars and refresh the token to avoid
+> `401 Unauthorized / token expired` errors:
+>
+> ```bash
+> set -a; source .env; set +a
+> export TOKEN=$(./scripts/get_token.sh)
+> ```
+>
+> Then use `$TOKEN` in all curl commands (see examples below).
+
 Authenticate with Supabase to get a JWT token:
 
 **Method 1: Using Supabase Dashboard**
