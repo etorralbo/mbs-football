@@ -1,9 +1,8 @@
 """WorkoutSessionLogEntry — one row per set within a WorkoutSessionLog."""
 import uuid
-from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Float, ForeignKey, Integer, text
+from sqlalchemy import CheckConstraint, Float, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -18,6 +17,9 @@ class WorkoutSessionLogEntry(Base):
     """
 
     __tablename__ = "workout_session_log_entries"
+    __table_args__ = (
+        CheckConstraint("set_number > 0", name="ck_log_entries_set_number_positive"),
+    )
 
     id: Mapped[uuid_pk]
     created_at: Mapped[created_at]

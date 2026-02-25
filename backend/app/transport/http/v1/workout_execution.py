@@ -7,6 +7,7 @@ Exposes:
 PATCH /workout-sessions/{session_id}/complete is handled by workout_sessions.py.
 """
 import uuid
+from datetime import date
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -30,15 +31,15 @@ from app.domain.use_cases.get_workout_session_detail import (
     WorkoutSessionDetailResult,
 )
 from app.models.user_profile import Role
+from app.persistence.repositories.exercise_repository import (
+    SqlAlchemyExerciseRepository,
+)
 from app.persistence.repositories.workout_session_log_repository import (
     NewLogEntry,
     SqlAlchemyWorkoutSessionLogRepository,
 )
 from app.persistence.repositories.workout_session_repository import (
     SqlAlchemyWorkoutSessionRepository,
-)
-from app.persistence.repositories.workout_template_repository import (
-    SqlAlchemyWorkoutTemplateRepository,
 )
 
 router = APIRouter(prefix="/workout-sessions", tags=["workout-execution"])
@@ -49,9 +50,9 @@ router = APIRouter(prefix="/workout-sessions", tags=["workout-execution"])
 # ---------------------------------------------------------------------------
 
 class LogEntryIn(BaseModel):
-    """One set as submitted by the athlete.  Field name 'set' matches the API contract."""
+    """One set as submitted by the athlete."""
 
-    set: int = Field(..., ge=1)
+    set_number: int = Field(..., ge=1)
     reps: Optional[int] = None
     weight: Optional[float] = None
     rpe: Optional[float] = None
@@ -90,8 +91,9 @@ class SessionLogOut(BaseModel):
 class SessionDetailOut(BaseModel):
     id: uuid.UUID
     status: str
-    template_title: str
-    athlete_id: uuid.UUID
+    workout_template_id: uuid.UUID
+    athlete_profile_id: uuid.UUID
+    scheduled_for: Optional[date]
     logs: list[SessionLogOut]
 
 
@@ -102,15 +104,14 @@ class SessionDetailOut(BaseModel):
 def _build_create_log_use_case(db: Session) -> CreateWorkoutSessionLogUseCase:
     return CreateWorkoutSessionLogUseCase(
         session_repo=SqlAlchemyWorkoutSessionRepository(db),
-        template_repo=SqlAlchemyWorkoutTemplateRepository(db),
         log_repo=SqlAlchemyWorkoutSessionLogRepository(db),
+        exercise_repo=SqlAlchemyExerciseRepository(db),
     )
 
 
 def _build_detail_use_case(db: Session) -> GetWorkoutSessionDetailUseCase:
     return GetWorkoutSessionDetailUseCase(
         session_repo=SqlAlchemyWorkoutSessionRepository(db),
-        template_repo=SqlAlchemyWorkoutTemplateRepository(db),
         log_repo=SqlAlchemyWorkoutSessionLogRepository(db),
     )
 
@@ -128,7 +129,7 @@ def _to_create_log_command(
         exercise_id=payload.exercise_id,
         entries=[
             NewLogEntry(
-                set_number=e.set,
+                set_number=e.set_number,
                 reps=e.reps,
                 weight=e.weight,
                 rpe=e.rpe,
@@ -176,8 +177,9 @@ def _detail_to_out(result: WorkoutSessionDetailResult) -> SessionDetailOut:
     return SessionDetailOut(
         id=result.id,
         status=result.status,
-        template_title=result.template_title,
-        athlete_id=result.athlete_id,
+        workout_template_id=result.workout_template_id,
+        athlete_profile_id=result.athlete_profile_id,
+        scheduled_for=result.scheduled_for,
         logs=[_log_to_out(log) for log in result.logs],
     )
 
