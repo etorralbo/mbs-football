@@ -29,6 +29,21 @@ _MOCK_LLM = {
 }
 
 
+@pytest.fixture(autouse=True)
+def force_stub_off(mocker):
+    """Pin AI_STUB=False for every test in this module.
+
+    This guards against the container having AI_STUB=true set in its
+    environment (which is valid for local demos) bleeding into tests that
+    exercise the real LLM path.  Tests in TestAiTemplateDraftStub re-patch
+    get_settings themselves, which overrides this fixture for those tests.
+    """
+    cfg = MagicMock()
+    cfg.ENV = "local"
+    cfg.AI_STUB = False
+    mocker.patch("app.api.v1.endpoints.ai.get_settings", return_value=cfg)
+
+
 @pytest.fixture
 def mock_llm(mocker):
     """Patch call_llm so no real API call is made."""
