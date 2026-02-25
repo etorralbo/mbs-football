@@ -3,11 +3,14 @@ __pycache__/
 *.pyc
 venv/
 .env
+.env.*
 
 # Node
 node_modules/
 .next/
 .env.local
+frontend/.env*
+backend/.env*
 
 # Docker
 *.log
