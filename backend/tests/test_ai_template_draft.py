@@ -4,6 +4,7 @@ Integration tests for POST /v1/ai/workout-template-draft.
 The OpenAI call is always mocked; no network access required.
 """
 import uuid
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -26,6 +27,21 @@ _MOCK_LLM = {
         "Recovery": "Foam rolling and static stretching cooldown",
     },
 }
+
+
+@pytest.fixture(autouse=True)
+def force_stub_off(mocker):
+    """Pin AI_STUB=False for every test in this module.
+
+    This guards against the container having AI_STUB=true set in its
+    environment (which is valid for local demos) bleeding into tests that
+    exercise the real LLM path.  Tests in TestAiTemplateDraftStub re-patch
+    get_settings themselves, which overrides this fixture for those tests.
+    """
+    cfg = MagicMock()
+    cfg.ENV = "local"
+    cfg.AI_STUB = False
+    mocker.patch("app.api.v1.endpoints.ai.get_settings", return_value=cfg)
 
 
 @pytest.fixture
@@ -245,3 +261,151 @@ class TestAiTemplateDraftTenantIsolation:
         assert response.status_code == 200
         for block in response.json()["blocks"]:
             assert block["suggested_exercises"] == []
+
+
+# ---------------------------------------------------------------------------
+# Stub mode
+# ---------------------------------------------------------------------------
+
+def _stub_settings(*, env: str = "local", ai_stub: bool = True) -> MagicMock:
+    """Return a mock Settings-like object with only the fields the endpoint reads."""
+    cfg = MagicMock()
+    cfg.ENV = env
+    cfg.AI_STUB = ai_stub
+    return cfg
+
+
+class TestAiTemplateDraftStub:
+    """When ENV=local and AI_STUB=True the endpoint bypasses OpenAI entirely."""
+
+    def test_stub_returns_200_without_calling_llm(
+        self,
+        client: TestClient,
+        mock_jwt,
+        mocker,
+        coach_a: UserProfile,
+    ):
+        """Stub mode must return 200 and must NOT invoke the LLM."""
+        spy_llm = mocker.patch("app.core.ai_client.call_llm")
+        mocker.patch("app.api.v1.endpoints.ai.get_settings", return_value=_stub_settings())
+
+        mock_jwt(str(coach_a.supabase_user_id))
+        response = client.post(
+            "/v1/ai/workout-template-draft",
+            headers=HEADERS,
+            json={"prompt": "upper body strength"},
+        )
+
+        assert response.status_code == 200
+        spy_llm.assert_not_called()
+
+    def test_stub_response_matches_schema(
+        self,
+        client: TestClient,
+        mock_jwt,
+        mocker,
+        coach_a: UserProfile,
+    ):
+        """Stub response must match the AiTemplateDraft schema exactly."""
+        mocker.patch("app.core.ai_client.call_llm")
+        mocker.patch("app.api.v1.endpoints.ai.get_settings", return_value=_stub_settings())
+
+        mock_jwt(str(coach_a.supabase_user_id))
+        response = client.post(
+            "/v1/ai/workout-template-draft",
+            headers=HEADERS,
+            json={"prompt": "lower body power"},
+        )
+
+        data = response.json()
+        assert "title" in data
+        assert len(data["blocks"]) == len(BASE_BLOCKS)
+        assert [b["name"] for b in data["blocks"]] == BASE_BLOCKS
+        for block in data["blocks"]:
+            assert "notes" in block
+            assert isinstance(block["suggested_exercises"], list)
+
+    def test_stub_title_contains_prompt(
+        self,
+        client: TestClient,
+        mock_jwt,
+        mocker,
+        coach_a: UserProfile,
+    ):
+        """Stub title should echo the prompt so demos are easy to identify."""
+        mocker.patch("app.core.ai_client.call_llm")
+        mocker.patch("app.api.v1.endpoints.ai.get_settings", return_value=_stub_settings())
+
+        mock_jwt(str(coach_a.supabase_user_id))
+        response = client.post(
+            "/v1/ai/workout-template-draft",
+            headers=HEADERS,
+            json={"prompt": "acceleration sprint session"},
+        )
+
+        title: str = response.json()["title"]
+        assert "acceleration sprint session" in title.lower()
+
+    def test_stub_disabled_in_non_local_env(
+        self,
+        client: TestClient,
+        mock_jwt,
+        mocker,
+        coach_a: UserProfile,
+    ):
+        """AI_STUB=True must be silently ignored outside ENV=local."""
+        spy_llm = mocker.patch("app.core.ai_client.call_llm", return_value=_MOCK_LLM)
+        # AI_STUB=True but ENV != "local"
+        mocker.patch(
+            "app.api.v1.endpoints.ai.get_settings",
+            return_value=_stub_settings(env="production", ai_stub=True),
+        )
+
+        mock_jwt(str(coach_a.supabase_user_id))
+        client.post(
+            "/v1/ai/workout-template-draft",
+            headers=HEADERS,
+            json={"prompt": "strength workout"},
+        )
+
+        spy_llm.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# OpenAI failure — safe error surfacing
+# ---------------------------------------------------------------------------
+
+
+class TestAiTemplateDraftOpenAIFailure:
+    """When the real LLM path fails, the 502 detail must not leak upstream data."""
+
+    def test_openai_error_returns_502_with_safe_detail(
+        self,
+        client: TestClient,
+        mock_jwt,
+        mocker,
+        coach_a: UserProfile,
+    ):
+        """OpenAI errors must be caught and replaced with a generic safe message."""
+        from openai import OpenAIError
+
+        # Simulate an OpenAI SDK exception whose message contains sensitive content.
+        mock_oa_client = MagicMock()
+        mock_oa_client.chat.completions.create.side_effect = OpenAIError(
+            "Rate limit exceeded. key=sk-proj-VERYSENSITIVE429. retry_after=60"
+        )
+        mocker.patch("app.core.ai_client._get_client", return_value=mock_oa_client)
+
+        mock_jwt(str(coach_a.supabase_user_id))
+        response = client.post(
+            "/v1/ai/workout-template-draft",
+            headers=HEADERS,
+            json={"prompt": "upper body strength"},
+        )
+
+        assert response.status_code == 502
+        detail: str = response.json()["detail"]
+        # Raw upstream content must not appear in the response.
+        assert "sk-proj" not in detail
+        assert "VERYSENSITIVE" not in detail
+        assert "retry_after" not in detail

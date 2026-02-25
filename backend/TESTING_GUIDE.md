@@ -378,6 +378,71 @@ Once the server is running, visit:
 
 ---
 
+---
+
+## Dev Data Seeding
+
+### Seed athlete profiles (`scripts/seed_athletes.py`)
+
+Creates `N` athlete `user_profiles` for a given team — useful for testing session
+assignments, workout flows, and role-based access without touching Supabase Auth.
+
+**Step 1 — find a team ID**
+
+```bash
+docker compose exec backend python -c "
+import os
+from sqlalchemy import create_engine, text
+e = create_engine(os.environ['DATABASE_URL'])
+with e.connect() as c:
+    for row in c.execute(text('SELECT id, name FROM teams')):
+        print(row[0], row[1])
+"
+```
+
+**Step 2 — seed athletes**
+
+```bash
+docker compose exec \
+  -e TEAM_ID=<team-uuid> \
+  -e N=3 \
+  backend python scripts/seed_athletes.py
+```
+
+Expected output (first run):
+```
+[CREATED] Dev Athlete 1 — id=1fdc7824-bfd3-4633-bebc-47ab0da4cccb
+[CREATED] Dev Athlete 2 — id=48a56e94-f2c6-47ea-a9d5-3456b182207f
+[CREATED] Dev Athlete 3 — id=...
+
+Done. Created: 3, Skipped: 0
+```
+
+Re-running with the same `TEAM_ID` and `N` is safe — existing rows are skipped:
+```
+[SKIP]    Dev Athlete 1 — already exists (id=1fdc7824-bfd3-4633-bebc-47ab0da4cccb)
+...
+Done. Created: 0, Skipped: 3
+```
+
+**Environment variables**
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `TEAM_ID` | yes | — | UUID of the target team |
+| `N` | no | `3` | Number of athlete profiles to create |
+| `DATABASE_URL` | yes (injected by Docker) | — | Postgres connection string |
+
+**Notes**
+- Each athlete's `supabase_user_id` is derived deterministically via `uuid5(TEAM_ID, index)`,
+  so the script is fully idempotent across runs.
+- Profiles are inserted with `role = ATHLETE` and `name = "Dev Athlete <i>"`.
+- `created_at` / `updated_at` are populated by the DB server default.
+- These profiles have no real Supabase Auth entry — they are only usable with
+  the `mock_jwt` fixture in tests or with a locally crafted JWT in dev.
+
+---
+
 ## Next Steps
 
 1. Add integration tests

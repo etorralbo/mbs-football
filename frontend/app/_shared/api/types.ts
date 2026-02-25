@@ -1,0 +1,135 @@
+// ---------------------------------------------------------------------------
+// Workout Templates
+// ---------------------------------------------------------------------------
+
+export interface WorkoutTemplate {
+  id: string
+  team_id: string
+  title: string
+  description: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Exercise {
+  id: string
+  team_id: string
+  name: string
+  description: string | null
+  tags: string | null
+  video_asset_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface BlockItem {
+  id: string
+  workout_block_id: string
+  order: number
+  prescription_json: Record<string, unknown>
+  exercise: Exercise
+}
+
+export interface WorkoutBlock {
+  id: string
+  workout_template_id: string
+  order: number
+  name: string
+  notes: string | null
+  items: BlockItem[]
+}
+
+export interface WorkoutTemplateDetail extends WorkoutTemplate {
+  blocks: WorkoutBlock[]
+}
+
+// ---------------------------------------------------------------------------
+// AI Draft
+// ---------------------------------------------------------------------------
+
+export interface SuggestedExercise {
+  exercise_id: string
+  score: number
+  reason: string
+}
+
+export interface AiDraftBlock {
+  name: string
+  notes: string
+  suggested_exercises: SuggestedExercise[]
+}
+
+export interface AiDraftResponse {
+  title: string
+  blocks: AiDraftBlock[]
+}
+
+// ---------------------------------------------------------------------------
+// Workout Sessions
+// ---------------------------------------------------------------------------
+
+export const BLOCK_NAMES = [
+  'Preparation to Movement',
+  'Plyometrics',
+  'Primary Strength',
+  'Secondary Strength',
+  'Auxiliary Strength',
+  'Recovery',
+] as const
+
+export type BlockName = (typeof BLOCK_NAMES)[number]
+
+/** Shape returned by GET /v1/workout-sessions (list) */
+export interface WorkoutSessionSummary {
+  id: string
+  assignment_id: string
+  athlete_id: string
+  workout_template_id: string
+  scheduled_for: string | null
+  completed_at: string | null
+}
+
+export interface SessionLogEntry {
+  set_number: number
+  reps: number | null
+  weight: number | null
+  rpe: number | null
+}
+
+export interface SessionLog {
+  log_id: string
+  block_name: string
+  exercise_id: string
+  notes: string | null
+  entries: SessionLogEntry[]
+}
+
+/** Shape returned by GET /v1/workout-sessions/{id} */
+export interface WorkoutSessionDetail {
+  id: string
+  status: string  // "pending" | "completed"
+  workout_template_id: string
+  athlete_profile_id: string
+  scheduled_for: string | null
+  logs: SessionLog[]
+}
+
+// ---------------------------------------------------------------------------
+// Save from AI (POST /v1/workout-templates/from-ai)
+// ---------------------------------------------------------------------------
+
+export interface SaveFromAiItem {
+  exercise_id: string
+  order: number
+}
+
+export interface SaveFromAiBlock {
+  name: string
+  notes: string | null
+  items: SaveFromAiItem[]
+}
+
+export interface SaveFromAiRequest {
+  title: string
+  blocks: SaveFromAiBlock[]
+}

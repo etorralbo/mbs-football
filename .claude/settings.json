@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker compose restart backend)",
+      "Bash(docker compose exec backend python -c \"from app.core.config import get_settings; s = get_settings\\(\\); print\\(''ENV ='', s.ENV, ''| AI_STUB ='', s.AI_STUB\\)\")",
+      "Bash(docker compose up -d --force-recreate backend)"
+    ]
+  }
+}

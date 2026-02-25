@@ -17,6 +17,7 @@ services:
       AI_MODEL: "gpt-4o-mini"
       DATABASE_URL: postgresql+psycopg://app:app@db:5432/app
       ENV: local
+      AI_STUB: "true"
       SUPABASE_URL: https://naggrfkksvfxobwbtrji.supabase.co
       SUPABASE_JWT_AUD: authenticated
       SUPABASE_JWT_ISSUER: https://naggrfkksvfxobwbtrji.supabase.co/auth/v1
