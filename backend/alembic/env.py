@@ -18,7 +18,11 @@ from app.models import (  # noqa: F401
     MediaAsset,
     Team,
     UserProfile,
+    WorkoutAssignment,
     WorkoutBlock,
+    WorkoutSession,
+    WorkoutSessionLog,
+    WorkoutSessionLogEntry,
     WorkoutTemplate,
 )
 

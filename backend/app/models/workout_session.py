@@ -48,6 +48,11 @@ class WorkoutSession(Base, TimestampMixin):
         "WorkoutAssignment",
         back_populates="sessions",
     )
+    logs: Mapped[list["WorkoutSessionLog"]] = relationship(
+        "WorkoutSessionLog",
+        back_populates="session",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self) -> str:
         return f"<WorkoutSession(id={self.id}, athlete_id={self.athlete_id})>"
