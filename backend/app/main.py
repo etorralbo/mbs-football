@@ -59,6 +59,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(api_router)
 
+    @app.get("/", tags=["ops"])
+    def root() -> dict:
+        """Root liveness probe — no auth required."""
+        return {"status": "ok"}
+
     @app.get("/health", tags=["ops"])
     def health() -> dict:
         """Liveness probe — no auth required."""
