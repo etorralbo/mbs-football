@@ -1,13 +1,25 @@
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
 venv/
-.env
-.env.*
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
-# Node
+# Node / Next
 node_modules/
 .next/
+dist/
+build/
+out/
+coverage/
+
+# Env files
+.env
+.env.*
 .env.local
 frontend/.env*
 backend/.env*
