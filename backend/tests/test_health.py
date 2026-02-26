@@ -22,6 +22,22 @@ _REQUIRED = dict(
 # ---------------------------------------------------------------------------
 
 
+class TestRootEndpoint:
+    """GET / must be reachable without credentials and return {"status": "ok"}."""
+
+    def test_root_returns_200(self, client: TestClient):
+        response = client.get("/")
+        assert response.status_code == 200
+
+    def test_root_no_auth_required(self, client: TestClient):
+        response = client.get("/")
+        assert response.status_code == 200
+
+    def test_root_body_has_status_ok(self, client: TestClient):
+        data = client.get("/").json()
+        assert data["status"] == "ok"
+
+
 class TestHealthEndpoint:
     """GET /health must be reachable without credentials and return minimal JSON."""
 
