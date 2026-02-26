@@ -75,6 +75,12 @@ export default function TemplatesPage() {
           <p className="text-sm text-zinc-500">
             No templates yet. Use &quot;Create with AI&quot; to get started.
           </p>
+          <button
+            className="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+            onClick={() => setShowAiPanel(true)}
+          >
+            Create with AI →
+          </button>
         </div>
       )}
 

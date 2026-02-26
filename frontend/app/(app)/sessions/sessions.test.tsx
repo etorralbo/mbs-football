@@ -59,11 +59,10 @@ describe('SessionsPage', () => {
 
     render(<SessionsPage />)
 
-    // First session — pending
-    expect(await screen.findByText('Session aaaaaaaa…')).toBeInTheDocument()
-    expect(screen.getByText('2026-02-25')).toBeInTheDocument()
+    // First session has a date — shown as formatted date
+    expect(await screen.findByText('Feb 25, 2026')).toBeInTheDocument()
 
-    // Second session — completed
+    // Second session has no date — shown as UUID fallback
     expect(screen.getByText('Session bbbbbbbb…')).toBeInTheDocument()
     expect(screen.getAllByText('Completed')[0]).toBeInTheDocument()
   })

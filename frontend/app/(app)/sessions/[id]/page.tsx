@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { request } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
 import { Badge } from '@/app/_shared/components/Badge'
@@ -9,6 +10,14 @@ import { Button } from '@/app/_shared/components/Button'
 import { SkeletonList } from '@/app/_shared/components/Skeleton'
 import { AddLogForm } from './AddLogForm'
 import type { WorkoutSessionDetail } from '@/app/_shared/api/types'
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
 
 export default function SessionDetailPage() {
   const { id } = useParams() as { id: string }
@@ -75,8 +84,17 @@ export default function SessionDetailPage() {
 
   return (
     <>
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2">
+        <Link href="/sessions" className="text-sm text-zinc-500 hover:text-zinc-700">
+          Sessions
+        </Link>
+        <span className="text-zinc-300">/</span>
+        <span className="text-sm text-zinc-900">Session</span>
+      </div>
+
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="mt-4 flex items-start justify-between">
         <div>
           <h1 className="text-xl font-semibold text-zinc-900">Session</h1>
           <div className="mt-2 flex items-center gap-3">
@@ -84,7 +102,7 @@ export default function SessionDetailPage() {
               {isCompleted ? 'Completed' : 'Pending'}
             </Badge>
             {session.scheduled_for && (
-              <span className="text-sm text-zinc-500">{session.scheduled_for}</span>
+              <span className="text-sm text-zinc-500">{formatDate(session.scheduled_for)}</span>
             )}
           </div>
         </div>
@@ -108,9 +126,6 @@ export default function SessionDetailPage() {
             {session.logs.map((log) => (
               <section key={log.log_id} className="rounded-lg border border-zinc-200 bg-white p-4">
                 <h3 className="text-sm font-medium text-zinc-900">{log.block_name}</h3>
-                <p className="mt-0.5 font-mono text-xs text-zinc-400">
-                  {log.exercise_id.slice(0, 8)}…
-                </p>
                 {log.notes && (
                   <p className="mt-1 text-sm text-zinc-500">{log.notes}</p>
                 )}

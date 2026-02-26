@@ -1,13 +1,20 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { clearToken } from '@/app/_shared/auth/tokenStorage'
 
 export function NavBar() {
   const pathname = usePathname()
+  const router = useRouter()
 
   function isActive(href: string) {
     return pathname.startsWith(href)
+  }
+
+  function handleSignOut() {
+    clearToken()
+    router.replace('/login')
   }
 
   return (
@@ -19,6 +26,14 @@ export function NavBar() {
       <NavLink href="/sessions" active={isActive('/sessions')}>
         Sessions
       </NavLink>
+      <div className="ml-auto">
+        <button
+          onClick={handleSignOut}
+          className="rounded-md px-3 py-1.5 text-sm text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-900"
+        >
+          Sign out
+        </button>
+      </div>
     </nav>
   )
 }

@@ -131,7 +131,13 @@ export function AddLogForm({ sessionId, onSuccess }: Props) {
       {/* Sets */}
       <div>
         <p className="text-sm font-medium text-zinc-700">Sets</p>
-        <div className="mt-2 space-y-2">
+        <div className="mt-2 flex items-center gap-2 text-xs text-zinc-400">
+          <span className="w-5" />
+          <span className="w-20">Reps</span>
+          <span className="w-20">Weight (kg)</span>
+          <span className="w-20">RPE</span>
+        </div>
+        <div className="mt-1 space-y-2">
           {entries.map((entry, i) => (
             <div key={i} className="flex items-center gap-2">
               <span className="w-5 text-sm text-zinc-400">{i + 1}</span>

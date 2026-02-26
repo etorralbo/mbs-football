@@ -89,7 +89,7 @@ describe('SessionDetailPage', () => {
     it('renders scheduled_for date', async () => {
       mockRequest.mockResolvedValue(pendingSession)
       render(<SessionDetailPage />)
-      expect(await screen.findByText(/2026-02-25/)).toBeInTheDocument()
+      expect(await screen.findByText(/Feb 25, 2026/)).toBeInTheDocument()
     })
 
     it('renders exercise logs when present', async () => {
