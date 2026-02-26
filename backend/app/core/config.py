@@ -18,8 +18,10 @@ class Settings(BaseSettings):
     # AI settings
     OPENAI_API_KEY: str = ""   # empty string keeps startup safe without key
     AI_MODEL: str = "gpt-4o-mini"
-    # Stub mode: only active when ENV=="local" AND AI_STUB=="true".
-    # Guards against accidental activation in non-local environments.
+    # Feature flag: set False to deploy without AI (OPENAI_API_KEY not required).
+    AI_ENABLED: bool = True
+    # Stub mode: replaces real OpenAI calls with deterministic fixtures.
+    # Only active in local/test environments; AI_ENABLED still applies.
     AI_STUB: bool = False
     SUPABASE_JWT_AUD: str = "authenticated"
     SUPABASE_JWT_ISSUER: str = ""  # Will be derived from SUPABASE_URL if not set
@@ -55,8 +57,10 @@ class Settings(BaseSettings):
         not at the first request.  A no-op in local development.
 
         Rules enforced for ENV != 'local':
-        - OPENAI_API_KEY must be set when AI_STUB is False
+        - OPENAI_API_KEY must be set when AI_ENABLED=True and AI_STUB=False
           (without it every AI request will fail at runtime).
+          AI_ENABLED=False → key not required (AI endpoints disabled).
+          AI_STUB=True → key not required (stub replaces real calls).
         - CORS_ALLOW_ORIGINS must be non-empty so the frontend can reach
           the API from a browser (prevents silent CORS lockout).
 
@@ -69,9 +73,9 @@ class Settings(BaseSettings):
 
         errors: list[str] = []
 
-        if not self.OPENAI_API_KEY and not self.AI_STUB:
+        if self.AI_ENABLED and not self.AI_STUB and not self.OPENAI_API_KEY:
             errors.append(
-                "OPENAI_API_KEY must be set when ENV != 'local' and AI_STUB is False"
+                "OPENAI_API_KEY must be set when AI_ENABLED=True and AI_STUB=False"
             )
 
         if not self.CORS_ALLOW_ORIGINS:

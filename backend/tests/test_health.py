@@ -43,6 +43,10 @@ class TestHealthEndpoint:
         data = client.get("/health").json()
         assert "env" in data
 
+    def test_health_body_has_service(self, client: TestClient):
+        data = client.get("/health").json()
+        assert data["service"] == "mbs-football-api"
+
 
 # ---------------------------------------------------------------------------
 # validate_production_env()
@@ -67,9 +71,10 @@ class TestStartupValidation:
         cfg.validate_production_env()  # must not raise
 
     def test_production_missing_openai_key_raises(self):
-        """Non-local ENV without OPENAI_API_KEY (and no stub) must raise."""
+        """Non-local ENV with AI_ENABLED=True and no key (and no stub) must raise."""
         cfg = Settings(
             ENV="production",
+            AI_ENABLED=True,
             OPENAI_API_KEY="",
             AI_STUB=False,
             CORS_ALLOW_ORIGINS="https://app.example.com",
@@ -95,6 +100,18 @@ class TestStartupValidation:
             ENV="production",
             OPENAI_API_KEY="",
             AI_STUB=True,
+            CORS_ALLOW_ORIGINS="https://app.example.com",
+            **_REQUIRED,
+        )
+        cfg.validate_production_env()  # must not raise
+
+    def test_production_ai_disabled_bypasses_openai_key_check(self):
+        """AI_ENABLED=False means AI endpoints are off — OPENAI_API_KEY not required."""
+        cfg = Settings(
+            ENV="production",
+            AI_ENABLED=False,
+            OPENAI_API_KEY="",
+            AI_STUB=False,
             CORS_ALLOW_ORIGINS="https://app.example.com",
             **_REQUIRED,
         )

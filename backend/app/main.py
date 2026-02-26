@@ -62,7 +62,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/health", tags=["ops"])
     def health() -> dict:
         """Liveness probe — no auth required."""
-        return {"status": "ok", "env": cfg.ENV}
+        return {"status": "ok", "service": "mbs-football-api", "env": cfg.ENV}
 
     @app.get("/db/ping")
     def db_ping(db: Session = Depends(get_db)):
