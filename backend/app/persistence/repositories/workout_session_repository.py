@@ -34,8 +34,16 @@ class AbstractWorkoutSessionRepository(ABC):
         ...
 
     @abstractmethod
-    def list_by_athlete(self, athlete_id: uuid.UUID) -> list[WorkoutSession]:
-        """Return all sessions assigned to a specific athlete."""
+    def list_by_athlete(
+        self,
+        athlete_id: uuid.UUID,
+        team_id: uuid.UUID,
+    ) -> list[WorkoutSession]:
+        """Return all sessions assigned to *athlete_id* that also belong to *team_id*.
+
+        Both conditions are required so that a valid athlete_id from a different
+        team cannot leak sessions across tenant boundaries.
+        """
         ...
 
     @abstractmethod
@@ -98,8 +106,19 @@ class SqlAlchemyWorkoutSessionRepository(AbstractWorkoutSessionRepository):
         )
         return list(self._db.execute(stmt).scalars())
 
-    def list_by_athlete(self, athlete_id: uuid.UUID) -> list[WorkoutSession]:
-        stmt = select(WorkoutSession).where(WorkoutSession.athlete_id == athlete_id)
+    def list_by_athlete(
+        self,
+        athlete_id: uuid.UUID,
+        team_id: uuid.UUID,
+    ) -> list[WorkoutSession]:
+        stmt = (
+            select(WorkoutSession)
+            .join(UserProfile, WorkoutSession.athlete_id == UserProfile.id)
+            .where(
+                WorkoutSession.athlete_id == athlete_id,
+                UserProfile.team_id == team_id,
+            )
+        )
         return list(self._db.execute(stmt).scalars())
 
     def get_by_id_and_team(

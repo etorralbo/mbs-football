@@ -44,6 +44,7 @@ class WorkoutSessionLog(Base, TimestampMixin):
         UUID(as_uuid=True),
         ForeignKey("user_profiles.id", ondelete="SET NULL"),
         nullable=True,
+        index=True,
     )
 
     # Relationships

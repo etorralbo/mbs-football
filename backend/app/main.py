@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.v1.router import api_router
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
+from app.middleware.logging import RequestLoggingMiddleware
 
 _LOCAL_ORIGINS = [
     "http://localhost:3000",
@@ -44,14 +45,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     configuration (e.g. ENV="local") without touching global state.
     """
     cfg = settings or get_settings()
+
+    # Fail fast if critical env vars are missing in non-local environments.
+    cfg.validate_production_env()
+
     app = FastAPI(title="Football MVP API")
 
     _configure_cors(app, cfg)
+
+    # Logging middleware runs outermost so every request — including those
+    # that fail CORS or auth — gets a log line and an X-Request-ID header.
+    app.add_middleware(RequestLoggingMiddleware)
+
     app.include_router(api_router)
 
-    @app.get("/health")
-    def health():
-        return {"status": "ok"}
+    @app.get("/health", tags=["ops"])
+    def health() -> dict:
+        """Liveness probe — no auth required."""
+        return {"status": "ok", "env": cfg.ENV}
 
     @app.get("/db/ping")
     def db_ping(db: Session = Depends(get_db)):

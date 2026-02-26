@@ -32,10 +32,17 @@ def _local_client() -> TestClient:
     return TestClient(create_app(settings=settings), raise_server_exceptions=False)
 
 
-def _prod_client(cors_origins: str = "") -> TestClient:
-    """Return a TestClient whose app is configured for ENV=production."""
+def _prod_client(cors_origins: str) -> TestClient:
+    """Return a TestClient whose app is configured for ENV=production.
+
+    cors_origins must be a non-empty string; production startup validation
+    rejects an empty value (see TestCorsNonLocalEnv.test_startup_refuses_when_cors_empty).
+    OPENAI_API_KEY is supplied explicitly so this helper is hermetic and does
+    not depend on the local .env file.
+    """
     settings = Settings(
         ENV="production",
+        OPENAI_API_KEY="sk-test-fake",
         CORS_ALLOW_ORIGINS=cors_origins,
         **_FAKE_REQUIRED,
     )
@@ -87,12 +94,22 @@ class TestCorsLocalEnv:
 # ---------------------------------------------------------------------------
 
 class TestCorsNonLocalEnv:
-    def test_no_cors_header_when_origins_empty(self):
-        """With ENV != local and no CORS_ALLOW_ORIGINS, the header must be absent."""
-        response = _prod_client(cors_origins="").options(
-            "/v1/onboarding", headers=_PREFLIGHT_HEADERS
+    def test_startup_refuses_when_cors_origins_empty(self):
+        """Startup must raise when ENV != local and CORS_ALLOW_ORIGINS is empty.
+
+        Previously this was a silent no-op (no header returned).  With startup
+        validation enabled, an empty allowlist is treated as a configuration
+        error so the deployment fails loudly rather than allowing silent CORS
+        lockout in production.
+        """
+        settings = Settings(
+            ENV="production",
+            OPENAI_API_KEY="sk-test-fake",
+            CORS_ALLOW_ORIGINS="",
+            **_FAKE_REQUIRED,
         )
-        assert "access-control-allow-origin" not in response.headers
+        with pytest.raises(ValueError, match="CORS_ALLOW_ORIGINS"):
+            create_app(settings=settings)
 
     def test_cors_header_present_when_origin_configured(self):
         """CORS_ALLOW_ORIGINS (comma-separated) should be honoured in production."""

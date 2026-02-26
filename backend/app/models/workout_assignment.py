@@ -4,7 +4,7 @@ import uuid
 from datetime import date
 from typing import Optional
 
-from sqlalchemy import Date, ForeignKey, String
+from sqlalchemy import CheckConstraint, Date, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -27,6 +27,12 @@ class WorkoutAssignment(Base, TimestampMixin):
     """
 
     __tablename__ = "workout_assignments"
+    __table_args__ = (
+        CheckConstraint(
+            "target_type IN ('team', 'athlete')",
+            name="ck_target_type_valid",
+        ),
+    )
 
     team_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

@@ -48,7 +48,7 @@ class ListWorkoutSessionsUseCase:
 
     def execute(self, query: ListWorkoutSessionsQuery) -> ListWorkoutSessionsResult:
         if query.role == Role.ATHLETE:
-            rows = self._session_repo.list_by_athlete(query.athlete_id)
+            rows = self._session_repo.list_by_athlete(query.athlete_id, query.team_id)
         else:
             rows = self._session_repo.list_by_team(query.team_id)
 
