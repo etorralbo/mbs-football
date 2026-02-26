@@ -3,7 +3,7 @@ import uuid
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import Date, DateTime, ForeignKey
+from sqlalchemy import Date, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,6 +19,13 @@ class WorkoutSession(Base, TimestampMixin):
     """
 
     __tablename__ = "workout_sessions"
+    __table_args__ = (
+        UniqueConstraint(
+            "assignment_id",
+            "athlete_id",
+            name="uq_session_assignment_athlete",
+        ),
+    )
 
     assignment_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
