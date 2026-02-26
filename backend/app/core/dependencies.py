@@ -10,7 +10,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Annotated, Callable
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -64,6 +64,7 @@ class CurrentUser:
 
 
 def get_current_user(
+    request: Request,
     db: Session = Depends(get_db),
     token: str = Depends(get_bearer_token),
 ) -> CurrentUser:
@@ -113,14 +114,21 @@ def get_current_user(
             detail="User not onboarded. Please complete registration.",
         )
 
-    # Return current user data
-    return CurrentUser(
+    current_user = CurrentUser(
         user_id=user_profile.id,
         supabase_user_id=user_profile.supabase_user_id,
         team_id=user_profile.team_id,
         role=user_profile.role,
         name=user_profile.name,
     )
+
+    # Populate request state so RequestLoggingMiddleware can include auth
+    # context in the structured log line without a second DB lookup.
+    request.state.user_id = current_user.user_id
+    request.state.team_id = current_user.team_id
+    request.state.role = current_user.role
+
+    return current_user
 
 
 def require_role(*allowed_roles: Role) -> Callable[[CurrentUser], CurrentUser]:
