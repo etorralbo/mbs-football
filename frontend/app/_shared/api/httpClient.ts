@@ -1,4 +1,4 @@
-import { getToken } from '@/app/_shared/auth/tokenStorage'
+import { supabase } from '@/app/_shared/auth/supabaseClient'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000'
 
@@ -71,7 +71,11 @@ export async function request<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const token = getToken()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  const token = session?.access_token ?? null
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),

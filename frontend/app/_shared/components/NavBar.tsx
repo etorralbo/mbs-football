@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { clearToken } from '@/app/_shared/auth/tokenStorage'
+import { supabase } from '@/app/_shared/auth/supabaseClient'
 
 export function NavBar() {
   const pathname = usePathname()
@@ -13,8 +13,7 @@ export function NavBar() {
   }
 
   function handleSignOut() {
-    clearToken()
-    router.replace('/login')
+    supabase.auth.signOut().then(() => router.replace('/login'))
   }
 
   return (
