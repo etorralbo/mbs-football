@@ -9,11 +9,27 @@ import { Badge } from '@/app/_shared/components/Badge'
 import { SkeletonList } from '@/app/_shared/components/Skeleton'
 import type { WorkoutSessionSummary } from '@/app/_shared/api/types'
 
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+function sessionLabel(s: WorkoutSessionSummary): string {
+  return s.scheduled_for ? formatDate(s.scheduled_for) : `Session ${s.id.slice(0, 8)}…`
+}
+
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<WorkoutSessionSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+
+  useEffect(() => {
+    document.title = 'Sessions | MBS Football'
+  }, [])
 
   useEffect(() => {
     request<WorkoutSessionSummary[]>('/v1/workout-sessions')
@@ -57,14 +73,9 @@ export default function SessionsPage() {
                 href={`/sessions/${s.id}`}
                 className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300 hover:bg-zinc-50"
               >
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm font-medium text-zinc-900">
-                    Session {s.id.slice(0, 8)}…
-                  </span>
-                  {s.scheduled_for && (
-                    <span className="text-xs text-zinc-500">{s.scheduled_for}</span>
-                  )}
-                </div>
+                <span className="text-sm font-medium text-zinc-900">
+                  {sessionLabel(s)}
+                </span>
                 <Badge variant={s.completed_at ? 'completed' : 'pending'}>
                   {s.completed_at ? 'Completed' : 'Pending'}
                 </Badge>
