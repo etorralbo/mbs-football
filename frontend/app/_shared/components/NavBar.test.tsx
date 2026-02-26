@@ -1,10 +1,13 @@
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 
 afterEach(cleanup)
 import { NavBar } from './NavBar'
 
-const { mockReplace } = vi.hoisted(() => ({ mockReplace: vi.fn() }))
+const { mockReplace, mockSignOut } = vi.hoisted(() => ({
+  mockReplace: vi.fn(),
+  mockSignOut: vi.fn().mockResolvedValue({}),
+}))
 
 vi.mock('next/link', () => ({
   default: ({ href, children }: { href: string; children: React.ReactNode }) => (
@@ -17,8 +20,8 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace }),
 }))
 
-vi.mock('@/app/_shared/auth/tokenStorage', () => ({
-  clearToken: vi.fn(),
+vi.mock('@/app/_shared/auth/supabaseClient', () => ({
+  supabase: { auth: { signOut: mockSignOut } },
 }))
 
 describe('NavBar', () => {
@@ -41,9 +44,11 @@ describe('NavBar', () => {
     expect(screen.getByRole('button', { name: /sign out/i })).toBeInTheDocument()
   })
 
-  it('redirects to /login when Sign out is clicked', () => {
+  it('redirects to /login when Sign out is clicked', async () => {
     render(<NavBar />)
     fireEvent.click(screen.getByRole('button', { name: /sign out/i }))
-    expect(mockReplace).toHaveBeenCalledWith('/login')
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/login')
+    })
   })
 })

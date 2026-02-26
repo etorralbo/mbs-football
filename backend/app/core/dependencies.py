@@ -131,6 +131,34 @@ def get_current_user(
     return current_user
 
 
+def get_auth_user_id(
+    token: str = Depends(get_bearer_token),
+) -> uuid.UUID:
+    """
+    Lightweight auth dependency: verify JWT and return the Supabase user ID.
+
+    Unlike get_current_user(), this does NOT require a UserProfile to exist.
+    Use for endpoints reachable before onboarding completes
+    (GET /v1/me, POST /v1/teams, POST /v1/invites, POST /v1/invites/accept).
+
+    Returns:
+        uuid.UUID: The Supabase user ID ('sub' claim).
+
+    Raises:
+        HTTPException: 401 if token is missing or invalid.
+    """
+    token_payload = verify_jwt_token(token)
+    supabase_user_id_str = token_payload.get("sub")
+    try:
+        return uuid.UUID(supabase_user_id_str)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user ID in token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
 def require_role(*allowed_roles: Role) -> Callable[[CurrentUser], CurrentUser]:
     """
     Dependency factory for role-based access control.

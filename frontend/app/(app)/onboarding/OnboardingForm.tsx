@@ -1,70 +1,68 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { request, UnauthorizedError, ValidationError } from '@/app/_shared/api/httpClient'
-import { Button } from '@/app/_shared/components/Button'
+import { request, UnauthorizedError } from '@/app/_shared/api/httpClient'
+import type { MeResponse } from '@/app/_shared/api/types'
 
-export function OnboardingForm() {
-  const [teamName, setTeamName] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+/**
+ * Onboarding hub: checks memberships and routes the user accordingly.
+ *
+ * - Already has membership → redirect to /templates
+ * - No membership         → show two CTAs: Create Team (COACH) / Join Team (ATHLETE)
+ */
+export function OnboardingHub() {
   const router = useRouter()
+  const [checking, setChecking] = useState(true)
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const trimmed = teamName.trim()
-    if (!trimmed) return
-
-    setError(null)
-    setLoading(true)
-
-    try {
-      await request('/v1/onboarding', {
-        method: 'POST',
-        body: JSON.stringify({ team_name: trimmed }),
+  useEffect(() => {
+    request<MeResponse>('/v1/me')
+      .then((me) => {
+        if (me.memberships.length > 0) {
+          router.replace('/templates')
+        } else {
+          setChecking(false)
+        }
       })
-      router.push('/templates')
-    } catch (err) {
-      if (err instanceof UnauthorizedError) {
-        router.replace('/login')
-      } else if (err instanceof ValidationError) {
-        setError(
-          typeof err.detail === 'string' ? err.detail : 'Please check the team name.',
-        )
-      } else {
-        setError('Something went wrong. Please try again.')
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
+      .catch((err) => {
+        if (err instanceof UnauthorizedError) {
+          router.replace('/login')
+        } else {
+          // On unexpected errors still show the CTAs so the user isn't stuck.
+          setChecking(false)
+        }
+      })
+  }, [router])
+
+  if (checking) return null
 
   return (
-    <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-      <div>
-        <label htmlFor="team-name" className="block text-sm font-medium text-zinc-700">
-          Team name
-        </label>
-        <input
-          id="team-name"
-          type="text"
-          value={teamName}
-          onChange={(e) => setTeamName(e.target.value)}
-          className="mt-1.5 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          placeholder="e.g. FC Barcelona"
-        />
-      </div>
+    <div className="mt-6 flex flex-col gap-4 sm:flex-row">
+      <button
+        onClick={() => router.push('/create-team')}
+        className="flex flex-1 flex-col items-center gap-3 rounded-lg border-2 border-indigo-200 bg-indigo-50 p-6 text-left transition hover:border-indigo-400 hover:bg-indigo-100"
+      >
+        <span className="text-3xl">🏋️</span>
+        <div>
+          <p className="font-semibold text-zinc-900">I&apos;m a Coach</p>
+          <p className="mt-1 text-sm text-zinc-500">
+            Create a team and manage your athletes.
+          </p>
+        </div>
+      </button>
 
-      {error && (
-        <p role="alert" className="text-sm text-red-600">
-          {error}
-        </p>
-      )}
-
-      <Button type="submit" disabled={!teamName.trim()} loading={loading} className="w-full">
-        {loading ? 'Saving…' : 'Create team'}
-      </Button>
-    </form>
+      <button
+        onClick={() => router.push('/join')}
+        className="flex flex-1 flex-col items-center gap-3 rounded-lg border-2 border-emerald-200 bg-emerald-50 p-6 text-left transition hover:border-emerald-400 hover:bg-emerald-100"
+      >
+        <span className="text-3xl">🏃</span>
+        <div>
+          <p className="font-semibold text-zinc-900">I&apos;m an Athlete</p>
+          <p className="mt-1 text-sm text-zinc-500">
+            Join a team using an invite code from your coach.
+          </p>
+        </div>
+      </button>
+    </div>
   )
 }

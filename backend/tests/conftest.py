@@ -22,7 +22,7 @@ from app.core.config import get_settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models import Team, UserProfile, Role, Exercise
+from app.models import Team, UserProfile, Role, Exercise, Membership, Invite
 
 # Use test database with explicit credentials
 TEST_DATABASE_URL = "postgresql+psycopg://app:app@db:5432/app_test"
@@ -305,3 +305,33 @@ def foreign_team_exercise_id(db_session: Session) -> uuid.UUID:
     db_session.add(exercise)
     db_session.commit()
     return exercise.id
+
+
+# ---------------------------------------------------------------------------
+# Sprint 5: membership + invite fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def membership_coach_a(db_session: Session, team_a: Team) -> Membership:
+    """COACH membership for a fresh user in team A."""
+    m = Membership(id=uuid.uuid4(), user_id=uuid.uuid4(), team_id=team_a.id, role=Role.COACH)
+    db_session.add(m)
+    db_session.commit()
+    db_session.refresh(m)
+    return m
+
+
+@pytest.fixture
+def invite_team_a(db_session: Session, team_a: Team, membership_coach_a: Membership) -> Invite:
+    """A valid, unused ATHLETE invite for team A."""
+    invite = Invite(
+        id=uuid.uuid4(),
+        team_id=team_a.id,
+        code="valid-test-invite-code-abc",
+        role=Role.ATHLETE,
+        created_by_user_id=membership_coach_a.user_id,
+    )
+    db_session.add(invite)
+    db_session.commit()
+    db_session.refresh(invite)
+    return invite

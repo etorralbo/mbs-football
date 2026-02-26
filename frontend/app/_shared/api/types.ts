@@ -1,4 +1,38 @@
 // ---------------------------------------------------------------------------
+// Onboarding / Membership / Invites (Sprint 5)
+// ---------------------------------------------------------------------------
+
+export interface MembershipItem {
+  team_id: string
+  team_name: string
+  role: 'COACH' | 'ATHLETE'
+}
+
+export interface MeResponse {
+  user_id: string
+  memberships: MembershipItem[]
+  active_team_id: string | null
+}
+
+export interface CreateTeamResponse {
+  team_id: string
+  membership_id: string
+  role: string
+}
+
+export interface CreateInviteResponse {
+  code: string
+  join_url: string
+  team_id: string
+}
+
+export interface AcceptInviteResponse {
+  team_id: string
+  membership_id: string
+  role: string
+}
+
+// ---------------------------------------------------------------------------
 // Workout Templates
 // ---------------------------------------------------------------------------
 

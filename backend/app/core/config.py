@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     # CORS — comma-separated list of allowed origins for non-local environments
     CORS_ALLOW_ORIGINS: list[str] = []
 
+    # Frontend base URL used to build invite join links
+    FRONTEND_URL: str = "http://localhost:3000"
+
     # Supabase JWT settings
     SUPABASE_URL: str
 

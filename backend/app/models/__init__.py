@@ -19,6 +19,10 @@ from app.models.block_exercise import BlockExercise
 from app.models.workout_assignment import WorkoutAssignment
 from app.models.workout_session import WorkoutSession
 
+# Sprint 5: Invite-based onboarding models
+from app.models.membership import Membership
+from app.models.invite import Invite
+
 # Sprint 4: Workout execution log models (log before entries)
 from app.models.workout_session_log import WorkoutSessionLog
 from app.models.workout_session_log_entry import WorkoutSessionLogEntry
@@ -28,6 +32,9 @@ __all__ = [
     "Team",
     "UserProfile",
     "Role",
+    # Sprint 5 models
+    "Membership",
+    "Invite",
     # Sprint 2 models
     "MediaAsset",
     "MediaAssetType",

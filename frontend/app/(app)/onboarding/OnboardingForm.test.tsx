@@ -1,10 +1,10 @@
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
-import { ValidationError } from '@/app/_shared/api/httpClient'
-import { OnboardingForm } from './OnboardingForm'
+import { UnauthorizedError } from '@/app/_shared/api/httpClient'
+import { OnboardingHub } from './OnboardingForm'
 
 // ---------------------------------------------------------------------------
-// Module mocks — vi.hoisted ensures these are defined before vi.mock runs
+// Module mocks
 // ---------------------------------------------------------------------------
 
 const { mockRequest, mockPush, mockReplace } = vi.hoisted(() => ({
@@ -26,16 +26,12 @@ vi.mock('next/navigation', () => ({
 // Helpers
 // ---------------------------------------------------------------------------
 
-function fillAndSubmit(teamName: string) {
-  fireEvent.change(screen.getByRole('textbox', { name: /team name/i }), {
-    target: { value: teamName },
-  })
-  fireEvent.click(screen.getByRole('button', { name: /create team/i }))
+const NO_MEMBERSHIPS = { user_id: 'u1', memberships: [], active_team_id: null }
+const WITH_MEMBERSHIP = {
+  user_id: 'u1',
+  memberships: [{ team_id: 't1', team_name: 'FC Test', role: 'COACH' as const }],
+  active_team_id: 't1',
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 afterEach(() => {
   cleanup()
@@ -44,102 +40,72 @@ afterEach(() => {
   mockReplace.mockReset()
 })
 
-describe('OnboardingForm', () => {
-  describe('successful submission', () => {
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe('OnboardingHub', () => {
+  describe('when user already has a membership', () => {
+    it('redirects to /templates without rendering CTAs', async () => {
+      mockRequest.mockResolvedValue(WITH_MEMBERSHIP)
+      render(<OnboardingHub />)
+
+      await waitFor(() => {
+        expect(mockReplace).toHaveBeenCalledWith('/templates')
+      })
+      expect(screen.queryByText(/coach/i)).not.toBeInTheDocument()
+    })
+  })
+
+  describe('when user has no membership', () => {
     beforeEach(() => {
-      mockRequest.mockResolvedValue({ id: 'u1', team_id: 't1', role: 'coach' })
+      mockRequest.mockResolvedValue(NO_MEMBERSHIPS)
     })
 
-    it('calls POST /v1/onboarding with { team_name }', async () => {
-      render(<OnboardingForm />)
-      fillAndSubmit('FC Test')
-
+    it('shows the Coach CTA', async () => {
+      render(<OnboardingHub />)
       await waitFor(() => {
-        expect(mockRequest).toHaveBeenCalledWith(
-          '/v1/onboarding',
-          expect.objectContaining({
-            method: 'POST',
-            body: JSON.stringify({ team_name: 'FC Test' }),
-          }),
-        )
+        expect(screen.getByText(/i'm a coach/i)).toBeInTheDocument()
       })
     })
 
-    it('trims whitespace from the team name before submitting', async () => {
-      render(<OnboardingForm />)
-      fillAndSubmit('  Whitespace FC  ')
-
+    it('shows the Athlete CTA', async () => {
+      render(<OnboardingHub />)
       await waitFor(() => {
-        expect(mockRequest).toHaveBeenCalledWith(
-          '/v1/onboarding',
-          expect.objectContaining({ body: JSON.stringify({ team_name: 'Whitespace FC' }) }),
-        )
+        expect(screen.getByText(/i'm an athlete/i)).toBeInTheDocument()
       })
     })
 
-    it('redirects to /templates on success', async () => {
-      render(<OnboardingForm />)
-      fillAndSubmit('FC Test')
+    it('navigates to /create-team when Coach CTA is clicked', async () => {
+      render(<OnboardingHub />)
+      await waitFor(() => screen.getByText(/i'm a coach/i))
+      fireEvent.click(screen.getByText(/i'm a coach/i).closest('button')!)
+      expect(mockPush).toHaveBeenCalledWith('/create-team')
+    })
 
-      await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith('/templates')
-      })
+    it('navigates to /join when Athlete CTA is clicked', async () => {
+      render(<OnboardingHub />)
+      await waitFor(() => screen.getByText(/i'm an athlete/i))
+      fireEvent.click(screen.getByText(/i'm an athlete/i).closest('button')!)
+      expect(mockPush).toHaveBeenCalledWith('/join')
     })
   })
 
   describe('error handling', () => {
-    it('shows a generic error message when the server fails', async () => {
-      mockRequest.mockRejectedValue(new Error('network error'))
-      render(<OnboardingForm />)
-      fillAndSubmit('FC Test')
-
-      await waitFor(() => {
-        expect(screen.getByRole('alert')).toHaveTextContent('Something went wrong')
-      })
-    })
-
-    it('shows a friendly message on 422 ValidationError with array detail', async () => {
-      mockRequest.mockRejectedValue(new ValidationError([{ msg: 'too short' }]))
-      render(<OnboardingForm />)
-      fillAndSubmit('FC Test')
-
-      await waitFor(() => {
-        expect(screen.getByRole('alert')).toHaveTextContent('Please check the team name.')
-      })
-    })
-
-    it('shows the server message on 422 ValidationError with string detail', async () => {
-      mockRequest.mockRejectedValue(new ValidationError('Team name already taken'))
-      render(<OnboardingForm />)
-      fillAndSubmit('FC Test')
-
-      await waitFor(() => {
-        expect(screen.getByRole('alert')).toHaveTextContent('Team name already taken')
-      })
-    })
-
     it('redirects to /login on UnauthorizedError', async () => {
-      const { UnauthorizedError: Err } = await import('@/app/_shared/api/httpClient')
-      mockRequest.mockRejectedValue(new Err())
-      render(<OnboardingForm />)
-      fillAndSubmit('FC Test')
-
+      mockRequest.mockRejectedValue(new UnauthorizedError())
+      render(<OnboardingHub />)
       await waitFor(() => {
         expect(mockReplace).toHaveBeenCalledWith('/login')
       })
     })
-  })
 
-  describe('submit guard', () => {
-    it('does not call the API when the team name is blank', () => {
-      render(<OnboardingForm />)
-      fireEvent.click(screen.getByRole('button', { name: /create team/i }))
-      expect(mockRequest).not.toHaveBeenCalled()
-    })
-
-    it('disables the button when the input is empty', () => {
-      render(<OnboardingForm />)
-      expect(screen.getByRole('button', { name: /create team/i })).toBeDisabled()
+    it('shows CTAs even when /v1/me returns an unexpected error', async () => {
+      mockRequest.mockRejectedValue(new Error('network error'))
+      render(<OnboardingHub />)
+      await waitFor(() => {
+        expect(screen.getByText(/i'm a coach/i)).toBeInTheDocument()
+      })
     })
   })
 })
