@@ -7,15 +7,16 @@ A multi-tenant football coaching platform. Coaches create teams, design sessions
 ## Table of Contents
 
 1. [Architecture](#architecture)
-2. [Project Structure](#project-structure)
-3. [Environments](#environments)
-4. [Development Workflow](#development-workflow)
-5. [Database Migrations](#database-migrations)
-6. [Environment Variables](#environment-variables)
-7. [API Reference](#api-reference)
-8. [Production Smoke Test Checklist](#production-smoke-test-checklist)
-9. [Security Principles](#security-principles)
-10. [Golden Rules](#golden-rules)
+2. [Activation Strategy & Product Analytics](#activation-strategy--product-analytics)
+3. [Project Structure](#project-structure)
+4. [Environments](#environments)
+5. [Development Workflow](#development-workflow)
+6. [Database Migrations](#database-migrations)
+7. [Environment Variables](#environment-variables)
+8. [API Reference](#api-reference)
+9. [Production Smoke Test Checklist](#production-smoke-test-checklist)
+10. [Security Principles](#security-principles)
+11. [Golden Rules](#golden-rules)
 
 ---
 
@@ -60,6 +61,48 @@ All domain tables carry a `team_id` column. Every query in the service/use-case 
 ### RBAC
 
 Two roles: `COACH` and `ATHLETE`. Roles are stored server-side in `memberships` (and mirrored in `user_profiles` for backward compatibility). The client never sends its own role.
+
+---
+
+## Activation Strategy & Product Analytics
+
+The MVP is designed around a measurable activation funnel, not only feature completeness.
+
+### North Star Metric
+
+> Percentage of users reaching `SESSION_COMPLETED` within 48 hours of signup.
+
+This ensures the platform is evaluated not only by functionality, but by successful onboarding and real usage.
+
+### Tracked Product Events
+
+The backend persists product events in a dedicated `product_events` table:
+
+- `TEAM_CREATED`
+- `INVITE_ACCEPTED`
+- `SESSION_COMPLETED`
+
+Design principles:
+
+- Server-side tracking only (no public event endpoint)
+- Transactional (event is written in the same DB transaction as the business action)
+- Multi-tenant scoped (`team_id`)
+- Auth identity scoped (`supabase_user_id`)
+- Append-only table (immutable rows)
+- PostgreSQL native ENUM (`funnel_event`)
+- JSONB metadata (no PII stored)
+
+This allows computing activation and conversion metrics directly from PostgreSQL without external analytics tools.
+
+### Funnel Example Query
+
+```sql
+SELECT event_name, COUNT(DISTINCT user_id)
+FROM product_events
+GROUP BY event_name;
+```
+
+This provides a minimal but production-grade funnel measurement layer.
 
 ---
 
@@ -343,6 +386,14 @@ All endpoints are prefixed with `/v1`.
 | GET    | `/v1/sessions`                | Any         | List sessions                |
 | POST   | `/v1/sessions`                | COACH       | Create session               |
 
+### Planned analytics endpoint
+
+Add this endpoint to the table above when implemented:
+
+| Method | Path                   | Role  | Description                           |
+|--------|------------------------|-------|---------------------------------------|
+| GET    | `/v1/analytics/funnel` | COACH | Returns team-scoped funnel metrics    |
+
 ---
 
 ## Production Smoke Test Checklist
@@ -361,7 +412,7 @@ Run this checklist after every production deploy.
 - [ ] After signup, redirect lands on `/onboarding`
 - [ ] `/onboarding` shows "I'm a coach" and "I'm an athlete" CTAs
 - [ ] Clicking "I'm a coach" navigates to `/create-team`
-- [ ] Submitting the create-team form redirects to `/templates`
+- [ ] Submitting the create-team form redirects to `/team`
 - [ ] `GET /v1/me` returns the new team in `memberships` with role `COACH`
 - [ ] Attempting to create a second team returns `409`
 
@@ -369,7 +420,7 @@ Run this checklist after every production deploy.
 
 - [ ] Coach generates an invite code via `POST /v1/invites`
 - [ ] New athlete signs up and visits `/join?code=<code>`
-- [ ] Submitting the join form redirects to `/templates`
+- [ ] Submitting the join form redirects to `/sessions`
 - [ ] `GET /v1/me` returns the team in `memberships` with role `ATHLETE`
 - [ ] Submitting the same invite code a second time returns `409` (already used)
 - [ ] Submitting an expired invite code returns `410`
