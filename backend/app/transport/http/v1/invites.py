@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.dependencies import get_auth_user_id
 from app.db.session import get_db
+from app.domain.events.service import ProductEventService
 from app.domain.use_cases.accept_invite import (
     AcceptInviteCommand,
     AcceptInviteUseCase,
@@ -106,6 +107,7 @@ def accept_invite(
         invite_repo=SqlAlchemyInviteRepository(db),
         membership_repo=SqlAlchemyMembershipRepository(db),
         user_profile_repo=SqlAlchemyUserProfileRepository(db),
+        event_service=ProductEventService(db),
     )
     try:
         result = use_case.execute(
