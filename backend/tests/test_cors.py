@@ -32,11 +32,11 @@ def _local_client() -> TestClient:
     return TestClient(create_app(settings=settings), raise_server_exceptions=False)
 
 
-def _prod_client(cors_origins: str) -> TestClient:
+def _prod_client(cors_origins: str = "", cors_regex: str = "") -> TestClient:
     """Return a TestClient whose app is configured for ENV=production.
 
-    cors_origins must be a non-empty string; production startup validation
-    rejects an empty value (see TestCorsNonLocalEnv.test_startup_refuses_when_cors_empty).
+    At least one of cors_origins or cors_regex must be non-empty; production
+    startup validation rejects both being empty.
     OPENAI_API_KEY is supplied explicitly so this helper is hermetic and does
     not depend on the local .env file.
     """
@@ -44,6 +44,7 @@ def _prod_client(cors_origins: str) -> TestClient:
         ENV="production",
         OPENAI_API_KEY="sk-test-fake",
         CORS_ALLOW_ORIGINS=cors_origins,
+        CORS_ALLOW_ORIGIN_REGEX=cors_regex,
         **_FAKE_REQUIRED,
     )
     return TestClient(create_app(settings=settings), raise_server_exceptions=False)
@@ -128,3 +129,64 @@ class TestCorsNonLocalEnv:
             headers={**_PREFLIGHT_HEADERS, "Origin": "https://example.com"},
         )
         assert response.headers.get("access-control-allow-origin") != "*"
+
+
+# ---------------------------------------------------------------------------
+# Tests: CORS_ALLOW_ORIGIN_REGEX (Vercel preview support)
+# ---------------------------------------------------------------------------
+
+
+class TestCorsRegex:
+    """CORS_ALLOW_ORIGIN_REGEX must match dynamic preview origins."""
+
+    _VERCEL_PREVIEW = "https://mbs-football-abc123-myorg.vercel.app"
+    _VERCEL_REGEX = r"https://.*\.vercel\.app"
+
+    def test_vercel_preview_origin_allowed(self):
+        """A Vercel preview URL must be echoed back when the regex matches."""
+        client = _prod_client(cors_regex=self._VERCEL_REGEX)
+        response = client.options(
+            "/v1/onboarding",
+            headers={**_PREFLIGHT_HEADERS, "Origin": self._VERCEL_PREVIEW},
+        )
+        assert response.headers.get("access-control-allow-origin") == self._VERCEL_PREVIEW
+
+    def test_non_matching_origin_blocked(self):
+        """An origin that doesn't match the regex must not receive ACAO header."""
+        client = _prod_client(cors_regex=self._VERCEL_REGEX)
+        response = client.options(
+            "/v1/onboarding",
+            headers={**_PREFLIGHT_HEADERS, "Origin": "https://evil.com"},
+        )
+        assert response.headers.get("access-control-allow-origin") is None
+
+    def test_startup_accepts_regex_without_origins_list(self):
+        """Startup must succeed with only CORS_ALLOW_ORIGIN_REGEX set (no exact list)."""
+        settings = Settings(
+            ENV="production",
+            OPENAI_API_KEY="sk-test-fake",
+            CORS_ALLOW_ORIGINS="",
+            CORS_ALLOW_ORIGIN_REGEX=self._VERCEL_REGEX,
+            **_FAKE_REQUIRED,
+        )
+        # Should not raise
+        create_app(settings=settings)
+
+    def test_regex_and_exact_origins_coexist(self):
+        """Both exact origins list and regex can be active simultaneously."""
+        client = _prod_client(
+            cors_origins="https://app.example.com",
+            cors_regex=self._VERCEL_REGEX,
+        )
+        # Exact origin works
+        r1 = client.options(
+            "/v1/onboarding",
+            headers={**_PREFLIGHT_HEADERS, "Origin": "https://app.example.com"},
+        )
+        assert r1.headers.get("access-control-allow-origin") == "https://app.example.com"
+        # Regex origin works
+        r2 = client.options(
+            "/v1/onboarding",
+            headers={**_PREFLIGHT_HEADERS, "Origin": self._VERCEL_PREVIEW},
+        )
+        assert r2.headers.get("access-control-allow-origin") == self._VERCEL_PREVIEW

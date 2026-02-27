@@ -18,20 +18,24 @@ def _configure_cors(app: FastAPI, settings: Settings) -> None:
     """Attach CORSMiddleware with environment-appropriate origins.
 
     - ENV == "local"  → allow the two standard localhost dev origins
-    - otherwise       → read comma-separated origins from CORS_ALLOW_ORIGINS
-                        (empty list = CORS middleware is not added at all)
+    - otherwise       → exact origins from CORS_ALLOW_ORIGINS and/or a regex
+                        pattern from CORS_ALLOW_ORIGIN_REGEX (for dynamic
+                        origins such as Vercel preview URLs)
     """
     if settings.ENV == "local":
         origins = _LOCAL_ORIGINS
+        origin_regex = None
     else:
         origins = settings.CORS_ALLOW_ORIGINS
+        origin_regex = settings.CORS_ALLOW_ORIGIN_REGEX or None
 
-    if not origins:
+    if not origins and not origin_regex:
         return
 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
+        allow_origin_regex=origin_regex,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type"],

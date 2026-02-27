@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     # CORS — comma-separated list of allowed origins for non-local environments
     CORS_ALLOW_ORIGINS: list[str] = []
 
+    # Regex matching dynamic origins (e.g. Vercel preview URLs).
+    # Example: https://.*\.vercel\.app
+    # Used alongside CORS_ALLOW_ORIGINS; at least one must be set in non-local envs.
+    CORS_ALLOW_ORIGIN_REGEX: str = ""
+
     # Frontend base URL used to build invite join links
     FRONTEND_URL: str = "http://localhost:3000"
 
@@ -81,10 +86,10 @@ class Settings(BaseSettings):
                 "OPENAI_API_KEY must be set when AI_ENABLED=True and AI_STUB=False"
             )
 
-        if not self.CORS_ALLOW_ORIGINS:
+        if not self.CORS_ALLOW_ORIGINS and not self.CORS_ALLOW_ORIGIN_REGEX:
             errors.append(
-                "CORS_ALLOW_ORIGINS must be set in non-local environments "
-                "(comma-separated frontend origins, e.g. https://app.example.com)"
+                "Set CORS_ALLOW_ORIGINS (comma-separated exact origins) and/or "
+                "CORS_ALLOW_ORIGIN_REGEX (regex for dynamic origins such as Vercel previews)"
             )
 
         if errors:
