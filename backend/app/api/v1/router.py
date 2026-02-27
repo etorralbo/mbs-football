@@ -6,6 +6,7 @@ Combines all v1 endpoints into a single router.
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import ai, exercises, workout_builder, workout_templates
+from app.transport.http.v1 import athletes as athletes_transport
 from app.transport.http.v1 import invites as invites_transport
 from app.transport.http.v1 import me as me_transport
 from app.transport.http.v1 import onboarding as onboarding_transport
@@ -34,6 +35,8 @@ api_router.include_router(onboarding_transport.router)
 api_router.include_router(me_transport.router)
 api_router.include_router(teams_transport.router)
 api_router.include_router(invites_transport.router)
+# transport layer — athletes roster (coach only)
+api_router.include_router(athletes_transport.router)
 # transport layer — workout assignments + sessions + execution logs
 api_router.include_router(workout_assignments_transport.router)
 api_router.include_router(workout_sessions_transport.router)
