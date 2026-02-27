@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import CurrentUser, require_any_role
 from app.db.session import get_db
+from app.domain.events.service import ProductEventService
 from app.domain.use_cases.complete_workout_session import (
     CompleteWorkoutSessionCommand,
     CompleteWorkoutSessionUseCase,
@@ -58,7 +59,8 @@ def _build_list_use_case(db: Session) -> ListWorkoutSessionsUseCase:
 
 def _build_complete_use_case(db: Session) -> CompleteWorkoutSessionUseCase:
     return CompleteWorkoutSessionUseCase(
-        session_repo=SqlAlchemyWorkoutSessionRepository(db)
+        session_repo=SqlAlchemyWorkoutSessionRepository(db),
+        event_service=ProductEventService(db),
     )
 
 
@@ -76,6 +78,7 @@ def _to_complete_command(
 ) -> CompleteWorkoutSessionCommand:
     return CompleteWorkoutSessionCommand(
         session_id=session_id,
+        requesting_user_id=current_user.supabase_user_id,
         requesting_role=current_user.role,
         requesting_team_id=current_user.team_id,
         requesting_athlete_id=(
