@@ -27,6 +27,9 @@ from app.models.invite import Invite
 from app.models.workout_session_log import WorkoutSessionLog
 from app.models.workout_session_log_entry import WorkoutSessionLogEntry
 
+# Product analytics events
+from app.domain.events.models import FunnelEvent, ProductEvent
+
 __all__ = [
     # Base models
     "Team",
@@ -48,4 +51,7 @@ __all__ = [
     # Sprint 4 models
     "WorkoutSessionLog",
     "WorkoutSessionLogEntry",
+    # Product analytics events
+    "FunnelEvent",
+    "ProductEvent",
 ]
