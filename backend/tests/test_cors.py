@@ -132,6 +132,69 @@ class TestCorsNonLocalEnv:
 
 
 # ---------------------------------------------------------------------------
+# Tests: OPTIONS preflight for /v1/me (authenticated endpoint)
+# ---------------------------------------------------------------------------
+
+
+class TestCorsPreflightMe:
+    """/v1/me preflight must pass without auth and echo headers correctly.
+
+    GET /v1/me requires Authorization: Bearer <jwt> on real requests,
+    so browsers always send an OPTIONS preflight first.  The preflight
+    itself must:
+      - receive 200/204 (not 401/403)
+      - echo Access-Control-Allow-Origin
+      - declare authorization in Access-Control-Allow-Headers
+      - declare GET in Access-Control-Allow-Methods
+    """
+
+    _PREFLIGHT_ME = {
+        "Origin": "http://localhost:3001",
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "authorization, content-type",
+    }
+
+    def test_preflight_me_returns_success(self):
+        """OPTIONS /v1/me must not require a token and return 200/204."""
+        response = _local_client().options("/v1/me", headers=self._PREFLIGHT_ME)
+        assert response.status_code in (200, 204)
+
+    def test_preflight_me_echoes_origin(self):
+        """access-control-allow-origin must reflect the requesting origin."""
+        response = _local_client().options("/v1/me", headers=self._PREFLIGHT_ME)
+        assert response.headers.get("access-control-allow-origin") == "http://localhost:3001"
+
+    def test_preflight_me_allows_authorization_header(self):
+        """access-control-allow-headers must include authorization."""
+        response = _local_client().options("/v1/me", headers=self._PREFLIGHT_ME)
+        allowed = response.headers.get("access-control-allow-headers", "").lower()
+        assert "authorization" in allowed
+
+    def test_preflight_me_allows_get_method(self):
+        """access-control-allow-methods must include GET."""
+        response = _local_client().options("/v1/me", headers=self._PREFLIGHT_ME)
+        allowed = response.headers.get("access-control-allow-methods", "").upper()
+        assert "GET" in allowed
+
+    def test_preflight_me_prod_origin_allowed(self):
+        """OPTIONS /v1/me must also pass for a production Vercel origin."""
+        client = _prod_client(cors_regex=r"https://.*\.vercel\.app")
+        headers = {
+            "Origin": "https://mbs-football-preview.vercel.app",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "authorization, content-type",
+        }
+        response = client.options("/v1/me", headers=headers)
+        assert response.status_code in (200, 204)
+        assert (
+            response.headers.get("access-control-allow-origin")
+            == "https://mbs-football-preview.vercel.app"
+        )
+        allowed_headers = response.headers.get("access-control-allow-headers", "").lower()
+        assert "authorization" in allowed_headers
+
+
+# ---------------------------------------------------------------------------
 # Tests: CORS_ALLOW_ORIGIN_REGEX (Vercel preview support)
 # ---------------------------------------------------------------------------
 
