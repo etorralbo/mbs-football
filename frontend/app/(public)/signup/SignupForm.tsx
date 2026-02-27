@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { supabase } from '@/app/_shared/auth/supabaseClient'
 import { Button } from '@/app/_shared/components/Button'
 
-export function LoginForm() {
+export function SignupForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -18,14 +18,12 @@ export function LoginForm() {
     setError(null)
     setLoading(true)
     try {
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+      const { error: authError } = await supabase.auth.signUp({ email, password })
       if (authError) {
-        setError('Invalid email or password.')
+        setError(authError.message)
         return
       }
+      // After sign-up Supabase auto-signs the user in; send them to onboarding.
       router.push('/onboarding')
     } finally {
       setLoading(false)
@@ -59,9 +57,10 @@ export function LoginForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          autoComplete="current-password"
+          autoComplete="new-password"
+          minLength={6}
           className="mt-1.5 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          placeholder="••••••••"
+          placeholder="Min. 6 characters"
         />
       </div>
       {error && (
@@ -74,12 +73,12 @@ export function LoginForm() {
         disabled={loading || !email || !password}
         className="w-full"
       >
-        {loading ? 'Signing in…' : 'Sign in'}
+        {loading ? 'Creating account…' : 'Create account'}
       </Button>
       <p className="text-center text-sm text-zinc-500">
-        No account yet?{' '}
-        <Link href="/signup" className="text-indigo-600 hover:underline">
-          Create one
+        Already have an account?{' '}
+        <Link href="/login" className="text-indigo-600 hover:underline">
+          Sign in
         </Link>
       </p>
     </form>

@@ -1,79 +1,152 @@
 """
 Test configuration and fixtures.
 
-Provides:
-- Test database with automatic cleanup
-- Test FastAPI client
-- JWT mocking utilities
-- Test data fixtures
+Load order is critical:
+  1. python-dotenv reads .env.test into os.environ (override=True)
+  2. Only then do we import app modules — pydantic-settings picks up the
+     test DATABASE_URL and SUPABASE_URL instead of the local .env values.
 """
+# ---------------------------------------------------------------------------
+# Step 1: inject test env vars BEFORE any app module is imported
+# ---------------------------------------------------------------------------
+from pathlib import Path as _Path
+from dotenv import load_dotenv as _load_dotenv
+
+_load_dotenv(_Path(__file__).parent.parent / ".env.test", override=True)
+
+# ---------------------------------------------------------------------------
+# Step 2: standard library + third-party imports
+# ---------------------------------------------------------------------------
+import os
 import time
 import uuid
 from contextlib import contextmanager
 from typing import Generator
 
 import pytest
+from alembic import command as alembic_command
+from alembic.config import Config as AlembicConfig
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event, text
+from sqlalchemy.engine import URL, make_url
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
+# ---------------------------------------------------------------------------
+# Step 3: app imports — Settings is instantiated here via lru_cache
+# ---------------------------------------------------------------------------
 from app.core import dependencies
 from app.core.config import get_settings
-from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models import Team, UserProfile, Role, Exercise
+from app.models import Team, UserProfile, Role, Exercise, Membership, Invite
 
-# Use test database with explicit credentials
-TEST_DATABASE_URL = "postgresql+psycopg://app:app@db:5432/app_test"
+# ---------------------------------------------------------------------------
+# Database URL objects derived from the env vars set by .env.test
+# ---------------------------------------------------------------------------
+# Keep as string for alembic config; use URL object everywhere else.
+TEST_DATABASE_URL: str = os.environ["DATABASE_URL"]
 
-# Create test engine
-test_engine = create_engine(TEST_DATABASE_URL, pool_pre_ping=True)
+_test_url: URL = make_url(TEST_DATABASE_URL)
+
+# Admin URL: same host/credentials, different database (must already exist).
+# Defaults to "app" — the POSTGRES_DB created by Docker Compose.
+# Override via TEST_ADMIN_DB in .env.test if your setup differs.
+_ADMIN_DB: str = os.environ.get("TEST_ADMIN_DB", "app")
+_admin_url: URL = _test_url.set(database=_ADMIN_DB)
+
+# Absolute path to alembic.ini — robust regardless of pytest working directory.
+_BACKEND_DIR = _Path(__file__).parent.parent
+_ALEMBIC_INI = _BACKEND_DIR / "alembic.ini"
+
+# SQLAlchemy engine + session factory for tests
+test_engine = create_engine(_test_url, pool_pre_ping=True)
 TestSessionLocal = sessionmaker(bind=test_engine, autocommit=False, autoflush=False)
 
+
+def _check_db_reachable() -> None:
+    """
+    Verify the admin database is reachable before any fixture tries to use it.
+    Raises RuntimeError with an actionable message if the connection fails.
+    """
+    probe = create_engine(_admin_url, pool_pre_ping=True)
+    try:
+        with probe.connect():
+            pass
+    except OperationalError as exc:
+        safe_url = _admin_url.render_as_string(hide_password=True)
+        raise RuntimeError(
+            f"\nCannot connect to Postgres at: {safe_url}\n"
+            "\n"
+            "Make sure the Docker Compose database service is running:\n"
+            "  docker compose up -d db\n"
+            "\n"
+            "First time or after changing init scripts (resets all local data):\n"
+            "  docker compose down -v\n"
+            "  docker compose up -d db\n"
+            "\n"
+            "If another Postgres is already using port 5432, stop it first:\n"
+            "  brew services stop postgresql@16   # Homebrew (macOS)\n"
+            "  sudo service postgresql stop       # Linux\n"
+            f"\nOriginal error: {exc}"
+        ) from exc
+    finally:
+        probe.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Session-scoped fixtures
+# ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_database():
     """
-    Create test database if it doesn't exist and set up schema.
+    1. Verify Postgres is reachable (fail fast with a helpful message).
+    2. Create the test database if it does not yet exist (idempotent).
+    3. Apply all Alembic migrations to bring the schema to HEAD (idempotent).
 
-    Runs once per test session.
+    Runs once per pytest session. Schema reflects the real migration history,
+    not just the current ORM metadata snapshot.
     """
-    # Extract database name from URL
-    db_name = "app_test"
+    _check_db_reachable()
 
-    # Connect to default 'postgres' database to create test database
-    default_url = "postgresql+psycopg://app:app@db:5432/postgres"
-    default_engine = create_engine(default_url, isolation_level="AUTOCOMMIT")
+    # --- Ensure test database exists ---
+    db_name = _test_url.database
+    admin_engine = create_engine(_admin_url, isolation_level="AUTOCOMMIT", pool_pre_ping=True)
+    try:
+        with admin_engine.connect() as conn:
+            exists = conn.execute(
+                text("SELECT 1 FROM pg_database WHERE datname = :name"),
+                {"name": db_name},
+            ).fetchone()
+            if not exists:
+                conn.execute(text(f'CREATE DATABASE "{db_name}"'))
+    finally:
+        admin_engine.dispose()
 
-    with default_engine.connect() as conn:
-        # Check if test database exists
-        result = conn.execute(
-            text("SELECT 1 FROM pg_database WHERE datname = :db_name"),
-            {"db_name": db_name}
-        )
-        if not result.fetchone():
-            # Create test database
-            conn.execute(text(f"CREATE DATABASE {db_name}"))
-
-    default_engine.dispose()
-
-    # Create all tables in test database
-    Base.metadata.create_all(bind=test_engine)
+    # --- Apply Alembic migrations (idempotent: already at HEAD → no-op) ---
+    # env.py also sets sqlalchemy.url from get_settings(), which already holds
+    # the test DATABASE_URL because .env.test was loaded before any app import.
+    # The explicit set_main_option below makes the intent clear and decouples
+    # from the lru_cache behaviour.
+    alembic_cfg = AlembicConfig(str(_ALEMBIC_INI))
+    alembic_cfg.set_main_option("sqlalchemy.url", TEST_DATABASE_URL)
+    alembic_command.upgrade(alembic_cfg, "head")
 
     yield
 
-    # Teardown: Drop all tables (optional - comment out to inspect DB after tests)
-    # Base.metadata.drop_all(bind=test_engine)
     test_engine.dispose()
 
 
+# ---------------------------------------------------------------------------
+# Function-scoped fixtures
+# ---------------------------------------------------------------------------
+
 @pytest.fixture(scope="function")
 def db_session() -> Generator[Session, None, None]:
-    """
-    Provide a test database session with automatic rollback.
-
-    Each test gets a fresh transaction that is rolled back after the test.
+    """<
+    Provide a test database session wrapped in a transaction that is rolled
+    back after each test, keeping the database clean without truncating tables.
     """
     connection = test_engine.connect()
     transaction = connection.begin()
@@ -88,11 +161,7 @@ def db_session() -> Generator[Session, None, None]:
 
 @pytest.fixture(scope="function")
 def client(db_session: Session) -> Generator[TestClient, None, None]:
-    """
-    Provide a test client with overridden database dependency.
-
-    Uses the test database session instead of the production one.
-    """
+    """Test HTTP client with the database dependency overridden."""
     def override_get_db():
         yield db_session
 
@@ -107,13 +176,13 @@ def client(db_session: Session) -> Generator[TestClient, None, None]:
 @pytest.fixture
 def count_queries():
     """
-    Return a context manager that captures every SQL statement fired
+    Context-manager fixture that captures every SQL statement executed
     against test_engine while inside the block.
 
     Usage:
         with count_queries() as stmts:
             client.post(...)
-        exercise_selects = [s for s in stmts if "exercises" in s.lower()]
+        assert len([s for s in stmts if "exercises" in s.lower()]) == 1
     """
     @contextmanager
     def _capture():
@@ -134,12 +203,12 @@ def count_queries():
 @pytest.fixture
 def mock_jwt(monkeypatch):
     """
-    Monkeypatch verify_jwt_token used by dependencies.py
-    so requests can authenticate without calling Supabase.
+    Replace verify_jwt_token (as imported in dependencies.py) with a stub
+    that returns a valid-looking payload for the given Supabase user UUID.
 
-    Usage in tests:
+    Usage:
         mock_jwt(str(user.supabase_user_id))
-        resp = client.get("/v1/exercises", headers={"Authorization": "Bearer test-token"})
+        resp = client.get("/v1/me", headers={"Authorization": "Bearer test-token"})
     """
     settings = get_settings()
 
@@ -154,17 +223,17 @@ def mock_jwt(monkeypatch):
                 "exp": now + 3600,
             }
 
-        # Patch the symbol imported in dependencies.py, not the source module
         monkeypatch.setattr(dependencies, "verify_jwt_token", fake_verify)
 
     return _set_sub
 
 
+# ---------------------------------------------------------------------------
 # Test data fixtures
+# ---------------------------------------------------------------------------
 
 @pytest.fixture
 def team_a(db_session: Session) -> Team:
-    """Create test team A."""
     team = Team(id=uuid.uuid4(), name="Team Alpha")
     db_session.add(team)
     db_session.commit()
@@ -174,7 +243,6 @@ def team_a(db_session: Session) -> Team:
 
 @pytest.fixture
 def team_b(db_session: Session) -> Team:
-    """Create test team B."""
     team = Team(id=uuid.uuid4(), name="Team Beta")
     db_session.add(team)
     db_session.commit()
@@ -184,13 +252,12 @@ def team_b(db_session: Session) -> Team:
 
 @pytest.fixture
 def coach_a(db_session: Session, team_a: Team) -> UserProfile:
-    """Create a coach user for team A."""
     coach = UserProfile(
         id=uuid.uuid4(),
         supabase_user_id=uuid.uuid4(),
         team_id=team_a.id,
         role=Role.COACH,
-        name="Coach Alpha"
+        name="Coach Alpha",
     )
     db_session.add(coach)
     db_session.commit()
@@ -200,13 +267,12 @@ def coach_a(db_session: Session, team_a: Team) -> UserProfile:
 
 @pytest.fixture
 def athlete_a(db_session: Session, team_a: Team) -> UserProfile:
-    """Create an athlete user for team A."""
     athlete = UserProfile(
         id=uuid.uuid4(),
         supabase_user_id=uuid.uuid4(),
         team_id=team_a.id,
         role=Role.ATHLETE,
-        name="Athlete Alpha"
+        name="Athlete Alpha",
     )
     db_session.add(athlete)
     db_session.commit()
@@ -216,13 +282,12 @@ def athlete_a(db_session: Session, team_a: Team) -> UserProfile:
 
 @pytest.fixture
 def coach_b(db_session: Session, team_b: Team) -> UserProfile:
-    """Create a coach user for team B."""
     coach = UserProfile(
         id=uuid.uuid4(),
         supabase_user_id=uuid.uuid4(),
         team_id=team_b.id,
         role=Role.COACH,
-        name="Coach Beta"
+        name="Coach Beta",
     )
     db_session.add(coach)
     db_session.commit()
@@ -232,13 +297,12 @@ def coach_b(db_session: Session, team_b: Team) -> UserProfile:
 
 @pytest.fixture
 def exercise_team_a(db_session: Session, team_a: Team) -> Exercise:
-    """Create an exercise for team A."""
     exercise = Exercise(
         id=uuid.uuid4(),
         team_id=team_a.id,
         name="Squats",
         description="Basic squats",
-        tags="strength, legs"
+        tags="strength, legs",
     )
     db_session.add(exercise)
     db_session.commit()
@@ -247,12 +311,12 @@ def exercise_team_a(db_session: Session, team_a: Team) -> Exercise:
 
 
 # ---------------------------------------------------------------------------
-# Fixtures for POST /v1/workout-templates/from-ai tests
+# Fixtures for POST /v1/workout-templates/from-ai
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
 def onboarded_coach(db_session: Session) -> UserProfile:
-    """Create an onboarded coach with their own isolated team."""
+    """Coach with their own isolated team (used by from-ai tests)."""
     team = Team(id=uuid.uuid4(), name="From-AI Team")
     db_session.add(team)
     db_session.flush()
@@ -278,7 +342,7 @@ def onboarded_coach_jwt(onboarded_coach: UserProfile, mock_jwt) -> UserProfile:
 
 @pytest.fixture
 def coach_team_exercise_id(db_session: Session, onboarded_coach: UserProfile) -> uuid.UUID:
-    """Create one exercise in the onboarded coach's team; return its ID."""
+    """One exercise in the onboarded coach's team."""
     exercise = Exercise(
         id=uuid.uuid4(),
         team_id=onboarded_coach.team_id,
@@ -292,7 +356,7 @@ def coach_team_exercise_id(db_session: Session, onboarded_coach: UserProfile) ->
 
 @pytest.fixture
 def foreign_team_exercise_id(db_session: Session) -> uuid.UUID:
-    """Create one exercise on a completely different team; return its ID."""
+    """One exercise belonging to a completely different team."""
     other_team = Team(id=uuid.uuid4(), name="Foreign Team")
     db_session.add(other_team)
     db_session.flush()
@@ -305,3 +369,38 @@ def foreign_team_exercise_id(db_session: Session) -> uuid.UUID:
     db_session.add(exercise)
     db_session.commit()
     return exercise.id
+
+
+# ---------------------------------------------------------------------------
+# Sprint 5: membership + invite fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def membership_coach_a(db_session: Session, team_a: Team) -> Membership:
+    """COACH membership for a fresh user in team A."""
+    m = Membership(
+        id=uuid.uuid4(),
+        user_id=uuid.uuid4(),
+        team_id=team_a.id,
+        role=Role.COACH,
+    )
+    db_session.add(m)
+    db_session.commit()
+    db_session.refresh(m)
+    return m
+
+
+@pytest.fixture
+def invite_team_a(db_session: Session, team_a: Team, membership_coach_a: Membership) -> Invite:
+    """A valid, unused ATHLETE invite for team A."""
+    invite = Invite(
+        id=uuid.uuid4(),
+        team_id=team_a.id,
+        code="valid-test-invite-code-abc",
+        role=Role.ATHLETE,
+        created_by_user_id=membership_coach_a.user_id,
+    )
+    db_session.add(invite)
+    db_session.commit()
+    db_session.refresh(invite)
+    return invite

@@ -10,6 +10,22 @@ import {
 import { clearToken, setToken } from '@/app/_shared/auth/tokenStorage'
 
 // ---------------------------------------------------------------------------
+// Supabase mock — bridges tokenStorage ↔ getSession so existing test
+// semantics (setToken / clearToken) keep working with the supabase-based client.
+// ---------------------------------------------------------------------------
+
+vi.mock('@/app/_shared/auth/supabaseClient', () => ({
+  supabase: {
+    auth: {
+      getSession: vi.fn().mockImplementation(async () => {
+        const token = localStorage.getItem('auth_token')
+        return { data: { session: token ? { access_token: token } : null } }
+      }),
+    },
+  },
+}))
+
+// ---------------------------------------------------------------------------
 // Fetch mock
 // ---------------------------------------------------------------------------
 

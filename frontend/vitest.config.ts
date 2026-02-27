@@ -7,6 +7,11 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
+    env: {
+      NEXT_PUBLIC_SUPABASE_URL: 'http://localhost:54321',
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key-for-vitest',
+      NEXT_PUBLIC_API_BASE_URL: 'http://localhost:8000',
+    },
   },
   resolve: {
     alias: { '@': path.resolve(__dirname, '.') },

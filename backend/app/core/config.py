@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     # CORS — comma-separated list of allowed origins for non-local environments
     CORS_ALLOW_ORIGINS: list[str] = []
 
+    # Frontend base URL used to build invite join links
+    FRONTEND_URL: str = "http://localhost:3000"
+
     # Supabase JWT settings
     SUPABASE_URL: str
 
@@ -68,7 +71,7 @@ class Settings(BaseSettings):
         rejects a missing value at instantiation time before this is called.
         SUPABASE_JWKS_URL is auto-derived from SUPABASE_URL, so always present.
         """
-        if self.ENV == "local":
+        if self.ENV in ("local", "test"):
             return
 
         errors: list[str] = []

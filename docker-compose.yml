@@ -9,6 +9,9 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # Init scripts run ONCE on fresh volume creation (docker-entrypoint-initdb.d).
+      # To re-run: docker compose down -v && docker compose up -d db
+      - ./backend/docker/postgres-init:/docker-entrypoint-initdb.d
 
   backend:
     build: ./backend
@@ -32,7 +35,10 @@ services:
   frontend:
     build: ./frontend
     environment:
-      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+      # Inside Docker, "localhost" resolves to the container itself.
+      # Use the backend service name so Docker's DNS routes to the right container.
+      # When running `npm run dev` locally, frontend/.env.local overrides this with http://localhost:8000.
+      NEXT_PUBLIC_API_BASE_URL: http://backend:8000
     ports:
       - "3000:3000"
     depends_on:

@@ -1,0 +1,77 @@
+"""Domain use case: create a team and become its COACH."""
+import uuid
+from dataclasses import dataclass
+
+from app.models.user_profile import Role
+from app.persistence.repositories.membership_repository import AbstractMembershipRepository
+from app.persistence.repositories.team_repository import AbstractTeamRepository
+from app.persistence.repositories.user_profile_repository import AbstractUserProfileRepository
+
+
+class CoachAlreadyHasTeamError(Exception):
+    """Raised when a user already holds a COACH role (MVP: one team per coach)."""
+
+
+# ---------------------------------------------------------------------------
+# Command / Result DTOs
+# ---------------------------------------------------------------------------
+
+@dataclass
+class CreateTeamCommand:
+    supabase_user_id: uuid.UUID
+    team_name: str
+
+
+@dataclass
+class CreateTeamResult:
+    team_id: uuid.UUID
+    membership_id: uuid.UUID
+    role: Role
+
+
+# ---------------------------------------------------------------------------
+# Use case
+# ---------------------------------------------------------------------------
+
+class CreateTeamUseCase:
+
+    def __init__(
+        self,
+        team_repo: AbstractTeamRepository,
+        membership_repo: AbstractMembershipRepository,
+        user_profile_repo: AbstractUserProfileRepository,
+    ) -> None:
+        self._team_repo = team_repo
+        self._membership_repo = membership_repo
+        self._user_profile_repo = user_profile_repo
+
+    def execute(self, command: CreateTeamCommand) -> CreateTeamResult:
+        # MVP: one team per COACH.
+        if self._membership_repo.has_coach_membership(command.supabase_user_id):
+            raise CoachAlreadyHasTeamError(
+                "You already manage a team. A coach can only manage one team."
+            )
+
+        team = self._team_repo.create(command.team_name)
+        membership = self._membership_repo.create(
+            user_id=command.supabase_user_id,
+            team_id=team.id,
+            role=Role.COACH,
+        )
+
+        # Create UserProfile for backward compat with existing endpoints.
+        # Skip if the user already has one (e.g. from the old /v1/onboarding flow).
+        existing = self._user_profile_repo.get_by_supabase_user_id(command.supabase_user_id)
+        if existing is None:
+            self._user_profile_repo.create(
+                supabase_user_id=command.supabase_user_id,
+                team_id=team.id,
+                name="",
+                role=Role.COACH,
+            )
+
+        return CreateTeamResult(
+            team_id=team.id,
+            membership_id=membership.id,
+            role=Role.COACH,
+        )

@@ -6,7 +6,10 @@ Combines all v1 endpoints into a single router.
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import ai, exercises, workout_builder, workout_templates
+from app.transport.http.v1 import invites as invites_transport
+from app.transport.http.v1 import me as me_transport
 from app.transport.http.v1 import onboarding as onboarding_transport
+from app.transport.http.v1 import teams as teams_transport
 from app.transport.http.v1 import workout_assignments as workout_assignments_transport
 from app.transport.http.v1 import workout_execution as workout_execution_transport
 from app.transport.http.v1 import workout_sessions as workout_sessions_transport
@@ -25,8 +28,12 @@ api_router.include_router(workout_builder.router)
 api_router.include_router(ai.router)
 # transport layer — new clean-architecture endpoints under /workout-templates
 api_router.include_router(workout_templates_transport.router)
-# transport layer — onboarding
+# transport layer — onboarding (legacy, kept for backward compat)
 api_router.include_router(onboarding_transport.router)
+# transport layer — sprint 5: invite-based onboarding
+api_router.include_router(me_transport.router)
+api_router.include_router(teams_transport.router)
+api_router.include_router(invites_transport.router)
 # transport layer — workout assignments + sessions + execution logs
 api_router.include_router(workout_assignments_transport.router)
 api_router.include_router(workout_sessions_transport.router)

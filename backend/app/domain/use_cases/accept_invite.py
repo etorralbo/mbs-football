@@ -1,0 +1,110 @@
+"""Domain use case: accept an invite code and join a team as ATHLETE."""
+import uuid
+from dataclasses import dataclass
+from datetime import datetime, timezone
+
+from app.models.user_profile import Role
+from app.persistence.repositories.invite_repository import AbstractInviteRepository
+from app.persistence.repositories.membership_repository import AbstractMembershipRepository
+from app.persistence.repositories.user_profile_repository import AbstractUserProfileRepository
+
+
+class InviteNotFoundError(Exception):
+    """Raised when the invite code does not exist."""
+
+
+class InviteAlreadyUsedError(Exception):
+    """Raised when the invite has already been consumed."""
+
+
+class InviteExpiredError(Exception):
+    """Raised when the invite has passed its expiry date."""
+
+
+# ---------------------------------------------------------------------------
+# Command / Result DTOs
+# ---------------------------------------------------------------------------
+
+@dataclass
+class AcceptInviteCommand:
+    supabase_user_id: uuid.UUID
+    code: str
+
+
+@dataclass
+class AcceptInviteResult:
+    team_id: uuid.UUID
+    membership_id: uuid.UUID
+    role: Role
+
+
+# ---------------------------------------------------------------------------
+# Use case
+# ---------------------------------------------------------------------------
+
+class AcceptInviteUseCase:
+
+    def __init__(
+        self,
+        invite_repo: AbstractInviteRepository,
+        membership_repo: AbstractMembershipRepository,
+        user_profile_repo: AbstractUserProfileRepository,
+    ) -> None:
+        self._invite_repo = invite_repo
+        self._membership_repo = membership_repo
+        self._user_profile_repo = user_profile_repo
+
+    def execute(self, command: AcceptInviteCommand) -> AcceptInviteResult:
+        invite = self._invite_repo.get_by_code(command.code)
+        if invite is None:
+            raise InviteNotFoundError("Invite code not found.")
+
+        if invite.used_at is not None:
+            raise InviteAlreadyUsedError("This invite has already been used.")
+
+        if invite.expires_at is not None:
+            now = datetime.now(timezone.utc)
+            expires = invite.expires_at
+            # Normalise naive datetime stored by older DB drivers
+            if expires.tzinfo is None:
+                expires = expires.replace(tzinfo=timezone.utc)
+            if now > expires:
+                raise InviteExpiredError("This invite has expired.")
+
+        # Idempotent: if the membership already exists return it without error.
+        existing = self._membership_repo.get_by_user_and_team(
+            user_id=command.supabase_user_id,
+            team_id=invite.team_id,
+        )
+        if existing is not None:
+            self._invite_repo.mark_used(invite)
+            return AcceptInviteResult(
+                team_id=existing.team_id,
+                membership_id=existing.id,
+                role=existing.role,
+            )
+
+        membership = self._membership_repo.create(
+            user_id=command.supabase_user_id,
+            team_id=invite.team_id,
+            role=invite.role,
+        )
+        self._invite_repo.mark_used(invite)
+
+        # Create UserProfile for backward compat with existing endpoints.
+        existing_profile = self._user_profile_repo.get_by_supabase_user_id(
+            command.supabase_user_id
+        )
+        if existing_profile is None:
+            self._user_profile_repo.create(
+                supabase_user_id=command.supabase_user_id,
+                team_id=invite.team_id,
+                name="",
+                role=invite.role,
+            )
+
+        return AcceptInviteResult(
+            team_id=invite.team_id,
+            membership_id=membership.id,
+            role=invite.role,
+        )
