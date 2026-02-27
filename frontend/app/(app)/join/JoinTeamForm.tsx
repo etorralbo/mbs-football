@@ -10,6 +10,7 @@ import {
 } from '@/app/_shared/api/httpClient'
 import type { AcceptInviteResponse } from '@/app/_shared/api/types'
 import { Button } from '@/app/_shared/components/Button'
+import { getPostActionRedirect } from '@/src/features/activation/postActionRedirect'
 
 export function JoinTeamForm() {
   const router = useRouter()
@@ -37,7 +38,7 @@ export function JoinTeamForm() {
         method: 'POST',
         body: JSON.stringify({ code: trimmed }),
       })
-      router.replace('/templates')
+      router.replace(getPostActionRedirect('invite_accepted', 'ATHLETE') ?? '/templates')
     } catch (err) {
       if (err instanceof UnauthorizedError) {
         router.replace('/login')

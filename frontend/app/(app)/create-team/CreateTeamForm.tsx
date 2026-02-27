@@ -10,6 +10,7 @@ import {
 } from '@/app/_shared/api/httpClient'
 import type { CreateTeamResponse } from '@/app/_shared/api/types'
 import { Button } from '@/app/_shared/components/Button'
+import { getPostActionRedirect } from '@/src/features/activation/postActionRedirect'
 
 export function CreateTeamForm() {
   const [name, setName] = useState('')
@@ -30,7 +31,7 @@ export function CreateTeamForm() {
         method: 'POST',
         body: JSON.stringify({ name: trimmed }),
       })
-      router.replace('/templates')
+      router.replace(getPostActionRedirect('team_created', 'COACH') ?? '/templates')
     } catch (err) {
       if (err instanceof UnauthorizedError) {
         router.replace('/login')
