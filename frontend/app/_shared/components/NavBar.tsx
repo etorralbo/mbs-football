@@ -25,6 +25,9 @@ export function NavBar() {
       <NavLink href="/sessions" active={isActive('/sessions')}>
         Sessions
       </NavLink>
+      <NavLink href="/team" active={isActive('/team')}>
+        Team
+      </NavLink>
       <div className="ml-auto">
         <button
           onClick={handleSignOut}
