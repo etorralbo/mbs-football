@@ -119,6 +119,7 @@ export interface WorkoutSessionSummary {
   assignment_id: string
   athlete_id: string
   workout_template_id: string
+  template_title: string
   scheduled_for: string | null
   completed_at: string | null
 }
@@ -143,6 +144,7 @@ export interface WorkoutSessionDetail {
   id: string
   status: string  // "pending" | "completed"
   workout_template_id: string
+  template_title: string
   athlete_profile_id: string
   scheduled_for: string | null
   logs: SessionLog[]

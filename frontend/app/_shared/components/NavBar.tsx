@@ -18,12 +18,15 @@ export function NavBar() {
 
   return (
     <nav className="flex h-14 items-center gap-1 border-b border-zinc-200 bg-white px-6">
-      <span className="mr-4 text-sm font-semibold text-zinc-900">MBS Football</span>
+      <span className="mr-4 text-sm font-semibold text-zinc-900">Mettle Performance</span>
       <NavLink href="/templates" active={isActive('/templates')}>
         Templates
       </NavLink>
       <NavLink href="/sessions" active={isActive('/sessions')}>
         Sessions
+      </NavLink>
+      <NavLink href="/team" active={isActive('/team')}>
+        Team
       </NavLink>
       <div className="ml-auto">
         <button

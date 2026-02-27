@@ -30,6 +30,7 @@ class WorkoutSessionItem:
     workout_template_id: uuid.UUID
     scheduled_for: Optional[date]
     completed_at: Optional[datetime]
+    template_title: str
 
 
 @dataclass
@@ -61,6 +62,7 @@ class ListWorkoutSessionsUseCase:
                     workout_template_id=row.workout_template_id,
                     scheduled_for=row.scheduled_for,
                     completed_at=row.completed_at,
+                    template_title=row.template_title,
                 )
                 for row in rows
             ]

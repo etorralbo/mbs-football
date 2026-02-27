@@ -18,7 +18,8 @@ function formatDate(iso: string): string {
 }
 
 function sessionLabel(s: WorkoutSessionSummary): string {
-  return s.scheduled_for ? formatDate(s.scheduled_for) : `Session ${s.id.slice(0, 8)}…`
+  const date = s.scheduled_for ? ` · ${formatDate(s.scheduled_for)}` : ''
+  return `${s.template_title}${date}`
 }
 
 export default function SessionsPage() {
@@ -28,7 +29,7 @@ export default function SessionsPage() {
   const router = useRouter()
 
   useEffect(() => {
-    document.title = 'Sessions | MBS Football'
+    document.title = 'Sessions | Mettle Performance'
   }, [])
 
   useEffect(() => {

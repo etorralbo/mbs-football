@@ -260,6 +260,14 @@ def coach_a(db_session: Session, team_a: Team) -> UserProfile:
         name="Coach Alpha",
     )
     db_session.add(coach)
+    db_session.flush()
+    # Membership is the authoritative source for team_id/role in get_current_user.
+    db_session.add(Membership(
+        id=uuid.uuid4(),
+        user_id=coach.supabase_user_id,
+        team_id=team_a.id,
+        role=Role.COACH,
+    ))
     db_session.commit()
     db_session.refresh(coach)
     return coach
@@ -275,6 +283,13 @@ def athlete_a(db_session: Session, team_a: Team) -> UserProfile:
         name="Athlete Alpha",
     )
     db_session.add(athlete)
+    db_session.flush()
+    db_session.add(Membership(
+        id=uuid.uuid4(),
+        user_id=athlete.supabase_user_id,
+        team_id=team_a.id,
+        role=Role.ATHLETE,
+    ))
     db_session.commit()
     db_session.refresh(athlete)
     return athlete
@@ -290,6 +305,13 @@ def coach_b(db_session: Session, team_b: Team) -> UserProfile:
         name="Coach Beta",
     )
     db_session.add(coach)
+    db_session.flush()
+    db_session.add(Membership(
+        id=uuid.uuid4(),
+        user_id=coach.supabase_user_id,
+        team_id=team_b.id,
+        role=Role.COACH,
+    ))
     db_session.commit()
     db_session.refresh(coach)
     return coach
@@ -328,6 +350,14 @@ def onboarded_coach(db_session: Session) -> UserProfile:
         name="From-AI Coach",
     )
     db_session.add(coach)
+    db_session.flush()
+    # Membership is the authoritative source for team_id/role in get_current_user.
+    db_session.add(Membership(
+        id=uuid.uuid4(),
+        user_id=coach.supabase_user_id,
+        team_id=team.id,
+        role=Role.COACH,
+    ))
     db_session.commit()
     db_session.refresh(coach)
     return coach

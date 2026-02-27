@@ -90,13 +90,13 @@ export default function SessionDetailPage() {
           Sessions
         </Link>
         <span className="text-zinc-300">/</span>
-        <span className="text-sm text-zinc-900">Session</span>
+        <span className="text-sm text-zinc-900">{session.template_title}</span>
       </div>
 
       {/* Header */}
       <div className="mt-4 flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-zinc-900">Session</h1>
+          <h1 className="text-xl font-semibold text-zinc-900">{session.template_title}</h1>
           <div className="mt-2 flex items-center gap-3">
             <Badge variant={isCompleted ? 'completed' : 'pending'}>
               {isCompleted ? 'Completed' : 'Pending'}

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { request } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
 import { SkeletonList } from '@/app/_shared/components/Skeleton'
+import { AssignPanel } from './AssignPanel'
 import type { WorkoutTemplateDetail } from '@/app/_shared/api/types'
 
 export default function TemplateDetailPage() {
@@ -55,6 +56,8 @@ export default function TemplateDetailPage() {
       {template.description && (
         <p className="mt-1 text-sm text-zinc-500">{template.description}</p>
       )}
+
+      <AssignPanel templateId={id} />
 
       <div className="mt-8 space-y-4">
         {template.blocks.map((block) => (
