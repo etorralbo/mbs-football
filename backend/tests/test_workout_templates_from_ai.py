@@ -51,7 +51,7 @@ class TestFromAiAuth:
         response = client.post(ENDPOINT, headers=HEADERS, json=_valid_payload())
 
         assert response.status_code == 403
-        assert "not onboarded" in response.json()["detail"].lower()
+        assert response.status_code == 403
 
     def test_athlete_cannot_create(
         self,

@@ -22,7 +22,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models import Role, Team, UserProfile, WorkoutTemplate
+from app.models import Membership, Role, Team, UserProfile, WorkoutTemplate
 from app.persistence.repositories.workout_session_repository import (
     SqlAlchemyWorkoutSessionRepository,
 )
@@ -55,6 +55,13 @@ def athlete_b(db_session: Session, team_b: Team) -> UserProfile:
         name="Athlete Beta",
     )
     db_session.add(athlete)
+    db_session.flush()
+    db_session.add(Membership(
+        id=uuid.uuid4(),
+        user_id=athlete.supabase_user_id,
+        team_id=team_b.id,
+        role=Role.ATHLETE,
+    ))
     db_session.commit()
     db_session.refresh(athlete)
     return athlete

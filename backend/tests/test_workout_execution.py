@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.models import (
     BlockExercise,
     Exercise,
+    Membership,
     Role,
     Team,
     UserProfile,
@@ -54,6 +55,13 @@ def athlete_b(db_session: Session, team_b: Team) -> UserProfile:
         name="Athlete Beta",
     )
     db_session.add(athlete)
+    db_session.flush()
+    db_session.add(Membership(
+        id=uuid.uuid4(),
+        user_id=athlete.supabase_user_id,
+        team_id=team_b.id,
+        role=Role.ATHLETE,
+    ))
     db_session.commit()
     db_session.refresh(athlete)
     return athlete
@@ -70,6 +78,13 @@ def athlete_a2(db_session: Session, team_a: Team) -> UserProfile:
         name="Athlete Alpha 2",
     )
     db_session.add(athlete)
+    db_session.flush()
+    db_session.add(Membership(
+        id=uuid.uuid4(),
+        user_id=athlete.supabase_user_id,
+        team_id=team_a.id,
+        role=Role.ATHLETE,
+    ))
     db_session.commit()
     db_session.refresh(athlete)
     return athlete

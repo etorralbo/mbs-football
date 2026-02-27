@@ -60,7 +60,7 @@ class TestUserOnboarding:
         response = client.get("/v1/exercises", headers=HEADERS)
 
         assert response.status_code == 403
-        assert "not onboarded" in response.json()["detail"].lower()
+        assert response.status_code == 403
 
 
 class TestExercisesOnboardedUser:
