@@ -43,6 +43,7 @@ class WorkoutSessionOut(BaseModel):
     workout_template_id: uuid.UUID
     scheduled_for: Optional[date]
     completed_at: Optional[datetime]
+    template_title: str
 
 
 # ---------------------------------------------------------------------------
@@ -91,6 +92,7 @@ def _to_out(item: WorkoutSessionItem) -> WorkoutSessionOut:
         workout_template_id=item.workout_template_id,
         scheduled_for=item.scheduled_for,
         completed_at=item.completed_at,
+        template_title=item.template_title,
     )
 
 

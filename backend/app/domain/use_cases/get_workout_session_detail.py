@@ -55,6 +55,7 @@ class WorkoutSessionDetailResult:
     id: uuid.UUID
     status: str                          # "pending" | "completed"
     workout_template_id: uuid.UUID       # denormalized from session
+    template_title: str                  # human-readable workout name
     athlete_profile_id: uuid.UUID        # the athlete who owns the session
     scheduled_for: Optional[date]        # nullable; set when assignment has a date
     logs: list[SessionLogItem] = field(default_factory=list)
@@ -112,11 +113,15 @@ class GetWorkoutSessionDetailUseCase:
         # 2. Logs with their entries
         logs = self._log_repo.list_by_session(session.id)
 
-        # 3. Build result — workout_template_id and scheduled_for are on the session row
+        # 3. Fetch template title for display
+        template_title = self._session_repo.get_template_title(session.workout_template_id)
+
+        # 4. Build result — workout_template_id and scheduled_for are on the session row
         return WorkoutSessionDetailResult(
             id=session.id,
             status="completed" if session.completed_at is not None else "pending",
             workout_template_id=session.workout_template_id,
+            template_title=template_title,
             athlete_profile_id=session.athlete_id,
             scheduled_for=session.scheduled_for,
             logs=[

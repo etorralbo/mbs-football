@@ -1,6 +1,7 @@
 """Abstract and concrete SQLAlchemy repository for WorkoutSession."""
 import uuid
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from typing import Optional
 
@@ -9,6 +10,20 @@ from sqlalchemy.orm import Session
 
 from app.models.user_profile import UserProfile
 from app.models.workout_session import WorkoutSession
+from app.models.workout_template import WorkoutTemplate
+
+
+@dataclass
+class WorkoutSessionRow:
+    """Lightweight DTO: session fields + template title (fetched via JOIN)."""
+
+    id: uuid.UUID
+    assignment_id: uuid.UUID
+    athlete_id: uuid.UUID
+    workout_template_id: uuid.UUID
+    scheduled_for: Optional[date]
+    completed_at: Optional[datetime]
+    template_title: str
 
 
 class AbstractWorkoutSessionRepository(ABC):
@@ -29,7 +44,7 @@ class AbstractWorkoutSessionRepository(ABC):
         ...
 
     @abstractmethod
-    def list_by_team(self, team_id: uuid.UUID) -> list[WorkoutSession]:
+    def list_by_team(self, team_id: uuid.UUID) -> list[WorkoutSessionRow]:
         """Return all sessions whose athlete belongs to the given team."""
         ...
 
@@ -38,7 +53,7 @@ class AbstractWorkoutSessionRepository(ABC):
         self,
         athlete_id: uuid.UUID,
         team_id: uuid.UUID,
-    ) -> list[WorkoutSession]:
+    ) -> list[WorkoutSessionRow]:
         """Return all sessions assigned to *athlete_id* that also belong to *team_id*.
 
         Both conditions are required so that a valid athlete_id from a different
@@ -62,6 +77,11 @@ class AbstractWorkoutSessionRepository(ABC):
         athlete_id: uuid.UUID,
     ) -> Optional[WorkoutSession]:
         """Return the session only if it is assigned to the given athlete, else None."""
+        ...
+
+    @abstractmethod
+    def get_template_title(self, template_id: uuid.UUID) -> str:
+        """Return the title of the WorkoutTemplate with the given id."""
         ...
 
     @abstractmethod
@@ -98,28 +118,52 @@ class SqlAlchemyWorkoutSessionRepository(AbstractWorkoutSessionRepository):
             self._db.refresh(s)
         return sessions
 
-    def list_by_team(self, team_id: uuid.UUID) -> list[WorkoutSession]:
+    def list_by_team(self, team_id: uuid.UUID) -> list[WorkoutSessionRow]:
         stmt = (
-            select(WorkoutSession)
+            select(WorkoutSession, WorkoutTemplate.title)
             .join(UserProfile, WorkoutSession.athlete_id == UserProfile.id)
+            .join(WorkoutTemplate, WorkoutSession.workout_template_id == WorkoutTemplate.id)
             .where(UserProfile.team_id == team_id)
         )
-        return list(self._db.execute(stmt).scalars())
+        return [
+            WorkoutSessionRow(
+                id=row.WorkoutSession.id,
+                assignment_id=row.WorkoutSession.assignment_id,
+                athlete_id=row.WorkoutSession.athlete_id,
+                workout_template_id=row.WorkoutSession.workout_template_id,
+                scheduled_for=row.WorkoutSession.scheduled_for,
+                completed_at=row.WorkoutSession.completed_at,
+                template_title=row.title,
+            )
+            for row in self._db.execute(stmt)
+        ]
 
     def list_by_athlete(
         self,
         athlete_id: uuid.UUID,
         team_id: uuid.UUID,
-    ) -> list[WorkoutSession]:
+    ) -> list[WorkoutSessionRow]:
         stmt = (
-            select(WorkoutSession)
+            select(WorkoutSession, WorkoutTemplate.title)
             .join(UserProfile, WorkoutSession.athlete_id == UserProfile.id)
+            .join(WorkoutTemplate, WorkoutSession.workout_template_id == WorkoutTemplate.id)
             .where(
                 WorkoutSession.athlete_id == athlete_id,
                 UserProfile.team_id == team_id,
             )
         )
-        return list(self._db.execute(stmt).scalars())
+        return [
+            WorkoutSessionRow(
+                id=row.WorkoutSession.id,
+                assignment_id=row.WorkoutSession.assignment_id,
+                athlete_id=row.WorkoutSession.athlete_id,
+                workout_template_id=row.WorkoutSession.workout_template_id,
+                scheduled_for=row.WorkoutSession.scheduled_for,
+                completed_at=row.WorkoutSession.completed_at,
+                template_title=row.title,
+            )
+            for row in self._db.execute(stmt)
+        ]
 
     def get_by_id_and_team(
         self,
@@ -146,6 +190,10 @@ class SqlAlchemyWorkoutSessionRepository(AbstractWorkoutSessionRepository):
             WorkoutSession.athlete_id == athlete_id,
         )
         return self._db.execute(stmt).scalar_one_or_none()
+
+    def get_template_title(self, template_id: uuid.UUID) -> str:
+        stmt = select(WorkoutTemplate.title).where(WorkoutTemplate.id == template_id)
+        return self._db.execute(stmt).scalar_one_or_none() or ""
 
     def mark_complete(self, session: WorkoutSession) -> None:
         session.completed_at = datetime.now(tz=timezone.utc)

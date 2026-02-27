@@ -92,6 +92,7 @@ class SessionDetailOut(BaseModel):
     id: uuid.UUID
     status: str
     workout_template_id: uuid.UUID
+    template_title: str
     athlete_profile_id: uuid.UUID
     scheduled_for: Optional[date]
     logs: list[SessionLogOut]
@@ -178,6 +179,7 @@ def _detail_to_out(result: WorkoutSessionDetailResult) -> SessionDetailOut:
         id=result.id,
         status=result.status,
         workout_template_id=result.workout_template_id,
+        template_title=result.template_title,
         athlete_profile_id=result.athlete_profile_id,
         scheduled_for=result.scheduled_for,
         logs=[_log_to_out(log) for log in result.logs],
