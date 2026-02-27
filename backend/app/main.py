@@ -56,20 +56,28 @@ def _configure_cors(app: FastAPI, settings: Settings) -> None:
         origins = _parse_origins(settings.CORS_ALLOW_ORIGINS)
         origin_regex = settings.CORS_ALLOW_ORIGIN_REGEX or None
 
-    if not origins and not origin_regex:
-        return
-
-    _startup_logger.info(
-        "CORS configured — "
+    # Always log raw values so Render logs show what was read from env vars.
+    # WARNING level to guarantee visibility regardless of uvicorn log-level setting.
+    _startup_logger.warning(
+        "CORS startup — "
         "ENV=%r  "
         "CORS_ALLOW_ORIGINS(raw)=%r  "
         "origins(parsed)=%r  "
-        "origin_regex=%r",
+        "CORS_ALLOW_ORIGIN_REGEX(raw)=%r  "
+        "origin_regex(effective)=%r",
         settings.ENV,
         settings.CORS_ALLOW_ORIGINS,
         origins,
+        settings.CORS_ALLOW_ORIGIN_REGEX,
         origin_regex,
     )
+
+    if not origins and not origin_regex:
+        _startup_logger.warning(
+            "CORS middleware NOT installed — both CORS_ALLOW_ORIGINS and "
+            "CORS_ALLOW_ORIGIN_REGEX are empty. All cross-origin requests will fail."
+        )
+        return
 
     app.add_middleware(
         CORSMiddleware,
