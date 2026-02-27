@@ -54,7 +54,7 @@ describe('useActivationState', () => {
     mockRequest.mockReset()
   })
 
-  it('starts with isLoading: true before any fetch resolves', () => {
+it('starts with isLoading: true before any fetch resolves', () => {
     mockRequest.mockReturnValue(new Promise(() => {})) // never resolves
 
     const { result } = renderHook(() => useActivationState())
@@ -88,6 +88,26 @@ describe('useActivationState', () => {
     expect(result.current.error).toBeNull()
     expect(result.current.role).toBe('ATHLETE')
     expect(result.current.nextAction?.key).toBe('view_session')
+  })
+
+  it('degrades templates/sessions to [] and still resolves when they time out', async () => {
+    // withTimeout rejects slow fetches — simulate that outcome directly.
+    // Testing the rejection-handling path is what matters; the timer
+    // mechanism of withTimeout is an implementation detail.
+    mockRequest.mockImplementation((path: string) => {
+      if (path === '/v1/me') return Promise.resolve(makeMeCoach())
+      return Promise.reject(new Error('Timeout after 2000ms'))
+    })
+
+    const { result } = renderHook(() => useActivationState())
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    // Timeout is a soft failure — no hard error surfaced.
+    expect(result.current.error).toBeNull()
+    expect(result.current.role).toBe('COACH')
+    // templates=[] → first incomplete step is create_template (membership done)
+    expect(result.current.nextAction?.key).toBe('create_template')
   })
 
   it('surfaces the error and clears steps when /v1/me fails', async () => {

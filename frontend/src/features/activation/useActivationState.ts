@@ -14,6 +14,21 @@ export type ActivationState = {
   nextAction: ActivationStep | null
 }
 
+const SECONDARY_TIMEOUT_MS = 2000
+
+/**
+ * Races `promise` against a timeout. On timeout the promise rejects, which
+ * callers should handle as a graceful fallback (not a hard error).
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms),
+    ),
+  ])
+}
+
 export function useActivationState(): ActivationState {
   const [state, setState] = useState<ActivationState>({
     isLoading: true,
@@ -27,11 +42,13 @@ export function useActivationState(): ActivationState {
     let cancelled = false
 
     async function load() {
-      // All three fetches fire in parallel; templates/sessions degrade gracefully.
+      // /v1/me is load-critical — no timeout.
+      // templates / sessions get a soft 2s cap: a timeout rejection is treated
+      // the same as a network failure and degrades to [].
       const [meResult, templatesResult, sessionsResult] = await Promise.allSettled([
         request<MeResponse>('/v1/me'),
-        request<WorkoutTemplate[]>('/v1/workout-templates'),
-        request<WorkoutSessionSummary[]>('/v1/workout-sessions'),
+        withTimeout(request<WorkoutTemplate[]>('/v1/workout-templates'), SECONDARY_TIMEOUT_MS),
+        withTimeout(request<WorkoutSessionSummary[]>('/v1/workout-sessions'), SECONDARY_TIMEOUT_MS),
       ])
 
       if (cancelled) return
