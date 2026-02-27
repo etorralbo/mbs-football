@@ -16,8 +16,10 @@ import uuid
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.domain.events.models import FunnelEvent, ProductEvent
 from app.models import (
     BlockExercise,
     Exercise,
@@ -658,3 +660,61 @@ class TestSessionComplete:
 
         assert client.patch(url, headers=HEADERS).status_code == 204
         assert client.patch(url, headers=HEADERS).status_code == 204
+
+
+# ===========================================================================
+# 4) SESSION_COMPLETED product event tracking
+# ===========================================================================
+
+
+class TestSessionCompletedEvent:
+    """Completing a session must write exactly one SESSION_COMPLETED product event."""
+
+    def test_completing_session_tracks_one_event(
+        self,
+        client: TestClient,
+        mock_jwt,
+        athlete_a: UserProfile,
+        session_a: WorkoutSession,
+        db_session: Session,
+    ):
+        """First completion → exactly one SESSION_COMPLETED row."""
+        mock_jwt(str(athlete_a.supabase_user_id))
+        response = client.patch(_complete_url(session_a.id), headers=HEADERS)
+        assert response.status_code == 204
+
+        events = db_session.execute(
+            select(ProductEvent).where(
+                ProductEvent.event_name == FunnelEvent.SESSION_COMPLETED,
+                ProductEvent.user_id == athlete_a.supabase_user_id,
+            )
+        ).scalars().all()
+
+        assert len(events) == 1
+        assert events[0].team_id == athlete_a.team_id
+        assert events[0].role == "ATHLETE"
+        assert events[0].event_metadata == {"session_id": str(session_a.id)}
+
+    def test_completing_session_twice_tracks_one_event(
+        self,
+        client: TestClient,
+        mock_jwt,
+        athlete_a: UserProfile,
+        session_a: WorkoutSession,
+        db_session: Session,
+    ):
+        """Second completion is a no-op — event count stays at 1."""
+        mock_jwt(str(athlete_a.supabase_user_id))
+        url = _complete_url(session_a.id)
+
+        client.patch(url, headers=HEADERS)
+        client.patch(url, headers=HEADERS)
+
+        events = db_session.execute(
+            select(ProductEvent).where(
+                ProductEvent.event_name == FunnelEvent.SESSION_COMPLETED,
+                ProductEvent.user_id == athlete_a.supabase_user_id,
+            )
+        ).scalars().all()
+
+        assert len(events) == 1
