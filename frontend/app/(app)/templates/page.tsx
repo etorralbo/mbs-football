@@ -8,6 +8,7 @@ import { handleApiError } from '@/app/_shared/api/handleApiError'
 import { Button } from '@/app/_shared/components/Button'
 import { SkeletonList } from '@/app/_shared/components/Skeleton'
 import { AiDraftPanel } from './AiDraftPanel'
+import { ActivationBanner } from '@/src/features/activation/components/ActivationBanner'
 import type { WorkoutTemplate } from '@/app/_shared/api/types'
 
 export default function TemplatesPage() {
@@ -50,6 +51,10 @@ export default function TemplatesPage() {
       </div>
 
       {showAiPanel && <AiDraftPanel />}
+
+      <div className="mt-4">
+        <ActivationBanner />
+      </div>
 
       {loading && (
         <div className="mt-6">

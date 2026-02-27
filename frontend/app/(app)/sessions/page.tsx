@@ -7,6 +7,7 @@ import { request } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
 import { Badge } from '@/app/_shared/components/Badge'
 import { SkeletonList } from '@/app/_shared/components/Skeleton'
+import { ActivationBanner } from '@/src/features/activation/components/ActivationBanner'
 import type { WorkoutSessionSummary } from '@/app/_shared/api/types'
 
 function formatDate(iso: string): string {
@@ -48,6 +49,10 @@ export default function SessionsPage() {
   return (
     <>
       <h1 className="text-xl font-semibold text-zinc-900">Workout Sessions</h1>
+
+      <div className="mt-4">
+        <ActivationBanner />
+      </div>
 
       {loading && (
         <div className="mt-6">

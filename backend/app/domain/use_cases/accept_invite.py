@@ -3,6 +3,8 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
+from app.domain.events.models import FunnelEvent
+from app.domain.events.service import AuthContext, ProductEventService
 from app.models.user_profile import Role
 from app.persistence.repositories.invite_repository import AbstractInviteRepository
 from app.persistence.repositories.membership_repository import AbstractMembershipRepository
@@ -49,10 +51,12 @@ class AcceptInviteUseCase:
         invite_repo: AbstractInviteRepository,
         membership_repo: AbstractMembershipRepository,
         user_profile_repo: AbstractUserProfileRepository,
+        event_service: ProductEventService,
     ) -> None:
         self._invite_repo = invite_repo
         self._membership_repo = membership_repo
         self._user_profile_repo = user_profile_repo
+        self._event_service = event_service
 
     def execute(self, command: AcceptInviteCommand) -> AcceptInviteResult:
         invite = self._invite_repo.get_by_code(command.code)
@@ -72,6 +76,7 @@ class AcceptInviteUseCase:
                 raise InviteExpiredError("This invite has expired.")
 
         # Idempotent: if the membership already exists return it without error.
+        # No event is tracked on the idempotent path — the join already happened.
         existing = self._membership_repo.get_by_user_and_team(
             user_id=command.supabase_user_id,
             team_id=invite.team_id,
@@ -102,6 +107,20 @@ class AcceptInviteUseCase:
                 name="",
                 role=invite.role,
             )
+
+        # Funnel event — post-validation, post-write, same transaction.
+        # invite.team_id must always be set by this point; assert to catch regressions.
+        assert invite.team_id is not None, "invite.team_id must be set before tracking INVITE_ACCEPTED"
+        self._event_service.track(
+            event=FunnelEvent.INVITE_ACCEPTED,
+            actor=AuthContext(
+                user_id=command.supabase_user_id,
+                role=invite.role.value,
+                team_id=invite.team_id,
+            ),
+            team_id=invite.team_id,
+            metadata={"invite_id": str(invite.id)},
+        )
 
         return AcceptInviteResult(
             team_id=invite.team_id,

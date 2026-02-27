@@ -2,6 +2,8 @@
 import uuid
 from dataclasses import dataclass
 
+from app.domain.events.models import FunnelEvent
+from app.domain.events.service import AuthContext, ProductEventService
 from app.models.user_profile import Role
 from app.persistence.repositories.membership_repository import AbstractMembershipRepository
 from app.persistence.repositories.team_repository import AbstractTeamRepository
@@ -40,10 +42,12 @@ class CreateTeamUseCase:
         team_repo: AbstractTeamRepository,
         membership_repo: AbstractMembershipRepository,
         user_profile_repo: AbstractUserProfileRepository,
+        event_service: ProductEventService,
     ) -> None:
         self._team_repo = team_repo
         self._membership_repo = membership_repo
         self._user_profile_repo = user_profile_repo
+        self._event_service = event_service
 
     def execute(self, command: CreateTeamCommand) -> CreateTeamResult:
         # MVP: one team per COACH.
@@ -69,6 +73,20 @@ class CreateTeamUseCase:
                 name="",
                 role=Role.COACH,
             )
+
+        # Funnel event — post-write, same transaction as the team/membership rows.
+        # team.id must always be available at this point; assert to catch regressions.
+        assert team.id is not None, "team.id must be set before tracking TEAM_CREATED"
+        self._event_service.track(
+            event=FunnelEvent.TEAM_CREATED,
+            actor=AuthContext(
+                user_id=command.supabase_user_id,
+                role=Role.COACH.value,
+                team_id=None,
+            ),
+            team_id=team.id,
+            metadata={"source": "ui"},
+        )
 
         return CreateTeamResult(
             team_id=team.id,
