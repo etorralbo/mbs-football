@@ -44,6 +44,7 @@ describe('SessionsPage', () => {
         assignment_id: 'a1',
         athlete_id: 'p1',
         workout_template_id: 'wt1',
+        template_title: 'Sprint Workout',
         scheduled_for: '2026-02-25',
         completed_at: null,
       },
@@ -52,6 +53,7 @@ describe('SessionsPage', () => {
         assignment_id: 'a2',
         athlete_id: 'p1',
         workout_template_id: 'wt2',
+        template_title: 'Strength Day',
         scheduled_for: null,
         completed_at: '2026-02-20T10:00:00Z',
       },
@@ -59,11 +61,11 @@ describe('SessionsPage', () => {
 
     render(<SessionsPage />)
 
-    // First session has a date — shown as formatted date
-    expect(await screen.findByText('Feb 25, 2026')).toBeInTheDocument()
+    // First session: template title + formatted scheduled date
+    expect(await screen.findByText('Sprint Workout · Feb 25, 2026')).toBeInTheDocument()
 
-    // Second session has no date — shown as UUID fallback
-    expect(screen.getByText('Session bbbbbbbb…')).toBeInTheDocument()
+    // Second session: template title only (no scheduled date)
+    expect(screen.getByText('Strength Day')).toBeInTheDocument()
     expect(screen.getAllByText('Completed')[0]).toBeInTheDocument()
   })
 

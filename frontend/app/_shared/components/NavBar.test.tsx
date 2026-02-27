@@ -39,6 +39,13 @@ describe('NavBar', () => {
     expect(link).toHaveAttribute('href', '/sessions')
   })
 
+  it('renders the Team link', () => {
+    render(<NavBar />)
+    const link = screen.getByRole('link', { name: /^team$/i })
+    expect(link).toBeInTheDocument()
+    expect(link).toHaveAttribute('href', '/team')
+  })
+
   it('renders the Sign out button', () => {
     render(<NavBar />)
     expect(screen.getByRole('button', { name: /sign out/i })).toBeInTheDocument()
