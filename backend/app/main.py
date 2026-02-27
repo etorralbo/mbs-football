@@ -1,3 +1,6 @@
+import json as _json
+import logging
+
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -7,6 +10,30 @@ from app.api.v1.router import api_router
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.middleware.logging import RequestLoggingMiddleware
+
+_startup_logger = logging.getLogger("app.startup")
+
+
+def _parse_origins(raw: str) -> list[str]:
+    """Parse CORS origins from a CSV or JSON array string.
+
+    Accepts:
+      - CSV:        "https://a.com,https://b.com"
+      - JSON array: '["https://a.com","https://b.com"]'
+      - Empty:      "" → []
+    """
+    raw = raw.strip()
+    if not raw:
+        return []
+    if raw.startswith("["):
+        try:
+            parsed = _json.loads(raw)
+            if isinstance(parsed, list):
+                return [str(o).strip() for o in parsed if str(o).strip()]
+        except _json.JSONDecodeError:
+            pass
+    return [o.strip() for o in raw.split(",") if o.strip()]
+
 
 _LOCAL_ORIGINS = [
     "http://localhost:3000",
@@ -18,23 +45,47 @@ def _configure_cors(app: FastAPI, settings: Settings) -> None:
     """Attach CORSMiddleware with environment-appropriate origins.
 
     - ENV == "local"  → allow the two standard localhost dev origins
-    - otherwise       → read comma-separated origins from CORS_ALLOW_ORIGINS
-                        (empty list = CORS middleware is not added at all)
+    - otherwise       → exact origins from CORS_ALLOW_ORIGINS and/or a regex
+                        pattern from CORS_ALLOW_ORIGIN_REGEX (for dynamic
+                        origins such as Vercel preview URLs)
     """
     if settings.ENV == "local":
         origins = _LOCAL_ORIGINS
+        origin_regex = None
     else:
-        origins = settings.CORS_ALLOW_ORIGINS
+        origins = _parse_origins(settings.CORS_ALLOW_ORIGINS)
+        origin_regex = settings.CORS_ALLOW_ORIGIN_REGEX or None
 
-    if not origins:
+    # Always log raw values so Render logs show what was read from env vars.
+    # WARNING level to guarantee visibility regardless of uvicorn log-level setting.
+    _startup_logger.warning(
+        "CORS startup — "
+        "ENV=%r  "
+        "CORS_ALLOW_ORIGINS(raw)=%r  "
+        "origins(parsed)=%r  "
+        "CORS_ALLOW_ORIGIN_REGEX(raw)=%r  "
+        "origin_regex(effective)=%r",
+        settings.ENV,
+        settings.CORS_ALLOW_ORIGINS,
+        origins,
+        settings.CORS_ALLOW_ORIGIN_REGEX,
+        origin_regex,
+    )
+
+    if not origins and not origin_regex:
+        _startup_logger.warning(
+            "CORS middleware NOT installed — both CORS_ALLOW_ORIGINS and "
+            "CORS_ALLOW_ORIGIN_REGEX are empty. All cross-origin requests will fail."
+        )
         return
 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
+        allow_origin_regex=origin_regex,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type"],
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
 
