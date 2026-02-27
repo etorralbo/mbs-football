@@ -1,5 +1,4 @@
 from functools import lru_cache
-from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,11 +8,13 @@ class Settings(BaseSettings):
     ENV: str = "local"
     DATABASE_URL: str
 
-    # CORS — comma-separated list of allowed origins for non-local environments
-    CORS_ALLOW_ORIGINS: list[str] = []
+    # CORS — comma-separated origins (CSV) or JSON array string.
+    # Kept as str so pydantic-settings v2 does not attempt json.loads() on it;
+    # parsing to list[str] happens in _configure_cors (app/main.py).
+    CORS_ALLOW_ORIGINS: str = ""
 
     # Regex matching dynamic origins (e.g. Vercel preview URLs).
-    # Example: https://.*\.vercel\.app
+    # Example: ^https://.*\.vercel\.app$
     # Used alongside CORS_ALLOW_ORIGINS; at least one must be set in non-local envs.
     CORS_ALLOW_ORIGIN_REGEX: str = ""
 
@@ -34,14 +35,6 @@ class Settings(BaseSettings):
     SUPABASE_JWT_AUD: str = "authenticated"
     SUPABASE_JWT_ISSUER: str = ""  # Will be derived from SUPABASE_URL if not set
     SUPABASE_JWKS_URL: str = ""  # Will be derived from SUPABASE_URL if not set
-
-    @field_validator("CORS_ALLOW_ORIGINS", mode="before")
-    @classmethod
-    def _parse_cors_origins(cls, v: object) -> list[str]:
-        """Accept both a JSON array and a plain comma-separated string."""
-        if isinstance(v, str):
-            return [o.strip() for o in v.split(",") if o.strip()]
-        return v  # type: ignore[return-value]
 
     model_config = SettingsConfigDict(
         env_file=".env",
