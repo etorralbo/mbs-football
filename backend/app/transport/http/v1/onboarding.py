@@ -18,6 +18,7 @@ from app.domain.use_cases.onboard_user import (
     OnboardUserCommand,
     OnboardUserUseCase,
 )
+from app.persistence.repositories.membership_repository import SqlAlchemyMembershipRepository
 from app.persistence.repositories.team_repository import SqlAlchemyTeamRepository
 from app.persistence.repositories.user_profile_repository import (
     SqlAlchemyUserProfileRepository,
@@ -53,6 +54,7 @@ def _build_use_case(db: Session) -> OnboardUserUseCase:
     return OnboardUserUseCase(
         team_repo=SqlAlchemyTeamRepository(db),
         user_profile_repo=SqlAlchemyUserProfileRepository(db),
+        membership_repo=SqlAlchemyMembershipRepository(db),
     )
 
 

@@ -10,13 +10,14 @@ import uuid
 from dataclasses import dataclass
 from typing import Annotated, Callable
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.security import verify_jwt_token
 from app.db.session import get_db
+from app.models.membership import Membership
 from app.models.user_profile import Role, UserProfile
 
 
@@ -63,36 +64,78 @@ class CurrentUser:
     name: str
 
 
+def _resolve_active_membership(
+    memberships: list[Membership],
+    x_team_id: uuid.UUID | None,
+) -> Membership:
+    """
+    Select the active membership from the user's list.
+
+    - No memberships → 403 (not onboarded).
+    - Single membership → auto-selected.
+    - Multiple memberships → X-Team-Id header required.
+    - X-Team-Id provided but not owned by user → 403 (IDOR prevention:
+      never reveal whether the team_id exists at all).
+    """
+    if not memberships:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No active team membership. Complete onboarding first.",
+        )
+
+    if x_team_id is not None:
+        active = next((m for m in memberships if m.team_id == x_team_id), None)
+        if active is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="X-Team-Id does not match any of your team memberships.",
+            )
+        return active
+
+    if len(memberships) == 1:
+        return memberships[0]
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=(
+            "Multiple team memberships found. "
+            "Send X-Team-Id header to specify which team."
+        ),
+    )
+
+
 def get_current_user(
     request: Request,
     db: Session = Depends(get_db),
     token: str = Depends(get_bearer_token),
+    x_team_id: uuid.UUID | None = Header(default=None, alias="X-Team-Id"),
 ) -> CurrentUser:
     """
     Dependency to get the current authenticated user.
 
     Security flow:
-    1. Extract JWT token from Authorization header (via get_bearer_token)
-    2. Verify token signature and claims using JWKS
-    3. Extract supabase_user_id from token's 'sub' claim
-    4. Look up UserProfile by supabase_user_id
-    5. Return CurrentUser if found, otherwise 403 (not onboarded)
+    1. Verify JWT signature and claims via JWKS (ES256).
+    2. Extract supabase_user_id from 'sub' claim.
+    3. Load all Memberships for this user — single source of truth for
+       team_id and role. UserProfile.team_id / UserProfile.role are
+       intentionally NOT used here; they may be stale after team changes.
+    4. Resolve the active membership (auto if one, X-Team-Id if many).
+    5. Load UserProfile only for the internal user_id (FK in DB relations)
+       and the display name.
 
-    Args:
-        db: Database session
-        token: JWT token string from Authorization header
-
-    Returns:
-        CurrentUser: The authenticated user's profile data
+    IDOR prevention:
+    - team_id is NEVER taken from the request body or path params.
+    - It always comes from the Membership row validated against the JWT.
+    - An X-Team-Id that doesn't belong to the user returns 403, not 404.
 
     Raises:
-        HTTPException: 401 if token is invalid or missing
-        HTTPException: 403 if user is not onboarded (no UserProfile)
+        HTTPException 401: token missing or invalid.
+        HTTPException 403: no membership (not onboarded), X-Team-Id mismatch,
+                          or missing UserProfile.
+        HTTPException 400: multiple memberships but no X-Team-Id provided.
     """
-    # Verify the JWT token (raises 401 if invalid)
     token_payload = verify_jwt_token(token)
 
-    # Extract Supabase user ID from 'sub' claim
     supabase_user_id_str = token_payload.get("sub")
     try:
         supabase_user_id = uuid.UUID(supabase_user_id_str)
@@ -103,23 +146,34 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Look up user profile
-    stmt = select(UserProfile).where(UserProfile.supabase_user_id == supabase_user_id)
-    user_profile = db.execute(stmt).scalar_one_or_none()
+    # Membership is the authoritative source for team_id and role.
+    memberships = list(
+        db.execute(
+            select(Membership)
+            .where(Membership.user_id == supabase_user_id)
+            .order_by(Membership.created_at)
+        ).scalars()
+    )
+    active = _resolve_active_membership(memberships, x_team_id)
 
-    if not user_profile:
-        # User has valid token but no profile in our system (not onboarded)
+    # UserProfile provides only the internal PK (used as FK in workout
+    # sessions, logs, etc.) and the display name.
+    profile = db.execute(
+        select(UserProfile).where(UserProfile.supabase_user_id == supabase_user_id)
+    ).scalar_one_or_none()
+
+    if profile is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User not onboarded. Please complete registration.",
+            detail="User profile not found. Please complete onboarding.",
         )
 
     current_user = CurrentUser(
-        user_id=user_profile.id,
-        supabase_user_id=user_profile.supabase_user_id,
-        team_id=user_profile.team_id,
-        role=user_profile.role,
-        name=user_profile.name,
+        user_id=profile.id,
+        supabase_user_id=supabase_user_id,
+        team_id=active.team_id,   # from Membership — never from UserProfile
+        role=active.role,          # from Membership — never from UserProfile
+        name=profile.name,
     )
 
     # Populate request state so RequestLoggingMiddleware can include auth
