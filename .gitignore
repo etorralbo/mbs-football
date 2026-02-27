@@ -17,12 +17,13 @@ build/
 out/
 coverage/
 
-# Env files
+# Env files — .env.example files are intentionally committed as templates
 .env
 .env.*
 .env.local
 frontend/.env*
 backend/.env*
+!backend/.env.example
 
 # Docker
 *.log

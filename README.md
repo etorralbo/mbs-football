@@ -140,18 +140,35 @@ cp frontend/.env.local.example frontend/.env.local
 
 ### 2. Start the local stack
 
+There are two modes depending on where you run the frontend:
+
+#### Option A — Full Docker stack (frontend + backend + DB)
+
 ```bash
 docker compose up --build
 ```
 
-This starts PostgreSQL and the backend. The frontend can run either in Docker or locally:
+The frontend container uses `NEXT_PUBLIC_API_BASE_URL=http://backend:8000`.
+Docker's internal DNS resolves `backend` to the correct container.
+Open http://localhost:3000.
+
+#### Option B — Local frontend + Dockerised backend/DB (recommended for fast HMR)
 
 ```bash
-# Run frontend locally (recommended for fast HMR)
+# 1. Start Postgres + backend in Docker
+docker compose up -d db backend
+
+# 2. Create frontend/.env.local so the browser can reach the backend
+echo "NEXT_PUBLIC_API_BASE_URL=http://localhost:8000" > frontend/.env.local
+
+# 3. Run Next.js locally
 cd frontend
 npm install
 npm run dev
 ```
+
+Open http://localhost:3000.
+The backend is reachable at http://localhost:8000 (port mapped by Docker Compose).
 
 ### 3. Apply migrations
 
@@ -162,10 +179,36 @@ alembic upgrade head
 
 ### 4. Run backend tests
 
+Tests use a dedicated `app_test` database on the same Docker Postgres instance.
+`conftest.py` loads `backend/.env.test` via python-dotenv before any app module is
+imported, so `DATABASE_URL=postgresql+psycopg://app:app@localhost:5432/app_test`
+takes effect before pydantic-settings reads it.
+
+`app_test` is provisioned automatically by the init script
+`backend/docker/postgres-init/01-create-test-db.sql`, which Postgres runs once
+when the `pgdata` volume is first created.
+
+**First time, or after changing init scripts — reset the volume:**
+
 ```bash
-cd backend
-pytest -v
+docker compose down -v          # destroys pgdata (all local data is lost)
+docker compose up -d db         # recreates volume + runs init scripts
 ```
+
+**Normal workflow (volume already exists):**
+
+```bash
+docker compose up -d db         # only the db service is required
+cd backend && pytest -q
+```
+
+**Troubleshooting**
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `password authentication failed for user "app"` | Another Postgres on port 5432 | `brew services stop postgresql@16` then `docker compose up -d db` |
+| `database "app_test" does not exist` | Volume predates the init script | `docker compose down -v && docker compose up -d db` |
+| `connection refused` | Docker not running or `db` service not started | `docker compose up -d db` |
 
 ### 5. Run frontend tests
 

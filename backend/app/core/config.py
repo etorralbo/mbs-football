@@ -71,7 +71,7 @@ class Settings(BaseSettings):
         rejects a missing value at instantiation time before this is called.
         SUPABASE_JWKS_URL is auto-derived from SUPABASE_URL, so always present.
         """
-        if self.ENV == "local":
+        if self.ENV in ("local", "test"):
             return
 
         errors: list[str] = []
