@@ -218,7 +218,25 @@ npm test           # run once
 npm run test:watch # watch mode
 ```
 
-### 6. Lint and type-check
+### 6. Seed default exercises (optional)
+
+If a team has 0 exercises, seed 30 curated sport-generic exercises so the AI draft can suggest them immediately.
+The script is idempotent — re-running it skips exercises that already exist.
+
+```bash
+# Get the team UUID first (from /v1/me response or the DB)
+
+# Local Docker stack
+docker compose exec backend \
+  python scripts/seed_default_exercises.py <team-uuid>
+
+# Local venv (backend/ directory)
+cd backend
+DATABASE_URL=postgresql+psycopg://app:app@localhost:5432/app \
+  python scripts/seed_default_exercises.py <team-uuid>
+```
+
+### 7. Lint and type-check
 
 ```bash
 # Backend
