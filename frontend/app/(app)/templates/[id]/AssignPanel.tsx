@@ -5,8 +5,8 @@ import { request } from '@/app/_shared/api/httpClient'
 import { Button } from '@/app/_shared/components/Button'
 
 interface Athlete {
-  id: string
-  name: string
+  athlete_id: string
+  display_name: string
 }
 
 interface AssignPanelProps {
@@ -117,8 +117,8 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
               >
                 <option value="">Select an athlete…</option>
                 {athletes.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
+                  <option key={a.athlete_id} value={a.athlete_id}>
+                    {a.display_name}
                   </option>
                 ))}
               </select>
