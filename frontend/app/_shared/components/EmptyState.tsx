@@ -1,13 +1,40 @@
+import Link from 'next/link'
+
+interface Action {
+  label: string
+  href?: string
+  onClick?: () => void
+}
+
 interface EmptyStateProps {
   title: string
   description?: string
-  action?: {
-    label: string
-    onClick: () => void
-  }
+  primaryAction?: Action
+  secondaryAction?: Action
 }
 
-export function EmptyState({ title, description, action }: EmptyStateProps) {
+function ActionLink({ action, className }: { action: Action; className: string }) {
+  if (!action.href && !action.onClick) return null
+  if (action.href) {
+    return (
+      <Link href={action.href} className={className}>
+        {action.label}
+      </Link>
+    )
+  }
+  return (
+    <button onClick={action.onClick} className={className}>
+      {action.label}
+    </button>
+  )
+}
+
+export function EmptyState({
+  title,
+  description,
+  primaryAction,
+  secondaryAction,
+}: EmptyStateProps) {
   return (
     <div className="mt-12 flex flex-col items-center text-center">
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100">
@@ -29,13 +56,17 @@ export function EmptyState({ title, description, action }: EmptyStateProps) {
       </div>
       <p className="mt-3 text-sm font-medium text-zinc-900">{title}</p>
       {description && <p className="mt-1 text-sm text-zinc-500">{description}</p>}
-      {action && (
-        <button
-          onClick={action.onClick}
+      {primaryAction && (
+        <ActionLink
+          action={primaryAction}
           className="mt-4 text-sm font-medium text-indigo-600 hover:text-indigo-700"
-        >
-          {action.label}
-        </button>
+        />
+      )}
+      {secondaryAction && (
+        <ActionLink
+          action={secondaryAction}
+          className="mt-2 text-sm text-zinc-500 hover:text-zinc-700"
+        />
       )}
     </div>
   )
