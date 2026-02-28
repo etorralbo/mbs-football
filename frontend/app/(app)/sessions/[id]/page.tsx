@@ -25,6 +25,7 @@ export default function SessionDetailPage() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [completing, setCompleting] = useState(false)
+  const [completeError, setCompleteError] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -44,19 +45,17 @@ export default function SessionDetailPage() {
   async function handleComplete() {
     if (!session || session.status === 'completed') return
 
-    // Optimistic update — flip UI before the request resolves
-    setSession((s) => (s ? { ...s, status: 'completed' } : s))
+    setCompleteError(null)
     setCompleting(true)
 
     try {
       await request(`/v1/workout-sessions/${id}/complete`, { method: 'PATCH' })
+      router.push('/sessions')
     } catch (err: unknown) {
-      // Revert on failure
-      setSession((s) => (s ? { ...s, status: 'pending' } : s))
       try {
         handleApiError(err, router)
       } catch {
-        // Non-redirectable error; stay on page
+        setCompleteError('Failed to complete session. Please try again.')
       }
     } finally {
       setCompleting(false)
@@ -108,13 +107,18 @@ export default function SessionDetailPage() {
         </div>
 
         {!isCompleted && (
-          <Button
-            variant="secondary"
-            onClick={handleComplete}
-            loading={completing}
-          >
-            {completing ? 'Completing…' : 'Complete session'}
-          </Button>
+          <div className="flex flex-col items-end gap-1.5">
+            {completeError && (
+              <p role="alert" className="text-xs text-red-600">{completeError}</p>
+            )}
+            <Button
+              variant="primary"
+              onClick={handleComplete}
+              loading={completing}
+            >
+              {completing ? 'Completing…' : 'Mark as completed'}
+            </Button>
+          </div>
         )}
       </div>
 

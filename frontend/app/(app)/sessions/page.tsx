@@ -97,18 +97,31 @@ export default function SessionsPage() {
       {!loading && sessions.length > 0 && (
         <ul className="mt-6 space-y-2">
           {sessions.map((s) => (
-            <li key={s.id}>
-              <Link
-                href={`/sessions/${s.id}`}
-                className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300 hover:bg-zinc-50"
-              >
-                <span className="text-sm font-medium text-zinc-900">
-                  {sessionLabel(s)}
-                </span>
+            <li
+              key={s.id}
+              className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white p-4"
+            >
+              <span className="text-sm font-medium text-zinc-900">{sessionLabel(s)}</span>
+              <div className="flex shrink-0 items-center gap-3">
                 <Badge variant={s.completed_at ? 'completed' : 'pending'}>
                   {s.completed_at ? 'Completed' : 'Pending'}
                 </Badge>
-              </Link>
+                {s.completed_at ? (
+                  <Link
+                    href={`/sessions/${s.id}`}
+                    className="text-sm text-zinc-500 hover:text-zinc-700"
+                  >
+                    View →
+                  </Link>
+                ) : (
+                  <Link
+                    href={`/sessions/${s.id}`}
+                    className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2"
+                  >
+                    Start session
+                  </Link>
+                )}
+              </div>
             </li>
           ))}
         </ul>
