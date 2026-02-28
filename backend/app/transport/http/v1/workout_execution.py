@@ -2,7 +2,7 @@
 
 Exposes:
     POST  /workout-sessions/{session_id}/logs   (append-only; kept for compat)
-    PUT   /workout-sessions/{session_id}/logs   (idempotent upsert, preferred)
+    PUT   /workout-sessions/{session_id}/logs   (full replace per exercise, idempotent)
     GET   /workout-sessions/{session_id}
     GET   /workout-sessions/{session_id}/execution
 
@@ -88,7 +88,12 @@ class CreateLogIn(BaseModel):
 
 
 class UpsertLogIn(BaseModel):
-    """Body for PUT /{session_id}/logs — idempotent upsert for one exercise."""
+    """Body for PUT /{session_id}/logs — full replace of all entries for one exercise.
+
+    The payload must represent the complete desired state: every entry in
+    `entries` is persisted, and any previously saved entries not present here
+    are deleted.  Calling with the same payload twice is safe (idempotent).
+    """
 
     exercise_id: uuid.UUID
     entries: list[LogEntryIn] = Field(..., min_length=1)
@@ -374,6 +379,15 @@ def upsert_log(
     current_user: Annotated[CurrentUser, Depends(require_athlete)],
     db: Session = Depends(get_db),
 ) -> UpsertLogOut:
+    """Replace all entries for one exercise in a session (true replace, not patch).
+
+    Atomically deletes all previously saved entries for (session_id, exercise_id)
+    and inserts the entries supplied in the request body.  The body must contain
+    the *complete* desired state for that exercise — omitting a set permanently
+    removes it.  Calling with the same payload is safe (idempotent).
+
+    Returns the confirmed persisted entries ordered by set_number.
+    """
     use_case = _build_upsert_log_use_case(db)
     command = _to_upsert_command(payload, session_id, current_user)
 

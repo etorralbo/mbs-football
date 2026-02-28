@@ -1,8 +1,10 @@
-"""Domain use case: idempotent upsert of exercise logs for a session.
+"""Domain use case: full replace of exercise logs for a session.
 
-PUT /v1/workout-sessions/{session_id}/logs replaces all entries for one
-exercise in one atomic operation.  Calling it multiple times with the same
-payload is safe (idempotent).
+PUT /v1/workout-sessions/{session_id}/logs atomically replaces *all* entries
+for one exercise in one DB transaction: existing entries are deleted, then
+the supplied entries are inserted.  The payload must represent the complete
+desired state — any previously saved set absent from the request is gone.
+Calling it multiple times with the same payload is safe (idempotent).
 """
 import uuid
 from dataclasses import dataclass, field

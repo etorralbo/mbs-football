@@ -55,12 +55,15 @@ class AbstractWorkoutSessionLogRepository(ABC):
         entries: list[NewLogEntry],
         created_by_profile_id: uuid.UUID,
     ) -> WorkoutSessionLog:
-        """Idempotent replace of all entries for (session_id, exercise_id).
+        """True replace of all entries for (session_id, exercise_id).
 
-        If a log already exists for this exercise in this session, its entries
-        are deleted and replaced with the new ones (the log record is reused).
-        If no log exists, a new one is created.  Returns the log with refreshed
-        entries.
+        Atomically deletes every existing WorkoutSessionLogEntry for this
+        exercise in this session, then inserts the supplied entries.  The log
+        record itself is reused if one already exists; otherwise a new one is
+        created.  The caller must supply the *complete* desired state — any
+        previously saved entry absent from `entries` is permanently removed.
+
+        Returns the refreshed log with entries ordered by set_number.
         """
         ...
 
@@ -152,7 +155,7 @@ class SqlAlchemyWorkoutSessionLogRepository(AbstractWorkoutSessionLogRepository)
         ).scalar_one_or_none()
 
         if existing is not None:
-            # Delete all previous entries and replace with new ones.
+            # True replace: delete every previous entry so only the new payload survives.
             self._db.execute(
                 delete(WorkoutSessionLogEntry).where(
                     WorkoutSessionLogEntry.log_id == existing.id
