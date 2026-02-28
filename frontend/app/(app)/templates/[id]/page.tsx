@@ -34,9 +34,11 @@ export default function TemplateDetailPage() {
   }, [id, router])
 
   // Remove the ?fromAi=1 param from history so it's a one-shot banner.
+  // showFromAiBanner is locked at mount, so this only fires once.
   useEffect(() => {
-    if (showFromAiBanner) router.replace(pathname)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!showFromAiBanner) return
+    router.replace(pathname)
+  }, [showFromAiBanner, router, pathname])
 
   if (loading)
     return (
@@ -74,24 +76,27 @@ export default function TemplateDetailPage() {
         >
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold text-green-800">Template saved</p>
-              <p className="mt-0.5 text-xs text-green-700">
+              <p className="text-sm font-medium text-green-800">Template saved</p>
+              <p className="mt-0.5 text-sm text-green-700">
                 Next step: assign it to your athletes.
               </p>
             </div>
             <div className="flex shrink-0 gap-2">
               <Link
                 href="/templates"
-                className="inline-flex items-center rounded-md border border-zinc-300 bg-white px-3 py-1 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+                className="inline-flex items-center rounded-md border border-zinc-300 bg-white px-3 py-1 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 focus-visible:ring-offset-2"
               >
                 Back to templates
               </Link>
-              <Link
-                href="#assign"
+              <button
+                type="button"
+                onClick={() =>
+                  document.getElementById('assign')?.scrollIntoView({ behavior: 'smooth' })
+                }
                 className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2"
               >
                 Assign now
-              </Link>
+              </button>
             </div>
           </div>
         </div>
