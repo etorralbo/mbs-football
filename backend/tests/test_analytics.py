@@ -109,6 +109,7 @@ class TestFunnelEndpoint:
             "invite_created": 0,
             "invite_accepted": 0,
             "template_created_ai": 0,
+            "assignment_created": 0,
             "session_completed": 0,
         }
 
