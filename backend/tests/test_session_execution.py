@@ -304,6 +304,20 @@ class TestSessionExecutionOrder:
         names = [b["name"] for b in data["blocks"]]
         assert names == ["Primary Strength", "Recovery"]
 
+    def test_block_key_is_slugified_name(
+        self, client: TestClient, mock_jwt, coach_a, session_a,
+    ):
+        """key must be a stable machine-readable slug: upper-snake-case."""
+        mock_jwt(str(coach_a.supabase_user_id))
+        data = client.get(
+            f"/v1/workout-sessions/{session_a.id}/execution",
+            headers=HEADERS,
+        ).json()
+
+        keys = {b["key"] for b in data["blocks"]}
+        assert "PRIMARY_STRENGTH" in keys
+        assert "RECOVERY" in keys
+
 
 # ---------------------------------------------------------------------------
 # Tests — Log merge

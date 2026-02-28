@@ -206,7 +206,7 @@ def _detail_to_out(result: WorkoutSessionDetailResult) -> SessionDetailOut:
 # ---------------------------------------------------------------------------
 
 class SetLogOutSchema(BaseModel):
-    set_number: int
+    set_number: int  # 1-based: 1 = first set
     reps: Optional[int]
     weight: Optional[float]
     rpe: Optional[float]
@@ -222,6 +222,7 @@ class ExerciseExecutionOutSchema(BaseModel):
 
 class BlockExecutionOutSchema(BaseModel):
     name: str
+    key: str   # slugified stable identifier, e.g. "PRIMARY_STRENGTH"
     order: int
     items: list[ExerciseExecutionOutSchema]
 
@@ -267,6 +268,7 @@ def _execution_result_to_out(result: SessionExecutionResult) -> WorkoutSessionEx
         blocks=[
             BlockExecutionOutSchema(
                 name=block.name,
+                key=block.key,
                 order=block.order,
                 items=[
                     ExerciseExecutionOutSchema(

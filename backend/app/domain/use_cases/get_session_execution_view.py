@@ -3,6 +3,7 @@
 Merges the prescribed workout template (blocks → exercises → prescription) with
 whatever the athlete has already logged, producing a ready-to-render read model.
 """
+import re
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Optional
@@ -32,9 +33,17 @@ class NotFoundError(Exception):
 # Result DTOs
 # ---------------------------------------------------------------------------
 
+def _block_key(name: str) -> str:
+    """Derive a stable machine-readable key from a block name.
+
+    e.g. "Primary Strength" → "PRIMARY_STRENGTH"
+    """
+    return re.sub(r"[^A-Z0-9]+", "_", name.upper()).strip("_")
+
+
 @dataclass
 class SetLogOut:
-    set_number: int
+    set_number: int  # 1-based: first set = 1, second set = 2, …
     reps: Optional[int]
     weight: Optional[float]
     rpe: Optional[float]
@@ -52,6 +61,7 @@ class ExerciseExecutionOut:
 @dataclass
 class BlockExecutionOut:
     name: str
+    key: str   # slugified name, e.g. "PRIMARY_STRENGTH" — stable for tests/analytics
     order: int
     items: list[ExerciseExecutionOut] = field(default_factory=list)
 
@@ -126,11 +136,17 @@ class GetSessionExecutionViewUseCase:
         # 3. All logs for this session (entries pre-loaded, ordered by set_number)
         logs = self._log_repo.list_by_session(session.id)
 
-        # 4. Build a lookup: (block_name, exercise_id) → list[SetLogOut]
-        log_index: dict[tuple[str, uuid.UUID], list[SetLogOut]] = {}
+        # 4. Build a lookup keyed by exercise_id only.
+        #
+        #    Keying by (block_name, exercise_id) is fragile: a coach can rename a
+        #    block after athletes have already logged sets, making block_name in the
+        #    historical log mismatch the current template block name. Merging by
+        #    exercise_id alone is resilient to renames. The edge case where the same
+        #    exercise appears in two blocks of the same template is intentionally
+        #    accepted: the first block's logs are shown in both slots.
+        log_index: dict[uuid.UUID, list[SetLogOut]] = {}
         for log in logs:
-            key = (log.block_name, log.exercise_id)
-            log_index[key] = [
+            log_index[log.exercise_id] = [
                 SetLogOut(
                     set_number=entry.set_number,
                     reps=entry.reps,
@@ -142,24 +158,24 @@ class GetSessionExecutionViewUseCase:
             ]
 
         # 5. Build ordered blocks → items, merging logs
-        blocks = sorted(template.blocks, key=lambda b: b.order_index)
+        sorted_blocks = sorted(template.blocks, key=lambda b: b.order_index)
         block_results = []
-        for block in blocks:
+        for block in sorted_blocks:
             items = sorted(block.items, key=lambda i: i.order_index)
             exercise_results = []
             for item in items:
-                key = (block.name, item.exercise_id)
                 exercise_results.append(
                     ExerciseExecutionOut(
                         exercise_id=item.exercise_id,
                         exercise_name=item.exercise.name,
                         prescription=item.prescription_json or {},
-                        logs=log_index.get(key, []),
+                        logs=log_index.get(item.exercise_id, []),
                     )
                 )
             block_results.append(
                 BlockExecutionOut(
                     name=block.name,
+                    key=_block_key(block.name),
                     order=block.order_index,
                     items=exercise_results,
                 )
