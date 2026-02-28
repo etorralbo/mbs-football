@@ -73,7 +73,12 @@ class ProductEvent(Base):
 
     # --- what ---
     event_name: Mapped[FunnelEvent] = mapped_column(
-        SAEnum(FunnelEvent, name="funnel_event", native_enum=True),
+        SAEnum(
+            FunnelEvent,
+            name="funnel_event",
+            native_enum=True,
+            values_callable=lambda x: [e.value for e in x],
+        ),
         nullable=False,
     )
 
