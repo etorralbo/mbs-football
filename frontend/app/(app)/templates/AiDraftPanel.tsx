@@ -80,7 +80,7 @@ export function AiDraftPanel() {
         method: 'POST',
         body: JSON.stringify(toSavePayload(draft)),
       })
-      router.push(`/templates/${result.id}`)
+      router.push(`/templates/${result.id}?fromAi=1`)
     } catch (err) {
       try {
         handleApiError(err, router)

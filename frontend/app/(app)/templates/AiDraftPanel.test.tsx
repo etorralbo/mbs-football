@@ -159,7 +159,7 @@ describe('AiDraftPanel — persist happy path', () => {
     fireEvent.click(screen.getByRole('button', { name: /confirm & save/i }))
 
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith('/templates/tpl-abc')
+      expect(mockPush).toHaveBeenCalledWith('/templates/tpl-abc?fromAi=1')
     })
   })
 

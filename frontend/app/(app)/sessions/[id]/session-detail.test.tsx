@@ -110,67 +110,49 @@ describe('SessionDetailPage', () => {
     })
   })
 
-  describe('Complete session button', () => {
-    it('shows the Complete session button when status is pending', async () => {
+  describe('Mark as completed button', () => {
+    it('shows "Mark as completed" when status is pending', async () => {
       mockRequest.mockResolvedValue(pendingSession)
       render(<SessionDetailPage />)
-      expect(await screen.findByRole('button', { name: /complete session/i })).toBeInTheDocument()
+      expect(await screen.findByRole('button', { name: /mark as completed/i })).toBeInTheDocument()
     })
 
-    it('hides the Complete session button when status is completed', async () => {
+    it('hides the button when status is completed', async () => {
       mockRequest.mockResolvedValue(completedSession)
       render(<SessionDetailPage />)
       await screen.findByText('Completed')
-      expect(screen.queryByRole('button', { name: /complete session/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /mark as completed/i })).not.toBeInTheDocument()
     })
 
-    it('calls PATCH /v1/workout-sessions/{id}/complete on click', async () => {
-      // GET resolves with pending session; PATCH resolves successfully
+    it('calls PATCH /v1/workout-sessions/{id}/complete and redirects to /sessions', async () => {
       mockRequest
-        .mockResolvedValueOnce(pendingSession)  // initial GET
-        .mockResolvedValueOnce(undefined)        // PATCH
+        .mockResolvedValueOnce(pendingSession) // GET
+        .mockResolvedValueOnce(undefined)       // PATCH 204
 
       render(<SessionDetailPage />)
-      fireEvent.click(await screen.findByRole('button', { name: /complete session/i }))
+      fireEvent.click(await screen.findByRole('button', { name: /mark as completed/i }))
 
       await waitFor(() => {
         expect(mockRequest).toHaveBeenCalledWith(
           `/v1/workout-sessions/${pendingSession.id}/complete`,
           expect.objectContaining({ method: 'PATCH' }),
         )
+        expect(mockPush).toHaveBeenCalledWith('/sessions')
       })
     })
 
-    it('optimistically updates status to Completed before PATCH resolves', async () => {
-      let resolvePatch!: () => void
-      const patchPromise = new Promise<void>((resolve) => { resolvePatch = resolve })
-
+    it('shows inline error and does not redirect when PATCH fails', async () => {
       mockRequest
-        .mockResolvedValueOnce(pendingSession) // GET
-        .mockReturnValueOnce(patchPromise)      // PATCH — pending
+        .mockResolvedValueOnce(pendingSession)
+        .mockRejectedValueOnce(new Error('server error'))
 
       render(<SessionDetailPage />)
-      fireEvent.click(await screen.findByRole('button', { name: /complete session/i }))
+      fireEvent.click(await screen.findByRole('button', { name: /mark as completed/i }))
 
-      // Status should flip immediately (optimistic)
-      expect(await screen.findByText('Completed')).toBeInTheDocument()
-
-      // Resolve PATCH so the component settles cleanly
-      resolvePatch()
-    })
-
-    it('reverts status to Pending when PATCH fails', async () => {
-      mockRequest
-        .mockResolvedValueOnce(pendingSession) // GET
-        .mockRejectedValueOnce(new Error('server error')) // PATCH fails
-
-      render(<SessionDetailPage />)
-      fireEvent.click(await screen.findByRole('button', { name: /complete session/i }))
-
-      // After failure the status should revert
       await waitFor(() => {
-        expect(screen.getByText('Pending')).toBeInTheDocument()
+        expect(screen.getByRole('alert')).toHaveTextContent(/failed to complete/i)
       })
+      expect(mockPush).not.toHaveBeenCalled()
     })
   })
 

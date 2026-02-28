@@ -51,7 +51,7 @@ describe('ActivationBanner', () => {
     const cta = screen.getByTestId('activation-cta')
     expect(cta).toBeInTheDocument()
     expect(cta).toHaveAttribute('href', '/templates')
-    expect(screen.getByText('1 / 3 steps completed')).toBeInTheDocument()
+    expect(screen.getByText(/1 \/ 3 completed/)).toBeInTheDocument()
   })
 
   it('shows setup complete and hides CTA when nextAction is null', () => {

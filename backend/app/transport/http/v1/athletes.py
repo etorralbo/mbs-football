@@ -20,8 +20,8 @@ router = APIRouter(prefix="/athletes", tags=["athletes"])
 
 
 class AthleteOut(BaseModel):
-    id: uuid.UUID
-    name: str
+    athlete_id: uuid.UUID
+    display_name: str
 
 
 @router.get("", response_model=list[AthleteOut])
@@ -31,4 +31,4 @@ def list_athletes(
 ) -> list[AthleteOut]:
     repo = SqlAlchemyAthleteQueryRepository(db)
     athletes = repo.list_athletes_by_team(current_user.team_id)
-    return [AthleteOut(id=a.id, name=a.name) for a in athletes]
+    return [AthleteOut(athlete_id=a.id, display_name=a.name) for a in athletes]

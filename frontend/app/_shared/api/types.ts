@@ -176,6 +176,10 @@ export interface SaveFromAiRequest {
 
 export interface FunnelResponse {
   team_created: number
+  invite_created: number
   invite_accepted: number
+  template_created_ai: number
+  assignment_created: number
+  session_first_log_added: number
   session_completed: number
 }
