@@ -1,11 +1,13 @@
 """
 Unit / integration tests for ProductEventService.
 
-Three invariants:
+Four invariants:
 1. track() writes the row with correct fields after the caller commits.
 2. track() does NOT commit — the row is invisible to other connections until
    the caller commits.
 3. track() raises ValueError when caller-supplied team_id ≠ actor.team_id.
+4. Every FunnelEvent value is accepted by the DB enum without error.
+   (Guards against migrations using UPPERCASE values while Python uses lowercase.)
 """
 import uuid
 
@@ -108,3 +110,33 @@ class TestProductEventService:
         db_session.flush()
         count = db_session.execute(select(ProductEvent)).scalars().all()
         assert len(count) == 0
+
+    # ------------------------------------------------------------------
+    # Test 4 — enum parity: every FunnelEvent value commits without error
+    #
+    # This test would have caught the UPPERCASE migration / lowercase Python
+    # mismatch that caused POST /v1/workout-templates/from-ai to return 500.
+    # ------------------------------------------------------------------
+
+    @pytest.mark.parametrize("event", list(FunnelEvent))
+    def test_every_funnel_event_value_is_accepted_by_db(
+        self, event: FunnelEvent, db_session: Session
+    ) -> None:
+        """Each FunnelEvent member must round-trip through the DB without error."""
+        user_id = uuid.uuid4()
+        team_id = uuid.uuid4()
+
+        service = ProductEventService(db_session)
+        service.track(
+            event=event,
+            actor=AuthContext(user_id=user_id, role="COACH", team_id=None),
+            team_id=team_id,
+        )
+
+        # commit() is what fails when DB enum values don't match Python values.
+        db_session.commit()
+
+        row = db_session.execute(
+            select(ProductEvent).where(ProductEvent.user_id == user_id)
+        ).scalar_one()
+        assert row.event_name == event
