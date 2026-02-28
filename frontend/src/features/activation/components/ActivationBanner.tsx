@@ -48,7 +48,7 @@ export function ActivationBanner() {
         <Link
           data-testid="activation-cta"
           href={nextAction.href}
-          className="inline-flex shrink-0 items-center rounded-md bg-indigo-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-indigo-700"
+          className="inline-flex shrink-0 items-center rounded-md bg-indigo-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2"
         >
           {nextAction.label}
         </Link>
@@ -62,14 +62,21 @@ export function ActivationBanner() {
             >
               ✓ {step.label}
             </span>
-          ) : (
+          ) : step.key === nextAction.key ? (
             <Link
               key={step.key}
               href={step.href}
-              className="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-200"
+              className="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1"
             >
               ○ {step.label}
             </Link>
+          ) : (
+            <span
+              key={step.key}
+              className="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-400"
+            >
+              ○ {step.label}
+            </span>
           )
         )}
       </div>

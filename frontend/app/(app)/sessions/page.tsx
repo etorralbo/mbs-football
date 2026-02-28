@@ -82,8 +82,8 @@ export default function SessionsPage() {
           ) : (
             <EmptyState
               title="No sessions assigned yet"
-              description="Assign your first session to activate your team."
-              primaryAction={{ label: 'Assign first session', href: '/templates' }}
+              description="Pick a template and assign it to activate your team."
+              primaryAction={{ label: 'Choose a template to assign', href: '/templates' }}
             />
           )
         ) : (
