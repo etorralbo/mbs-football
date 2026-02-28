@@ -26,6 +26,7 @@ class FunnelOut(BaseModel):
     invite_accepted: int
     template_created_ai: int
     assignment_created: int
+    session_first_log_added: int
     session_completed: int
 
 

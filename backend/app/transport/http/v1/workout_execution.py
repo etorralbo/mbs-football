@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import CurrentUser, require_any_role, require_athlete
 from app.db.session import get_db
+from app.domain.events.service import ProductEventService
 from app.domain.use_cases.create_workout_session_log import (
     CreateWorkoutSessionLogCommand,
     CreateWorkoutSessionLogUseCase,
@@ -107,6 +108,7 @@ def _build_create_log_use_case(db: Session) -> CreateWorkoutSessionLogUseCase:
         session_repo=SqlAlchemyWorkoutSessionRepository(db),
         log_repo=SqlAlchemyWorkoutSessionLogRepository(db),
         exercise_repo=SqlAlchemyExerciseRepository(db),
+        event_service=ProductEventService(db),
     )
 
 
@@ -125,6 +127,7 @@ def _to_create_log_command(
     return CreateWorkoutSessionLogCommand(
         session_id=session_id,
         requesting_athlete_id=current_user.user_id,
+        requesting_supabase_user_id=current_user.supabase_user_id,
         requesting_team_id=current_user.team_id,
         block_name=payload.block_name,
         exercise_id=payload.exercise_id,
