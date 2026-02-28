@@ -6,6 +6,7 @@ import { request } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
 import { Button } from '@/app/_shared/components/Button'
 import type { MeResponse, CreateInviteResponse } from '@/app/_shared/api/types'
+import { FunnelStatsCard } from '@/src/features/analytics/FunnelStatsCard'
 
 export default function TeamPage() {
   const router = useRouter()
@@ -65,8 +66,10 @@ export default function TeamPage() {
       <h1 className="text-xl font-semibold text-zinc-900">{membership.team_name}</h1>
       <p className="mt-1 text-sm text-zinc-500 capitalize">{membership.role.toLowerCase()}</p>
 
+      {isCoach && <FunnelStatsCard />}
+
       {isCoach && (
-        <div className="mt-8 rounded-lg border border-zinc-200 bg-white p-5">
+        <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-5">
           <h2 className="text-sm font-semibold text-zinc-900">Invite athletes</h2>
           <p className="mt-1 text-xs text-zinc-500">
             Generate a link and share it with your athletes. Each link expires in 7 days.

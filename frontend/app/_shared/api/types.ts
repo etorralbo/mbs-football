@@ -169,3 +169,13 @@ export interface SaveFromAiRequest {
   title: string
   blocks: SaveFromAiBlock[]
 }
+
+// ---------------------------------------------------------------------------
+// Analytics
+// ---------------------------------------------------------------------------
+
+export interface FunnelResponse {
+  team_created: number
+  invite_accepted: number
+  session_completed: number
+}
