@@ -30,7 +30,8 @@ export default function SessionsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
-  const { role } = useActivationState()
+  const { role, steps, isLoading: activationLoading } = useActivationState()
+  const hasTemplates = steps.find((s) => s.key === 'create_template')?.completed ?? false
 
   useEffect(() => {
     document.title = 'Sessions | Mettle Performance'
@@ -72,11 +73,19 @@ export default function SessionsPage() {
 
       {!loading && !error && sessions.length === 0 && (
         role === 'COACH' ? (
-          <EmptyState
-            title="No sessions assigned yet"
-            description="Assign your first session to activate your team."
-            primaryAction={{ label: 'Assign first session', href: '/templates' }}
-          />
+          !activationLoading && !hasTemplates ? (
+            <EmptyState
+              title="Start by creating a template"
+              description="Build a workout template before assigning sessions to athletes."
+              primaryAction={{ label: 'Create with AI', href: '/templates' }}
+            />
+          ) : (
+            <EmptyState
+              title="No sessions assigned yet"
+              description="Assign your first session to activate your team."
+              primaryAction={{ label: 'Assign first session', href: '/templates' }}
+            />
+          )
         ) : (
           <EmptyState
             title="No sessions assigned yet"
