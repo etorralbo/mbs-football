@@ -23,6 +23,7 @@ class FunnelEvent(str, enum.Enum):
     """Enumeration of trackable product funnel events."""
 
     TEAM_CREATED = "team_created"
+    INVITE_CREATED = "invite_created"
     INVITE_ACCEPTED = "invite_accepted"
     SESSION_COMPLETED = "session_completed"
 

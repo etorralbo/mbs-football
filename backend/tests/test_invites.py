@@ -88,6 +88,72 @@ class TestCreateInvite:
         )
         assert resp.status_code == 403
 
+    def test_creates_invite_created_event(
+        self, client: TestClient, db_session: Session, mock_jwt
+    ) -> None:
+        """A successful invite creation fires exactly one INVITE_CREATED event."""
+        from sqlalchemy import select
+        from app.domain.events.models import FunnelEvent, ProductEvent
+
+        user_id = uuid.uuid4()
+        team = Team(id=uuid.uuid4(), name="Event-Track Team")
+        db_session.add(team)
+        db_session.flush()
+        db_session.add(
+            Membership(id=uuid.uuid4(), user_id=user_id, team_id=team.id, role=Role.COACH)
+        )
+        db_session.commit()
+
+        mock_jwt(str(user_id))
+        resp = client.post("/v1/invites", json={"team_id": str(team.id)}, headers=AUTH)
+        assert resp.status_code == 201
+
+        events = db_session.execute(
+            select(ProductEvent)
+            .where(ProductEvent.event_name == FunnelEvent.INVITE_CREATED)
+            .where(ProductEvent.team_id == team.id)
+        ).scalars().all()
+        assert len(events) == 1
+        ev = events[0]
+        assert ev.user_id == user_id
+        assert ev.role == "COACH"
+        assert "invite_id" in ev.event_metadata
+
+    def test_invite_created_event_scoped_to_team(
+        self, client: TestClient, db_session: Session, mock_jwt
+    ) -> None:
+        """INVITE_CREATED event is stored under team A; team B has no events."""
+        from sqlalchemy import select
+        from app.domain.events.models import FunnelEvent, ProductEvent
+
+        user_id = uuid.uuid4()
+        team_a = Team(id=uuid.uuid4(), name="Scoping Team A")
+        team_b = Team(id=uuid.uuid4(), name="Scoping Team B")
+        db_session.add_all([team_a, team_b])
+        db_session.flush()
+        db_session.add(
+            Membership(id=uuid.uuid4(), user_id=user_id, team_id=team_a.id, role=Role.COACH)
+        )
+        db_session.commit()
+
+        mock_jwt(str(user_id))
+        resp = client.post("/v1/invites", json={"team_id": str(team_a.id)}, headers=AUTH)
+        assert resp.status_code == 201
+
+        team_a_events = db_session.execute(
+            select(ProductEvent)
+            .where(ProductEvent.event_name == FunnelEvent.INVITE_CREATED)
+            .where(ProductEvent.team_id == team_a.id)
+        ).scalars().all()
+        assert len(team_a_events) == 1
+
+        team_b_events = db_session.execute(
+            select(ProductEvent)
+            .where(ProductEvent.event_name == FunnelEvent.INVITE_CREATED)
+            .where(ProductEvent.team_id == team_b.id)
+        ).scalars().all()
+        assert len(team_b_events) == 0
+
 
 # ---------------------------------------------------------------------------
 # POST /v1/invites/accept

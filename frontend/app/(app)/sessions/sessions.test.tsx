@@ -21,6 +21,20 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush, replace: mockReplace }),
 }))
 
+vi.mock('@/src/features/activation/useActivationState', () => ({
+  useActivationState: vi.fn(() => ({
+    isLoading: false,
+    error: null,
+    role: null,
+    steps: [],
+    nextAction: null,
+  })),
+}))
+
+vi.mock('@/src/features/activation/components/ActivationBanner', () => ({
+  ActivationBanner: () => null,
+}))
+
 // ---------------------------------------------------------------------------
 
 afterEach(() => {
