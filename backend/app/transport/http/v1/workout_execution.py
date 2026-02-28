@@ -13,7 +13,7 @@ from datetime import date
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import CurrentUser, require_any_role, require_athlete
@@ -92,6 +92,13 @@ class UpsertLogIn(BaseModel):
 
     exercise_id: uuid.UUID
     entries: list[LogEntryIn] = Field(..., min_length=1)
+
+    @model_validator(mode="after")
+    def check_unique_set_numbers(self) -> "UpsertLogIn":
+        numbers = [e.set_number for e in self.entries]
+        if len(numbers) != len(set(numbers)):
+            raise ValueError("entries must have unique set_number values")
+        return self
 
 
 # ---------------------------------------------------------------------------

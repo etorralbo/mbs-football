@@ -268,6 +268,23 @@ class TestPutLogsValidation:
         )
         assert resp.status_code == 422
 
+    def test_duplicate_set_numbers_return_422(
+        self, client: TestClient, mock_jwt, athlete_a: UserProfile,
+        session_a: WorkoutSession, exercise_team_a: Exercise,
+    ):
+        mock_jwt(str(athlete_a.supabase_user_id))
+        resp = client.put(
+            _put_url(session_a.id), headers=HEADERS,
+            json={
+                "exercise_id": str(exercise_team_a.id),
+                "entries": [
+                    {"set_number": 1, "reps": 5},
+                    {"set_number": 1, "reps": 10},  # duplicate
+                ],
+            },
+        )
+        assert resp.status_code == 422
+
 
 # ---------------------------------------------------------------------------
 # Happy path
