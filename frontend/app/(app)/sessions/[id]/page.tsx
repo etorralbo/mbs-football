@@ -37,6 +37,17 @@ export default function SessionDetailPage() {
     }
   })
 
+  // ── Track in-flight saves to gate the CompletionBar
+  const [savingExercises, setSavingExercises] = useState(new Set<string>())
+  function handleSavingChange(exerciseId: string, isSaving: boolean) {
+    setSavingExercises((prev) => {
+      const next = new Set(prev)
+      if (isSaving) next.add(exerciseId)
+      else next.delete(exerciseId)
+      return next
+    })
+  }
+
   // ── Mark session complete
   const [completing, setCompleting] = useState(false)
   const [completeError, setCompleteError] = useState<string | null>(null)
@@ -78,7 +89,7 @@ export default function SessionDetailPage() {
   const execution = execState.data
   const isCompleted = execution.status === 'completed'
   const progress = progressFromDraft(execution, draft)
-  const canComplete = canMarkCompleted(draft)
+  const canComplete = canMarkCompleted(draft) && savingExercises.size === 0
 
   return (
     <>
@@ -111,11 +122,11 @@ export default function SessionDetailPage() {
               <ExerciseCard
                 key={item.exercise_id}
                 sessionId={id}
-                blockName={block.name}
                 item={item}
                 exerciseSets={draft[item.exercise_id] ?? { 1: { reps: '', weight: '', rpe: '', done: false } }}
                 isCompleted={isCompleted}
                 dispatch={dispatch}
+                onSavingChange={handleSavingChange}
               />
             ))}
           </BlockSection>

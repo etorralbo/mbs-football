@@ -176,4 +176,30 @@ describe('SessionExecutionPage — CompletionBar gating', () => {
       expect(btn).not.toBeDisabled()
     })
   })
+
+  it('"Mark as completed" is disabled while a per-exercise save is in-flight', async () => {
+    // Squat already done (canComplete=true), Stretch not done (Save button visible)
+    mockRequest
+      .mockResolvedValueOnce(MOCK_EXECUTION_LOGGED)   // GET /execution
+      .mockImplementationOnce(() => new Promise(() => {})) // PUT /logs — never resolves
+
+    render(<SessionDetailPage />)
+
+    // Wait for page to load with complete button enabled (Squat already done)
+    const completeBtn = await screen.findByRole('button', { name: /mark as completed/i })
+    await waitFor(() => expect(completeBtn).not.toBeDisabled())
+
+    // Type a value in Stretch's set row (set 1 reps; Squat's input is disabled/done)
+    const repsInputs = screen.getAllByLabelText('Set 1 reps')
+    const stretchRepsInput = repsInputs.find(
+      (el) => !(el as HTMLInputElement).disabled,
+    )!
+    fireEvent.change(stretchRepsInput, { target: { value: '10' } })
+
+    // Click "Save sets" for Stretch — PUT /logs never resolves
+    fireEvent.click(screen.getByRole('button', { name: /save sets/i }))
+
+    // Complete button must be disabled while save is in-flight
+    await waitFor(() => expect(completeBtn).toBeDisabled())
+  })
 })

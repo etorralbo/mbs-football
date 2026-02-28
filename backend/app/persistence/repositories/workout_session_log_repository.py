@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.workout_session_log import WorkoutSessionLog
@@ -17,7 +17,7 @@ from app.models.workout_session_log_entry import WorkoutSessionLogEntry
 
 @dataclass
 class NewLogEntry:
-    """Raw data for a single set row; used only when creating a log."""
+    """Raw data for a single set row; used when creating or upserting a log."""
 
     set_number: int
     reps: Optional[int] = None
@@ -43,6 +43,25 @@ class AbstractWorkoutSessionLogRepository(ABC):
         notes: Optional[str] = None,
     ) -> WorkoutSessionLog:
         """Persist log + entries in a single flush; return the populated log."""
+        ...
+
+    @abstractmethod
+    def upsert_for_exercise(
+        self,
+        team_id: uuid.UUID,
+        session_id: uuid.UUID,
+        exercise_id: uuid.UUID,
+        block_name: str,
+        entries: list[NewLogEntry],
+        created_by_profile_id: uuid.UUID,
+    ) -> WorkoutSessionLog:
+        """Idempotent replace of all entries for (session_id, exercise_id).
+
+        If a log already exists for this exercise in this session, its entries
+        are deleted and replaced with the new ones (the log record is reused).
+        If no log exists, a new one is created.  Returns the log with refreshed
+        entries.
+        """
         ...
 
     @abstractmethod
@@ -95,6 +114,62 @@ class SqlAlchemyWorkoutSessionLogRepository(AbstractWorkoutSessionLogRepository)
         )
         self._db.add(log)
         self._db.flush()  # populate log.id before creating child entries
+
+        for entry_data in entries:
+            self._db.add(
+                WorkoutSessionLogEntry(
+                    id=uuid.uuid4(),
+                    log_id=log.id,
+                    set_number=entry_data.set_number,
+                    reps=entry_data.reps,
+                    weight=entry_data.weight,
+                    rpe=entry_data.rpe,
+                )
+            )
+
+        self._db.commit()
+        self._db.refresh(log)
+        return log
+
+    def upsert_for_exercise(
+        self,
+        team_id: uuid.UUID,
+        session_id: uuid.UUID,
+        exercise_id: uuid.UUID,
+        block_name: str,
+        entries: list[NewLogEntry],
+        created_by_profile_id: uuid.UUID,
+    ) -> WorkoutSessionLog:
+        # Find existing log for this exercise in this session (take first if
+        # multiple exist — pathological edge case from old POST behaviour).
+        existing = self._db.execute(
+            select(WorkoutSessionLog)
+            .where(
+                WorkoutSessionLog.session_id == session_id,
+                WorkoutSessionLog.exercise_id == exercise_id,
+            )
+            .limit(1)
+        ).scalar_one_or_none()
+
+        if existing is not None:
+            # Delete all previous entries and replace with new ones.
+            self._db.execute(
+                delete(WorkoutSessionLogEntry).where(
+                    WorkoutSessionLogEntry.log_id == existing.id
+                )
+            )
+            log = existing
+        else:
+            log = WorkoutSessionLog(
+                id=uuid.uuid4(),
+                team_id=team_id,
+                session_id=session_id,
+                block_name=block_name,
+                exercise_id=exercise_id,
+                created_by_profile_id=created_by_profile_id,
+            )
+            self._db.add(log)
+            self._db.flush()
 
         for entry_data in entries:
             self._db.add(

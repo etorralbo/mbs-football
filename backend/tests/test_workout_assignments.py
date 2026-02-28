@@ -396,13 +396,23 @@ class TestSessionComplete:
         coach_a: UserProfile,
         workout_template_a: WorkoutTemplate,
         athlete_a: UserProfile,
+        exercise_team_a,
     ):
-        """I) Athlete completing their own session → 204."""
+        """I) Athlete completing their own session (with at least one log) → 204."""
         session_id = self._assign_and_get_session_id(
             client, mock_jwt, coach_a, workout_template_a, athlete_a
         )
 
         mock_jwt(str(athlete_a.supabase_user_id))
+        # Seed a log (server now requires at least one logged set to complete)
+        client.put(
+            f"{SESSIONS_ENDPOINT}/{session_id}/logs",
+            headers=HEADERS,
+            json={
+                "exercise_id": str(exercise_team_a.id),
+                "entries": [{"set_number": 1, "reps": 5}],
+            },
+        )
         response = client.patch(
             f"{SESSIONS_ENDPOINT}/{session_id}/complete",
             headers=HEADERS,
@@ -439,10 +449,22 @@ class TestSessionComplete:
         coach_a: UserProfile,
         workout_template_a: WorkoutTemplate,
         athlete_a: UserProfile,
+        exercise_team_a,
     ):
-        """COACH can complete any session within their team → 204."""
+        """COACH can complete any session within their team (with logs) → 204."""
         session_id = self._assign_and_get_session_id(
             client, mock_jwt, coach_a, workout_template_a, athlete_a
+        )
+
+        # Seed log as athlete first
+        mock_jwt(str(athlete_a.supabase_user_id))
+        client.put(
+            f"{SESSIONS_ENDPOINT}/{session_id}/logs",
+            headers=HEADERS,
+            json={
+                "exercise_id": str(exercise_team_a.id),
+                "entries": [{"set_number": 1, "reps": 5}],
+            },
         )
 
         mock_jwt(str(coach_a.supabase_user_id))

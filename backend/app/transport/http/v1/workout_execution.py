@@ -1,8 +1,10 @@
 """HTTP transport layer — Workout Execution router.
 
 Exposes:
-    POST  /workout-sessions/{session_id}/logs
+    POST  /workout-sessions/{session_id}/logs   (append-only; kept for compat)
+    PUT   /workout-sessions/{session_id}/logs   (idempotent upsert, preferred)
     GET   /workout-sessions/{session_id}
+    GET   /workout-sessions/{session_id}/execution
 
 PATCH /workout-sessions/{session_id}/complete is handled by workout_sessions.py.
 """
@@ -22,6 +24,13 @@ from app.domain.use_cases.create_workout_session_log import (
     CreateWorkoutSessionLogUseCase,
     NotFoundError as LogNotFoundError,
     ValidationError as LogValidationError,
+)
+from app.domain.use_cases.upsert_session_exercise_log import (
+    UpsertEntryItem,
+    UpsertSessionExerciseLogCommand,
+    UpsertSessionExerciseLogUseCase,
+    NotFoundError as UpsertNotFoundError,
+    ValidationError as UpsertValidationError,
 )
 from app.domain.use_cases.get_workout_session_detail import (
     GetWorkoutSessionDetailQuery,
@@ -78,6 +87,13 @@ class CreateLogIn(BaseModel):
     notes: Optional[str] = None
 
 
+class UpsertLogIn(BaseModel):
+    """Body for PUT /{session_id}/logs — idempotent upsert for one exercise."""
+
+    exercise_id: uuid.UUID
+    entries: list[LogEntryIn] = Field(..., min_length=1)
+
+
 # ---------------------------------------------------------------------------
 # Response schemas
 # ---------------------------------------------------------------------------
@@ -91,6 +107,13 @@ class LogEntryOut(BaseModel):
     reps: Optional[int]
     weight: Optional[float]
     rpe: Optional[float]
+
+
+class UpsertLogOut(BaseModel):
+    """Response for PUT /{session_id}/logs — confirmed persisted entries."""
+
+    exercise_id: uuid.UUID
+    entries: list[LogEntryOut]
 
 
 class SessionLogOut(BaseModel):
@@ -121,6 +144,39 @@ def _build_create_log_use_case(db: Session) -> CreateWorkoutSessionLogUseCase:
         log_repo=SqlAlchemyWorkoutSessionLogRepository(db),
         exercise_repo=SqlAlchemyExerciseRepository(db),
         event_service=ProductEventService(db),
+    )
+
+
+def _build_upsert_log_use_case(db: Session) -> UpsertSessionExerciseLogUseCase:
+    return UpsertSessionExerciseLogUseCase(
+        session_repo=SqlAlchemyWorkoutSessionRepository(db),
+        template_repo=SqlAlchemyWorkoutTemplateRepository(db),
+        log_repo=SqlAlchemyWorkoutSessionLogRepository(db),
+        exercise_repo=SqlAlchemyExerciseRepository(db),
+        event_service=ProductEventService(db),
+    )
+
+
+def _to_upsert_command(
+    payload: UpsertLogIn,
+    session_id: uuid.UUID,
+    current_user: CurrentUser,
+) -> UpsertSessionExerciseLogCommand:
+    return UpsertSessionExerciseLogCommand(
+        session_id=session_id,
+        exercise_id=payload.exercise_id,
+        entries=[
+            UpsertEntryItem(
+                set_number=e.set_number,
+                reps=e.reps,
+                weight=e.weight,
+                rpe=e.rpe,
+            )
+            for e in payload.entries
+        ],
+        requesting_athlete_id=current_user.user_id,
+        requesting_supabase_user_id=current_user.supabase_user_id,
+        requesting_team_id=current_user.team_id,
     )
 
 
@@ -303,6 +359,39 @@ def _execution_result_to_out(result: SessionExecutionResult) -> WorkoutSessionEx
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
+@router.put("/{session_id}/logs", response_model=UpsertLogOut)
+def upsert_log(
+    session_id: uuid.UUID,
+    payload: UpsertLogIn,
+    current_user: Annotated[CurrentUser, Depends(require_athlete)],
+    db: Session = Depends(get_db),
+) -> UpsertLogOut:
+    use_case = _build_upsert_log_use_case(db)
+    command = _to_upsert_command(payload, session_id, current_user)
+
+    try:
+        result = use_case.execute(command)
+    except UpsertNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except UpsertValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
+
+    return UpsertLogOut(
+        exercise_id=result.exercise_id,
+        entries=[
+            LogEntryOut(
+                set_number=e.set_number,
+                reps=e.reps,
+                weight=e.weight,
+                rpe=e.rpe,
+            )
+            for e in result.entries
+        ],
+    )
+
 
 @router.post(
     "/{session_id}/logs",

@@ -9,11 +9,11 @@ import { SetRow } from './SetRow'
 
 interface Props {
   sessionId: string
-  blockName: string
   item: ExecutionItem
   exerciseSets: DraftState[string]
   isCompleted: boolean
   dispatch: (action: DraftAction) => void
+  onSavingChange?: (exerciseId: string, isSaving: boolean) => void
 }
 
 function prescriptionText(p: Record<string, unknown>): string {
@@ -33,11 +33,11 @@ function parseOpt(value: string): number | null {
 
 export function ExerciseCard({
   sessionId,
-  blockName,
   item,
   exerciseSets,
   isCompleted,
   dispatch,
+  onSavingChange,
 }: Props) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -62,12 +62,12 @@ export function ExerciseCard({
 
     setError(null)
     setSaving(true)
+    onSavingChange?.(item.exercise_id, true)
 
     try {
       await request(`/v1/workout-sessions/${sessionId}/logs`, {
-        method: 'POST',
+        method: 'PUT',
         body: JSON.stringify({
-          block_name: blockName,
           exercise_id: item.exercise_id,
           entries: validEntries,
         }),
@@ -84,6 +84,7 @@ export function ExerciseCard({
       }
     } finally {
       setSaving(false)
+      onSavingChange?.(item.exercise_id, false)
     }
   }
 
