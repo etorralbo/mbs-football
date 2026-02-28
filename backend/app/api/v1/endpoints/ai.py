@@ -30,10 +30,11 @@ def create_template_draft(
 ):
     cfg = get_settings()
 
-    # Stub mode: only active in local dev AND when explicitly opted-in.
-    # The double guard (ENV + flag) prevents accidental activation in
-    # staging/production even if AI_STUB leaks into the environment.
-    if cfg.ENV == "local" and cfg.AI_STUB:
+    # Stub mode: active whenever AI_STUB=true, regardless of ENV.
+    # This allows demo/staging deployments to serve deterministic drafts
+    # without an OpenAI key. Operators control this via the environment
+    # variable — no extra code guard is needed.
+    if cfg.AI_STUB:
         return generate_stub_draft(
             db=db,
             team_id=current_user.team_id,

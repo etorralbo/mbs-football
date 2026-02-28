@@ -301,25 +301,16 @@ alembic downgrade -1
 
 ### Production (Render)
 
-**Option A — Manual shell (one-off job)**
+Render runs DB migrations on container startup via `entrypoint.sh` (`alembic upgrade head`). If the migration fails, the container exits and uvicorn never starts.
 
-In the Render dashboard, open a Shell for the backend service and run:
-
-```bash
-alembic upgrade head
-```
-
-**Option B — Release command (recommended)**
-
-In the Render service settings, set the **Release Command** to:
+`entrypoint.sh` (in `backend/`) is copied into the image by the Dockerfile and set as the container `CMD`. It runs:
 
 ```
-alembic upgrade head
+alembic -c /app/alembic.ini upgrade head
+uvicorn app.main:app ...
 ```
 
-Render runs this command after each successful deploy, before traffic switches to the new instance. If the migration fails, the deploy is aborted and the previous version continues serving traffic.
-
-> Note: both options require `DATABASE_URL` to be set in the Render environment.
+> `DATABASE_URL` must be set as an environment variable in the Render service dashboard.
 
 ---
 

@@ -267,16 +267,15 @@ class TestAiTemplateDraftTenantIsolation:
 # Stub mode
 # ---------------------------------------------------------------------------
 
-def _stub_settings(*, env: str = "local", ai_stub: bool = True) -> MagicMock:
+def _stub_settings(*, ai_stub: bool = True) -> MagicMock:
     """Return a mock Settings-like object with only the fields the endpoint reads."""
     cfg = MagicMock()
-    cfg.ENV = env
     cfg.AI_STUB = ai_stub
     return cfg
 
 
 class TestAiTemplateDraftStub:
-    """When ENV=local and AI_STUB=True the endpoint bypasses OpenAI entirely."""
+    """When AI_STUB=True the endpoint bypasses OpenAI entirely, regardless of ENV."""
 
     def test_stub_returns_200_without_calling_llm(
         self,
@@ -346,29 +345,29 @@ class TestAiTemplateDraftStub:
         title: str = response.json()["title"]
         assert "acceleration sprint session" in title.lower()
 
-    def test_stub_disabled_in_non_local_env(
+    def test_stub_active_in_production_env(
         self,
         client: TestClient,
         mock_jwt,
         mocker,
         coach_a: UserProfile,
     ):
-        """AI_STUB=True must be silently ignored outside ENV=local."""
-        spy_llm = mocker.patch("app.core.ai_client.call_llm", return_value=_MOCK_LLM)
-        # AI_STUB=True but ENV != "local"
+        """AI_STUB=True activates stub regardless of ENV — no LLM call is made."""
+        spy_llm = mocker.patch("app.core.ai_client.call_llm")
         mocker.patch(
             "app.api.v1.endpoints.ai.get_settings",
-            return_value=_stub_settings(env="production", ai_stub=True),
+            return_value=_stub_settings(ai_stub=True),
         )
 
         mock_jwt(str(coach_a.supabase_user_id))
-        client.post(
+        response = client.post(
             "/v1/ai/workout-template-draft",
             headers=HEADERS,
             json={"prompt": "strength workout"},
         )
 
-        spy_llm.assert_called_once()
+        assert response.status_code == 200
+        spy_llm.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
