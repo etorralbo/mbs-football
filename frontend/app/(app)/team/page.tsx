@@ -18,7 +18,7 @@ export default function TeamPage() {
 
   // UX guard: ATHLETE should not access team page (backend RBAC is the real authority).
   useEffect(() => {
-    if (!authLoading && role !== null && role !== 'COACH') {
+    if (!authLoading && role === 'ATHLETE') {
       router.replace('/sessions')
     }
   }, [authLoading, role, router])

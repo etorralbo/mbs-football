@@ -25,7 +25,7 @@ export default function TemplatesPage() {
 
   // UX guard: ATHLETE should not access templates (backend RBAC is the real authority).
   useEffect(() => {
-    if (!authLoading && authRole !== null && authRole !== 'COACH') {
+    if (!authLoading && authRole === 'ATHLETE') {
       router.replace('/sessions')
     }
   }, [authLoading, authRole, router])
