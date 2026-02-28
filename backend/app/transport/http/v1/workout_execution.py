@@ -31,6 +31,15 @@ from app.domain.use_cases.get_workout_session_detail import (
     SessionLogItem,
     WorkoutSessionDetailResult,
 )
+from app.domain.use_cases.get_session_execution_view import (
+    BlockExecutionOut,
+    ExerciseExecutionOut,
+    GetSessionExecutionQuery,
+    GetSessionExecutionViewUseCase,
+    NotFoundError as ExecutionNotFoundError,
+    SessionExecutionResult,
+    SetLogOut,
+)
 from app.models.user_profile import Role
 from app.persistence.repositories.exercise_repository import (
     SqlAlchemyExerciseRepository,
@@ -41,6 +50,9 @@ from app.persistence.repositories.workout_session_log_repository import (
 )
 from app.persistence.repositories.workout_session_repository import (
     SqlAlchemyWorkoutSessionRepository,
+)
+from app.persistence.repositories.workout_template_repository import (
+    SqlAlchemyWorkoutTemplateRepository,
 )
 
 router = APIRouter(prefix="/workout-sessions", tags=["workout-execution"])
@@ -190,6 +202,97 @@ def _detail_to_out(result: WorkoutSessionDetailResult) -> SessionDetailOut:
 
 
 # ---------------------------------------------------------------------------
+# Execution view response schemas
+# ---------------------------------------------------------------------------
+
+class SetLogOutSchema(BaseModel):
+    set_number: int
+    reps: Optional[int]
+    weight: Optional[float]
+    rpe: Optional[float]
+    done: bool
+
+
+class ExerciseExecutionOutSchema(BaseModel):
+    exercise_id: uuid.UUID
+    exercise_name: str
+    prescription: dict
+    logs: list[SetLogOutSchema]
+
+
+class BlockExecutionOutSchema(BaseModel):
+    name: str
+    order: int
+    items: list[ExerciseExecutionOutSchema]
+
+
+class WorkoutSessionExecutionOut(BaseModel):
+    session_id: uuid.UUID
+    status: str
+    workout_template_id: uuid.UUID
+    blocks: list[BlockExecutionOutSchema]
+
+
+# ---------------------------------------------------------------------------
+# Execution view wiring helpers
+# ---------------------------------------------------------------------------
+
+def _build_execution_use_case(db: Session) -> GetSessionExecutionViewUseCase:
+    return GetSessionExecutionViewUseCase(
+        session_repo=SqlAlchemyWorkoutSessionRepository(db),
+        template_repo=SqlAlchemyWorkoutTemplateRepository(db),
+        log_repo=SqlAlchemyWorkoutSessionLogRepository(db),
+    )
+
+
+def _to_execution_query(
+    session_id: uuid.UUID,
+    current_user: CurrentUser,
+) -> GetSessionExecutionQuery:
+    return GetSessionExecutionQuery(
+        session_id=session_id,
+        requesting_role=current_user.role,
+        requesting_team_id=current_user.team_id,
+        requesting_athlete_id=(
+            current_user.user_id if current_user.role == Role.ATHLETE else None
+        ),
+    )
+
+
+def _execution_result_to_out(result: SessionExecutionResult) -> WorkoutSessionExecutionOut:
+    return WorkoutSessionExecutionOut(
+        session_id=result.session_id,
+        status=result.status,
+        workout_template_id=result.workout_template_id,
+        blocks=[
+            BlockExecutionOutSchema(
+                name=block.name,
+                order=block.order,
+                items=[
+                    ExerciseExecutionOutSchema(
+                        exercise_id=item.exercise_id,
+                        exercise_name=item.exercise_name,
+                        prescription=item.prescription,
+                        logs=[
+                            SetLogOutSchema(
+                                set_number=s.set_number,
+                                reps=s.reps,
+                                weight=s.weight,
+                                rpe=s.rpe,
+                                done=s.done,
+                            )
+                            for s in item.logs
+                        ],
+                    )
+                    for item in block.items
+                ],
+            )
+            for block in result.blocks
+        ],
+    )
+
+
+# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
@@ -232,3 +335,20 @@ def get_session_detail(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
     return _detail_to_out(result)
+
+
+@router.get("/{session_id}/execution", response_model=WorkoutSessionExecutionOut)
+def get_session_execution(
+    session_id: uuid.UUID,
+    current_user: Annotated[CurrentUser, Depends(require_any_role)],
+    db: Session = Depends(get_db),
+) -> WorkoutSessionExecutionOut:
+    use_case = _build_execution_use_case(db)
+    query = _to_execution_query(session_id, current_user)
+
+    try:
+        result = use_case.execute(query)
+    except ExecutionNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+    return _execution_result_to_out(result)

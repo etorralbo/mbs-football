@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.block_exercise import BlockExercise
 from app.models.workout_block import WorkoutBlock
@@ -24,6 +24,13 @@ class AbstractWorkoutTemplateRepository(ABC):
         self, template_id: uuid.UUID, team_id: uuid.UUID
     ) -> Optional[WorkoutTemplate]:
         """Return the template only if it belongs to the given team, else None."""
+        ...
+
+    @abstractmethod
+    def get_by_id_with_blocks(
+        self, template_id: uuid.UUID, team_id: uuid.UUID
+    ) -> Optional[WorkoutTemplate]:
+        """Return template + blocks + items + exercise (eager-loaded), team-scoped."""
         ...
 
     @abstractmethod
@@ -48,6 +55,23 @@ class SqlAlchemyWorkoutTemplateRepository(AbstractWorkoutTemplateRepository):
         stmt = select(WorkoutTemplate).where(
             WorkoutTemplate.id == template_id,
             WorkoutTemplate.team_id == team_id,
+        )
+        return self._db.execute(stmt).scalar_one_or_none()
+
+    def get_by_id_with_blocks(
+        self, template_id: uuid.UUID, team_id: uuid.UUID
+    ) -> Optional[WorkoutTemplate]:
+        stmt = (
+            select(WorkoutTemplate)
+            .where(
+                WorkoutTemplate.id == template_id,
+                WorkoutTemplate.team_id == team_id,
+            )
+            .options(
+                selectinload(WorkoutTemplate.blocks).selectinload(
+                    WorkoutBlock.items
+                ).selectinload(BlockExercise.exercise)
+            )
         )
         return self._db.execute(stmt).scalar_one_or_none()
 
