@@ -62,6 +62,7 @@ def create_invite(
     use_case = CreateInviteUseCase(
         invite_repo=SqlAlchemyInviteRepository(db),
         membership_repo=SqlAlchemyMembershipRepository(db),
+        event_service=ProductEventService(db),
     )
     try:
         result = use_case.execute(

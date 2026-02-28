@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import CurrentUser, require_coach
 from app.db.session import get_db
+from app.domain.events.service import ProductEventService
 from app.domain.use_cases.create_workout_assignment import (
     AthleteTarget,
     CreateWorkoutAssignmentCommand,
@@ -70,6 +71,7 @@ def _build_use_case(db: Session) -> CreateWorkoutAssignmentUseCase:
         assignment_repo=SqlAlchemyWorkoutAssignmentRepository(db),
         session_repo=SqlAlchemyWorkoutSessionRepository(db),
         athlete_query_repo=SqlAlchemyAthleteQueryRepository(db),
+        event_service=ProductEventService(db),
     )
 
 
@@ -83,6 +85,7 @@ def _to_command(
         target = AthleteTarget(athlete_id=payload.target.athlete_id)
 
     return CreateWorkoutAssignmentCommand(
+        requesting_user_id=current_user.supabase_user_id,
         requesting_team_id=current_user.team_id,
         workout_template_id=payload.workout_template_id,
         target=target,

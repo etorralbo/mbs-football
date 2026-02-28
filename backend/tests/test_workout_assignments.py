@@ -478,3 +478,85 @@ class TestSessionComplete:
         )
 
         assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Funnel event tracking
+# ---------------------------------------------------------------------------
+
+class TestAssignmentCreatedEvent:
+    """ASSIGNMENT_CREATED funnel event is inserted on successful assignment."""
+
+    def test_assignment_created_event_inserted(
+        self,
+        client: TestClient,
+        db_session: Session,
+        mock_jwt,
+        coach_a: UserProfile,
+        workout_template_a: WorkoutTemplate,
+        athlete_a: UserProfile,
+    ) -> None:
+        """Successful assignment fires exactly one ASSIGNMENT_CREATED event."""
+        from sqlalchemy import select
+        from app.domain.events.models import FunnelEvent, ProductEvent
+
+        mock_jwt(str(coach_a.supabase_user_id))
+        resp = client.post(
+            ASSIGN_ENDPOINT,
+            headers=HEADERS,
+            json={
+                "workout_template_id": str(workout_template_a.id),
+                "target": {"type": "athlete", "athlete_id": str(athlete_a.id)},
+            },
+        )
+        assert resp.status_code == 201
+
+        events = db_session.execute(
+            select(ProductEvent)
+            .where(ProductEvent.event_name == FunnelEvent.ASSIGNMENT_CREATED)
+            .where(ProductEvent.team_id == coach_a.team_id)
+        ).scalars().all()
+        assert len(events) == 1
+        ev = events[0]
+        assert ev.user_id == coach_a.supabase_user_id
+        assert ev.role == "COACH"
+        assert "assignment_id" in ev.event_metadata
+
+    def test_assignment_created_event_scoped_to_team(
+        self,
+        client: TestClient,
+        db_session: Session,
+        mock_jwt,
+        coach_a: UserProfile,
+        workout_template_a: WorkoutTemplate,
+        athlete_a: UserProfile,
+        team_b: Team,
+    ) -> None:
+        """ASSIGNMENT_CREATED event is stored under team A; team B has zero events."""
+        from sqlalchemy import select
+        from app.domain.events.models import FunnelEvent, ProductEvent
+
+        mock_jwt(str(coach_a.supabase_user_id))
+        resp = client.post(
+            ASSIGN_ENDPOINT,
+            headers=HEADERS,
+            json={
+                "workout_template_id": str(workout_template_a.id),
+                "target": {"type": "athlete", "athlete_id": str(athlete_a.id)},
+            },
+        )
+        assert resp.status_code == 201
+
+        team_a_events = db_session.execute(
+            select(ProductEvent)
+            .where(ProductEvent.event_name == FunnelEvent.ASSIGNMENT_CREATED)
+            .where(ProductEvent.team_id == coach_a.team_id)
+        ).scalars().all()
+        assert len(team_a_events) == 1
+
+        team_b_events = db_session.execute(
+            select(ProductEvent)
+            .where(ProductEvent.event_name == FunnelEvent.ASSIGNMENT_CREATED)
+            .where(ProductEvent.team_id == team_b.id)
+        ).scalars().all()
+        assert len(team_b_events) == 0

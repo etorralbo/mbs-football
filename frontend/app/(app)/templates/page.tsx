@@ -6,9 +6,11 @@ import Link from 'next/link'
 import { request } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
 import { Button } from '@/app/_shared/components/Button'
+import { EmptyState } from '@/app/_shared/components/EmptyState'
 import { SkeletonList } from '@/app/_shared/components/Skeleton'
 import { AiDraftPanel } from './AiDraftPanel'
 import { ActivationBanner } from '@/src/features/activation/components/ActivationBanner'
+import { useActivationState } from '@/src/features/activation/useActivationState'
 import type { WorkoutTemplate } from '@/app/_shared/api/types'
 
 export default function TemplatesPage() {
@@ -17,6 +19,7 @@ export default function TemplatesPage() {
   const [error, setError] = useState<string | null>(null)
   const [showAiPanel, setShowAiPanel] = useState(false)
   const router = useRouter()
+  const { role } = useActivationState()
 
   function fetchTemplates() {
     setLoading(true)
@@ -76,17 +79,18 @@ export default function TemplatesPage() {
       )}
 
       {!loading && !error && templates.length === 0 && (
-        <div className="mt-6">
-          <p className="text-sm text-zinc-500">
-            No templates yet. Use &quot;Create with AI&quot; to get started.
-          </p>
-          <button
-            className="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-700"
-            onClick={() => setShowAiPanel(true)}
-          >
-            Create with AI →
-          </button>
-        </div>
+        role === 'ATHLETE' ? (
+          <EmptyState
+            title="No templates yet"
+            description="Templates are created by your coach."
+          />
+        ) : (
+          <EmptyState
+            title="No templates yet"
+            description="Create your first template and assign it to your team."
+            primaryAction={{ label: 'Create with AI', onClick: () => setShowAiPanel(true) }}
+          />
+        )
       )}
 
       {!loading && templates.length > 0 && (

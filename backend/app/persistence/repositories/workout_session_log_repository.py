@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.workout_session_log import WorkoutSessionLog
@@ -46,6 +46,11 @@ class AbstractWorkoutSessionLogRepository(ABC):
         ...
 
     @abstractmethod
+    def count_by_session(self, session_id: uuid.UUID) -> int:
+        """Return the number of logs already persisted for the given session."""
+        ...
+
+    @abstractmethod
     def list_by_session(
         self,
         session_id: uuid.UUID,
@@ -62,6 +67,12 @@ class SqlAlchemyWorkoutSessionLogRepository(AbstractWorkoutSessionLogRepository)
 
     def __init__(self, db: Session) -> None:
         self._db = db
+
+    def count_by_session(self, session_id: uuid.UUID) -> int:
+        stmt = select(func.count()).select_from(WorkoutSessionLog).where(
+            WorkoutSessionLog.session_id == session_id
+        )
+        return self._db.execute(stmt).scalar_one()
 
     def create(
         self,

@@ -6,8 +6,10 @@ import Link from 'next/link'
 import { request } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
 import { Badge } from '@/app/_shared/components/Badge'
+import { EmptyState } from '@/app/_shared/components/EmptyState'
 import { SkeletonList } from '@/app/_shared/components/Skeleton'
 import { ActivationBanner } from '@/src/features/activation/components/ActivationBanner'
+import { useActivationState } from '@/src/features/activation/useActivationState'
 import type { WorkoutSessionSummary } from '@/app/_shared/api/types'
 
 function formatDate(iso: string): string {
@@ -28,6 +30,7 @@ export default function SessionsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const { role } = useActivationState()
 
   useEffect(() => {
     document.title = 'Sessions | Mettle Performance'
@@ -68,7 +71,18 @@ export default function SessionsPage() {
       )}
 
       {!loading && !error && sessions.length === 0 && (
-        <p className="mt-6 text-sm text-zinc-500">No sessions assigned yet.</p>
+        role === 'COACH' ? (
+          <EmptyState
+            title="No sessions assigned yet"
+            description="Assign your first session to activate your team."
+            primaryAction={{ label: 'Assign first session', href: '/templates' }}
+          />
+        ) : (
+          <EmptyState
+            title="No sessions assigned yet"
+            description="Your coach hasn't assigned a session to you yet. Check back soon."
+          />
+        )
       )}
 
       {!loading && sessions.length > 0 && (

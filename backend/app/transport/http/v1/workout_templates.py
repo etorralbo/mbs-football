@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import CurrentUser, require_coach
 from app.db.session import get_db
+from app.domain.events.service import ProductEventService
 from app.domain.use_cases.create_workout_template_from_ai import (
     BlockCommand,
     BlockItemCommand,
@@ -58,6 +59,7 @@ def _build_use_case(db: Session) -> CreateWorkoutTemplateFromAiUseCase:
     return CreateWorkoutTemplateFromAiUseCase(
         workout_template_repo=SqlAlchemyWorkoutTemplateRepository(db),
         exercise_repo=SqlAlchemyExerciseRepository(db),
+        event_service=ProductEventService(db),
     )
 
 
@@ -65,6 +67,7 @@ def _to_command(
     payload: FromAiTemplateIn, current_user: CurrentUser
 ) -> CreateWorkoutTemplateFromAiCommand:
     return CreateWorkoutTemplateFromAiCommand(
+        requesting_user_id=current_user.supabase_user_id,
         team_id=current_user.team_id,
         title=payload.title,
         blocks=[
@@ -104,5 +107,7 @@ def create_from_ai(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+    db.commit()
 
     return WorkoutTemplateCreatedOut(id=result.id)

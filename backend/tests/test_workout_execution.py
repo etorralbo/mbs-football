@@ -718,3 +718,102 @@ class TestSessionCompletedEvent:
         ).scalars().all()
 
         assert len(events) == 1
+
+
+# ===========================================================================
+# 5) SESSION_FIRST_LOG_ADDED funnel event
+# ===========================================================================
+
+
+class TestSessionFirstLogAddedEvent:
+    """SESSION_FIRST_LOG_ADDED is tracked once per session on the first log."""
+
+    def test_first_log_entry_inserts_event(
+        self,
+        client: TestClient,
+        mock_jwt,
+        athlete_a: UserProfile,
+        session_a: WorkoutSession,
+        exercise_team_a: Exercise,
+        db_session: Session,
+    ) -> None:
+        """First log for a session fires exactly one SESSION_FIRST_LOG_ADDED event."""
+        mock_jwt(str(athlete_a.supabase_user_id))
+        resp = client.post(
+            _log_url(session_a.id),
+            headers=HEADERS,
+            json=_valid_log_payload(exercise_team_a.id),
+        )
+        assert resp.status_code == 201
+
+        events = db_session.execute(
+            select(ProductEvent).where(
+                ProductEvent.event_name == FunnelEvent.SESSION_FIRST_LOG_ADDED,
+                ProductEvent.team_id == athlete_a.team_id,
+            )
+        ).scalars().all()
+        assert len(events) == 1
+        ev = events[0]
+        assert ev.user_id == athlete_a.supabase_user_id
+        assert ev.role == "ATHLETE"
+        assert ev.event_metadata == {"session_id": str(session_a.id)}
+
+    def test_second_log_does_not_duplicate_event(
+        self,
+        client: TestClient,
+        mock_jwt,
+        athlete_a: UserProfile,
+        session_a: WorkoutSession,
+        exercise_team_a: Exercise,
+        db_session: Session,
+    ) -> None:
+        """A second log on the same session does not add another event."""
+        mock_jwt(str(athlete_a.supabase_user_id))
+        url = _log_url(session_a.id)
+        payload = _valid_log_payload(exercise_team_a.id)
+
+        client.post(url, headers=HEADERS, json=payload)
+        client.post(url, headers=HEADERS, json=payload)
+
+        events = db_session.execute(
+            select(ProductEvent).where(
+                ProductEvent.event_name == FunnelEvent.SESSION_FIRST_LOG_ADDED,
+                ProductEvent.team_id == athlete_a.team_id,
+            )
+        ).scalars().all()
+        assert len(events) == 1
+
+    def test_first_log_event_scoped_to_team(
+        self,
+        client: TestClient,
+        mock_jwt,
+        athlete_a: UserProfile,
+        session_a: WorkoutSession,
+        exercise_team_a: Exercise,
+        team_b: Team,
+        db_session: Session,
+    ) -> None:
+        """SESSION_FIRST_LOG_ADDED is stored under athlete's team; team B has zero."""
+        mock_jwt(str(athlete_a.supabase_user_id))
+        resp = client.post(
+            _log_url(session_a.id),
+            headers=HEADERS,
+            json=_valid_log_payload(exercise_team_a.id),
+        )
+        assert resp.status_code == 201
+
+        team_a_events = db_session.execute(
+            select(ProductEvent).where(
+                ProductEvent.event_name == FunnelEvent.SESSION_FIRST_LOG_ADDED,
+                ProductEvent.team_id == athlete_a.team_id,
+            )
+        ).scalars().all()
+        assert len(team_a_events) == 1
+
+        team_b_events = db_session.execute(
+            select(ProductEvent).where(
+                ProductEvent.event_name == FunnelEvent.SESSION_FIRST_LOG_ADDED,
+                ProductEvent.team_id == team_b.id,
+            )
+        ).scalars().all()
+        assert len(team_b_events) == 0

@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from app.domain.events.models import FunnelEvent
+from app.domain.events.service import AuthContext, ProductEventService
 from app.models.user_profile import Role
 from app.persistence.repositories.invite_repository import AbstractInviteRepository
 from app.persistence.repositories.membership_repository import AbstractMembershipRepository
@@ -42,9 +44,11 @@ class CreateInviteUseCase:
         self,
         invite_repo: AbstractInviteRepository,
         membership_repo: AbstractMembershipRepository,
+        event_service: ProductEventService,
     ) -> None:
         self._invite_repo = invite_repo
         self._membership_repo = membership_repo
+        self._event_service = event_service
 
     def execute(self, command: CreateInviteCommand) -> CreateInviteResult:
         # Authorization: user must be COACH for this specific team.
@@ -70,6 +74,18 @@ class CreateInviteUseCase:
             role=Role.ATHLETE,
             created_by_user_id=command.requesting_user_id,
             expires_at=expires_at,
+        )
+
+        # Funnel event — post-validation, post-write, same transaction.
+        self._event_service.track(
+            event=FunnelEvent.INVITE_CREATED,
+            actor=AuthContext(
+                user_id=command.requesting_user_id,
+                role=membership.role.value,
+                team_id=command.team_id,
+            ),
+            team_id=command.team_id,
+            metadata={"invite_id": str(invite.id)},
         )
 
         return CreateInviteResult(

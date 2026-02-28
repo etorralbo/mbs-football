@@ -3,6 +3,9 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Optional
 
+from app.domain.events.models import FunnelEvent
+from app.domain.events.service import AuthContext, ProductEventService
+from app.models.user_profile import Role
 from app.persistence.repositories.exercise_repository import (
     AbstractExerciseRepository,
 )
@@ -54,6 +57,7 @@ class CreateWorkoutSessionLogCommand:
     # the use case is called, but the athlete_id is still required for the
     # ownership check inside the use case.
     requesting_athlete_id: uuid.UUID
+    requesting_supabase_user_id: uuid.UUID
     requesting_team_id: uuid.UUID
     block_name: str
     exercise_id: uuid.UUID
@@ -88,10 +92,12 @@ class CreateWorkoutSessionLogUseCase:
         session_repo: AbstractWorkoutSessionRepository,
         log_repo: AbstractWorkoutSessionLogRepository,
         exercise_repo: AbstractExerciseRepository,
+        event_service: ProductEventService,
     ) -> None:
         self._session_repo = session_repo
         self._log_repo = log_repo
         self._exercise_repo = exercise_repo
+        self._event_service = event_service
 
     def execute(
         self,
@@ -127,7 +133,24 @@ class CreateWorkoutSessionLogUseCase:
                 f"(received {len(command.entries)})"
             )
 
-        # 5. Persist log + entries atomically
+        # 5. Check if this is the first log for this session (before inserting).
+        is_first_log = self._log_repo.count_by_session(command.session_id) == 0
+
+        # 6. If first log, stage the funnel event BEFORE log_repo.create()
+        # commits, so the event is committed atomically with the log.
+        if is_first_log:
+            self._event_service.track(
+                event=FunnelEvent.SESSION_FIRST_LOG_ADDED,
+                actor=AuthContext(
+                    user_id=command.requesting_supabase_user_id,
+                    role=Role.ATHLETE.value,
+                    team_id=command.requesting_team_id,
+                ),
+                team_id=command.requesting_team_id,
+                metadata={"session_id": str(command.session_id)},
+            )
+
+        # 7. Persist log + entries atomically (commits log + any staged event).
         log = self._log_repo.create(
             team_id=command.requesting_team_id,
             session_id=command.session_id,

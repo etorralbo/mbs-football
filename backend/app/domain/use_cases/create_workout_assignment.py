@@ -5,7 +5,9 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Optional, Union
 
-from app.models.user_profile import UserProfile
+from app.domain.events.models import FunnelEvent
+from app.domain.events.service import AuthContext, ProductEventService
+from app.models.user_profile import Role, UserProfile
 from app.models.workout_assignment import AssignmentTargetType
 from app.persistence.repositories.workout_assignment_repository import (
     AbstractWorkoutAssignmentRepository,
@@ -70,6 +72,7 @@ class AthleteTarget:
 
 @dataclass
 class CreateWorkoutAssignmentCommand:
+    requesting_user_id: uuid.UUID
     requesting_team_id: uuid.UUID
     workout_template_id: uuid.UUID
     target: Union[TeamTarget, AthleteTarget]
@@ -94,11 +97,13 @@ class CreateWorkoutAssignmentUseCase:
         assignment_repo: AbstractWorkoutAssignmentRepository,
         session_repo: AbstractWorkoutSessionRepository,
         athlete_query_repo: AbstractAthleteQueryRepository,
+        event_service: ProductEventService,
     ) -> None:
         self._template_repo = template_repo
         self._assignment_repo = assignment_repo
         self._session_repo = session_repo
         self._athlete_query_repo = athlete_query_repo
+        self._event_service = event_service
 
     def execute(
         self, command: CreateWorkoutAssignmentCommand
@@ -140,6 +145,20 @@ class CreateWorkoutAssignmentUseCase:
             target_athlete_id=target_athlete_id,
             scheduled_for=command.scheduled_for,
         )
+
+        # Funnel event — added to session before create_bulk() commits, so it
+        # is committed atomically with the assignment and all sessions.
+        self._event_service.track(
+            event=FunnelEvent.ASSIGNMENT_CREATED,
+            actor=AuthContext(
+                user_id=command.requesting_user_id,
+                role=Role.COACH.value,
+                team_id=command.requesting_team_id,
+            ),
+            team_id=command.requesting_team_id,
+            metadata={"assignment_id": str(assignment.id)},
+        )
+
         sessions = self._session_repo.create_bulk(
             assignment_id=assignment.id,
             athlete_ids=athlete_ids,

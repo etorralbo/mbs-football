@@ -266,3 +266,67 @@ class TestFromAiAtomicity:
             )
         ).scalars().all()
         assert items == [], "No BlockExercise should have been persisted"
+
+
+class TestTemplateCreatedAiEvent:
+    """Funnel event tracking for TEMPLATE_CREATED_AI."""
+
+    def test_template_created_ai_event_inserted(
+        self,
+        client: TestClient,
+        db_session: Session,
+        onboarded_coach_jwt: UserProfile,
+        coach_team_exercise_id: uuid.UUID,
+    ) -> None:
+        """Successful save fires exactly one TEMPLATE_CREATED_AI event."""
+        from sqlalchemy import select
+        from app.domain.events.models import FunnelEvent, ProductEvent
+
+        payload = _valid_payload(exercise_id=coach_team_exercise_id)
+        resp = client.post(ENDPOINT, headers=HEADERS, json=payload)
+        assert resp.status_code == 201
+
+        events = db_session.execute(
+            select(ProductEvent)
+            .where(ProductEvent.event_name == FunnelEvent.TEMPLATE_CREATED_AI)
+            .where(ProductEvent.team_id == onboarded_coach_jwt.team_id)
+        ).scalars().all()
+        assert len(events) == 1
+        ev = events[0]
+        assert ev.user_id == onboarded_coach_jwt.supabase_user_id
+        assert ev.role == "COACH"
+        assert "template_id" in ev.event_metadata
+
+    def test_template_created_ai_event_scoped_to_team(
+        self,
+        client: TestClient,
+        db_session: Session,
+        onboarded_coach_jwt: UserProfile,
+        coach_team_exercise_id: uuid.UUID,
+    ) -> None:
+        """TEMPLATE_CREATED_AI event is stored under coach's team; another team has zero events."""
+        from sqlalchemy import select
+        from app.domain.events.models import FunnelEvent, ProductEvent
+        from app.models import Team
+
+        other_team = Team(id=uuid.uuid4(), name="Other Team")
+        db_session.add(other_team)
+        db_session.commit()
+
+        payload = _valid_payload(exercise_id=coach_team_exercise_id)
+        resp = client.post(ENDPOINT, headers=HEADERS, json=payload)
+        assert resp.status_code == 201
+
+        coach_events = db_session.execute(
+            select(ProductEvent)
+            .where(ProductEvent.event_name == FunnelEvent.TEMPLATE_CREATED_AI)
+            .where(ProductEvent.team_id == onboarded_coach_jwt.team_id)
+        ).scalars().all()
+        assert len(coach_events) == 1
+
+        other_events = db_session.execute(
+            select(ProductEvent)
+            .where(ProductEvent.event_name == FunnelEvent.TEMPLATE_CREATED_AI)
+            .where(ProductEvent.team_id == other_team.id)
+        ).scalars().all()
+        assert len(other_events) == 0
