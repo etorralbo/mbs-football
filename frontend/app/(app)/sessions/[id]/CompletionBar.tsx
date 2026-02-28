@@ -38,6 +38,11 @@ export function CompletionBar({
               {completeError}
             </p>
           )}
+          {!canComplete && !completing && (
+            <p className="text-xs text-zinc-400">
+              Log at least one set to complete the session
+            </p>
+          )}
           <Button
             variant="primary"
             size="sm"

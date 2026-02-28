@@ -11,7 +11,7 @@
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 import SessionDetailPage from './page'
-import type { WorkoutSessionDetail, SessionExecution } from '@/app/_shared/api/types'
+import type { SessionExecution } from '@/app/_shared/api/types'
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -42,20 +42,13 @@ vi.mock('next/link', () => ({
 // Fixtures
 // ---------------------------------------------------------------------------
 
-const MOCK_DETAIL: WorkoutSessionDetail = {
-  id: 'sess-1',
+const MOCK_EXECUTION: SessionExecution = {
+  session_id: 'sess-1',
   status: 'pending',
   workout_template_id: 'tpl-1',
   template_title: 'Sprint Power',
   athlete_profile_id: 'ath-1',
   scheduled_for: null,
-  logs: [],
-}
-
-const MOCK_EXECUTION: SessionExecution = {
-  session_id: 'sess-1',
-  status: 'pending',
-  workout_template_id: 'tpl-1',
   blocks: [
     {
       name: 'Primary Strength',
@@ -86,8 +79,7 @@ const MOCK_EXECUTION: SessionExecution = {
   ],
 }
 
-const MOCK_EXECUTION_LOGGED: SessionExecution = {
-  ...MOCK_EXECUTION,
+const MOCK_EXECUTION_LOGGED: SessionExecution = { ...MOCK_EXECUTION,
   blocks: [
     {
       ...MOCK_EXECUTION.blocks[0],
@@ -116,9 +108,7 @@ afterEach(() => {
 
 describe('SessionExecutionPage — guided blocks', () => {
   it('renders block names from the execution response', async () => {
-    mockRequest
-      .mockResolvedValueOnce(MOCK_DETAIL)
-      .mockResolvedValueOnce(MOCK_EXECUTION)
+    mockRequest.mockResolvedValueOnce(MOCK_EXECUTION)
 
     render(<SessionDetailPage />)
 
@@ -129,9 +119,7 @@ describe('SessionExecutionPage — guided blocks', () => {
   })
 
   it('renders exercise names within their block', async () => {
-    mockRequest
-      .mockResolvedValueOnce(MOCK_DETAIL)
-      .mockResolvedValueOnce(MOCK_EXECUTION)
+    mockRequest.mockResolvedValueOnce(MOCK_EXECUTION)
 
     render(<SessionDetailPage />)
 
@@ -142,9 +130,7 @@ describe('SessionExecutionPage — guided blocks', () => {
   })
 
   it('renders prescription text for each exercise', async () => {
-    mockRequest
-      .mockResolvedValueOnce(MOCK_DETAIL)
-      .mockResolvedValueOnce(MOCK_EXECUTION)
+    mockRequest.mockResolvedValueOnce(MOCK_EXECUTION)
 
     render(<SessionDetailPage />)
 
@@ -155,9 +141,7 @@ describe('SessionExecutionPage — guided blocks', () => {
   })
 
   it('updates reps input value when user types', async () => {
-    mockRequest
-      .mockResolvedValueOnce(MOCK_DETAIL)
-      .mockResolvedValueOnce(MOCK_EXECUTION)
+    mockRequest.mockResolvedValueOnce(MOCK_EXECUTION)
 
     render(<SessionDetailPage />)
 
@@ -172,9 +156,7 @@ describe('SessionExecutionPage — guided blocks', () => {
 
 describe('SessionExecutionPage — CompletionBar gating', () => {
   it('"Mark as completed" is disabled when no sets are logged', async () => {
-    mockRequest
-      .mockResolvedValueOnce(MOCK_DETAIL)
-      .mockResolvedValueOnce(MOCK_EXECUTION)
+    mockRequest.mockResolvedValueOnce(MOCK_EXECUTION)
 
     render(<SessionDetailPage />)
 
@@ -185,9 +167,7 @@ describe('SessionExecutionPage — CompletionBar gating', () => {
   })
 
   it('"Mark as completed" is enabled when execution already has logged sets', async () => {
-    mockRequest
-      .mockResolvedValueOnce(MOCK_DETAIL)
-      .mockResolvedValueOnce(MOCK_EXECUTION_LOGGED)
+    mockRequest.mockResolvedValueOnce(MOCK_EXECUTION_LOGGED)
 
     render(<SessionDetailPage />)
 

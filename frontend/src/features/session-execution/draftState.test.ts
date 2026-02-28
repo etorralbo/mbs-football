@@ -14,6 +14,9 @@ const EXECUTION_EMPTY: SessionExecution = {
   session_id: 'sess-1',
   status: 'pending',
   workout_template_id: 'tpl-1',
+  template_title: 'Sprint Power',
+  athlete_profile_id: 'ath-1',
+  scheduled_for: null,
   blocks: [
     {
       name: 'Primary Strength',

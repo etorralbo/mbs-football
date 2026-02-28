@@ -200,6 +200,9 @@ export interface SessionExecution {
   session_id: string
   status: 'pending' | 'completed'
   workout_template_id: string
+  template_title: string
+  athlete_profile_id: string
+  scheduled_for: string | null
   blocks: SessionExecutionBlock[]
 }
 

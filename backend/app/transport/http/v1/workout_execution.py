@@ -231,6 +231,9 @@ class WorkoutSessionExecutionOut(BaseModel):
     session_id: uuid.UUID
     status: str
     workout_template_id: uuid.UUID
+    template_title: str
+    athlete_profile_id: uuid.UUID
+    scheduled_for: Optional[date]
     blocks: list[BlockExecutionOutSchema]
 
 
@@ -265,6 +268,9 @@ def _execution_result_to_out(result: SessionExecutionResult) -> WorkoutSessionEx
         session_id=result.session_id,
         status=result.status,
         workout_template_id=result.workout_template_id,
+        template_title=result.template_title,
+        athlete_profile_id=result.athlete_profile_id,
+        scheduled_for=result.scheduled_for,
         blocks=[
             BlockExecutionOutSchema(
                 name=block.name,

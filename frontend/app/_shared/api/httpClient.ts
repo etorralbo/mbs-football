@@ -36,6 +36,13 @@ export class ValidationError extends Error {
   }
 }
 
+export class ConflictError extends Error {
+  constructor(message = 'Conflict') {
+    super(message)
+    this.name = 'ConflictError'
+  }
+}
+
 export class ServerError extends Error {
   readonly status: number
   constructor(message: string, status = 500) {
@@ -105,6 +112,8 @@ export async function request<T>(
     case 400:
     case 422:
       throw new ValidationError(extractDetail(body))
+    case 409:
+      throw new ConflictError(extractMessage(body))
     default:
       throw new ServerError(
         extractMessage(body) || `Server error ${response.status}`,

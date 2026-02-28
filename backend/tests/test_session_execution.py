@@ -216,7 +216,7 @@ class TestSessionExecutionShape:
         assert response.status_code == 200
 
     def test_top_level_fields(
-        self, client: TestClient, mock_jwt, coach_a, session_a, template_a,
+        self, client: TestClient, mock_jwt, coach_a, session_a, template_a, athlete_a,
     ):
         mock_jwt(str(coach_a.supabase_user_id))
         data = client.get(
@@ -227,6 +227,9 @@ class TestSessionExecutionShape:
         assert data["session_id"] == str(session_a.id)
         assert data["status"] == "pending"
         assert data["workout_template_id"] == str(template_a.id)
+        assert data["template_title"] == template_a.title
+        assert data["athlete_profile_id"] == str(athlete_a.id)
+        assert data["scheduled_for"] is None   # fixture does not set a date
         assert isinstance(data["blocks"], list)
 
     def test_blocks_contain_prescribed_exercises(

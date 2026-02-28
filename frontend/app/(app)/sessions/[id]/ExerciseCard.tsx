@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { request, ValidationError } from '@/app/_shared/api/httpClient'
+import { request, ConflictError, ValidationError } from '@/app/_shared/api/httpClient'
 import { Button } from '@/app/_shared/components/Button'
 import type { ExecutionItem } from '@/app/_shared/api/types'
 import type { DraftAction, DraftState } from '@/src/features/session-execution/draftState'
@@ -74,8 +74,11 @@ export function ExerciseCard({
       })
       dispatch({ type: 'MARK_DONE', exerciseId: item.exercise_id })
     } catch (err) {
-      if (err instanceof ValidationError) {
-        setError(typeof err.detail === 'string' ? err.detail : 'Validation error.')
+      if (err instanceof ConflictError) {
+        // Duplicate log — treat as success (idempotent)
+        dispatch({ type: 'MARK_DONE', exerciseId: item.exercise_id })
+      } else if (err instanceof ValidationError) {
+        setError('Some entries are invalid. Check your values and try again.')
       } else {
         setError('Failed to save. Please try again.')
       }

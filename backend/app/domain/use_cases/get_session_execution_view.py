@@ -6,6 +6,7 @@ whatever the athlete has already logged, producing a ready-to-render read model.
 import re
 import uuid
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any, Optional
 
 from app.domain.use_cases._session_scope import resolve_session
@@ -71,6 +72,9 @@ class SessionExecutionResult:
     session_id: uuid.UUID
     status: str                     # "pending" | "completed"
     workout_template_id: uuid.UUID
+    template_title: str
+    athlete_profile_id: uuid.UUID
+    scheduled_for: Optional[date]
     blocks: list[BlockExecutionOut] = field(default_factory=list)
 
 
@@ -185,5 +189,8 @@ class GetSessionExecutionViewUseCase:
             session_id=session.id,
             status="completed" if session.completed_at is not None else "pending",
             workout_template_id=session.workout_template_id,
+            template_title=template.title,
+            athlete_profile_id=session.athlete_id,
+            scheduled_for=session.scheduled_for,
             blocks=block_results,
         )

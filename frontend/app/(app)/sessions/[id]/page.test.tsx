@@ -1,15 +1,16 @@
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
-import type { WorkoutSessionDetail, SessionExecution } from '@/app/_shared/api/types'
+import type { SessionExecution } from '@/app/_shared/api/types'
 import SessionDetailPage from './page'
 
 // ---------------------------------------------------------------------------
 // Module mocks
 // ---------------------------------------------------------------------------
 
-const { mockRequest, mockPush } = vi.hoisted(() => ({
+const { mockRequest, mockPush, mockReplace } = vi.hoisted(() => ({
   mockRequest: vi.fn(),
   mockPush: vi.fn(),
+  mockReplace: vi.fn(),
 }))
 
 vi.mock('@/app/_shared/api/httpClient', async (importOriginal) => {
@@ -19,7 +20,7 @@ vi.mock('@/app/_shared/api/httpClient', async (importOriginal) => {
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'sess-1' }),
-  useRouter: () => ({ push: mockPush, replace: vi.fn() }),
+  useRouter: () => ({ push: mockPush, replace: mockReplace }),
 }))
 
 vi.mock('next/link', () => ({
@@ -32,26 +33,19 @@ vi.mock('next/link', () => ({
 // Fixtures
 // ---------------------------------------------------------------------------
 
-const MOCK_SESSION_PENDING: WorkoutSessionDetail = {
-  id: 'sess-1',
+const EMPTY_EXECUTION: SessionExecution = {
+  session_id: 'sess-1',
   status: 'pending',
   workout_template_id: 'tpl-1',
   template_title: 'Power Session',
   athlete_profile_id: 'ath-1',
   scheduled_for: null,
-  logs: [],
-}
-
-const MOCK_SESSION_COMPLETED: WorkoutSessionDetail = {
-  ...MOCK_SESSION_PENDING,
-  status: 'completed',
-}
-
-const EMPTY_EXECUTION: SessionExecution = {
-  session_id: 'sess-1',
-  status: 'pending',
-  workout_template_id: 'tpl-1',
   blocks: [],
+}
+
+const COMPLETED_EXECUTION: SessionExecution = {
+  ...EMPTY_EXECUTION,
+  status: 'completed',
 }
 
 const LOGGED_EXECUTION: SessionExecution = {
@@ -73,6 +67,7 @@ afterEach(() => {
   cleanup()
   mockRequest.mockReset()
   mockPush.mockReset()
+  mockReplace.mockReset()
 })
 
 // ---------------------------------------------------------------------------
@@ -81,9 +76,7 @@ afterEach(() => {
 
 describe('SessionDetailPage — Mark as completed', () => {
   it('renders "Mark as completed" button when session is pending', async () => {
-    mockRequest
-      .mockResolvedValueOnce(MOCK_SESSION_PENDING)
-      .mockResolvedValueOnce(EMPTY_EXECUTION)
+    mockRequest.mockResolvedValueOnce(EMPTY_EXECUTION)
 
     render(<SessionDetailPage />)
 
@@ -93,26 +86,21 @@ describe('SessionDetailPage — Mark as completed', () => {
   })
 
   it('does not render complete button when session is already completed', async () => {
-    mockRequest
-      .mockResolvedValueOnce(MOCK_SESSION_COMPLETED)
-      .mockResolvedValueOnce({ ...EMPTY_EXECUTION, status: 'completed' })
+    mockRequest.mockResolvedValueOnce(COMPLETED_EXECUTION)
 
     render(<SessionDetailPage />)
 
-    // Wait for the heading specifically (not the breadcrumb span which also shows the title)
     await screen.findByRole('heading', { name: 'Power Session' })
     expect(screen.queryByRole('button', { name: /mark as completed/i })).toBeNull()
   })
 
   it('calls PATCH /complete and redirects to /sessions on success', async () => {
     mockRequest
-      .mockResolvedValueOnce(MOCK_SESSION_PENDING) // GET detail
-      .mockResolvedValueOnce(LOGGED_EXECUTION)     // GET execution (has done sets → CTA enabled)
-      .mockResolvedValueOnce(undefined)            // PATCH complete (204)
+      .mockResolvedValueOnce(LOGGED_EXECUTION)  // GET /execution (has done sets → CTA enabled)
+      .mockResolvedValueOnce(undefined)          // PATCH complete (204)
 
     render(<SessionDetailPage />)
 
-    // Wait for button to appear AND be enabled (requires execution to load + draft hydrated)
     const btn = await screen.findByRole('button', { name: /mark as completed/i })
     await waitFor(() => expect(btn).not.toBeDisabled())
     fireEvent.click(btn)
@@ -128,7 +116,6 @@ describe('SessionDetailPage — Mark as completed', () => {
 
   it('shows inline error and does not redirect when PATCH fails', async () => {
     mockRequest
-      .mockResolvedValueOnce(MOCK_SESSION_PENDING)
       .mockResolvedValueOnce(LOGGED_EXECUTION)
       .mockRejectedValueOnce(new Error('network error'))
 

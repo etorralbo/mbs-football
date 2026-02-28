@@ -38,21 +38,14 @@ const EMPTY_EXECUTION: SessionExecution = {
   session_id: 'session-uuid-001',
   status: 'pending',
   workout_template_id: 'wt-1',
-  blocks: [],
-}
-
-const pendingSession = {
-  id: 'session-uuid-001',
-  status: 'pending',
-  workout_template_id: 'wt-1',
   template_title: 'Power Session',
   athlete_profile_id: 'ap-1',
   scheduled_for: '2026-02-25',
-  logs: [],
+  blocks: [],
 }
 
-const completedSession = {
-  ...pendingSession,
+const COMPLETED_EXECUTION: SessionExecution = {
+  ...EMPTY_EXECUTION,
   status: 'completed',
 }
 
@@ -65,13 +58,6 @@ afterEach(() => {
   mockReplace.mockReset()
 })
 
-// Helper: mock both requests for the page (detail + execution)
-function mockBoth(detail: typeof pendingSession, execution: SessionExecution = EMPTY_EXECUTION) {
-  mockRequest
-    .mockResolvedValueOnce(detail)
-    .mockResolvedValueOnce(execution)
-}
-
 // ---------------------------------------------------------------------------
 
 describe('SessionDetailPage', () => {
@@ -83,19 +69,19 @@ describe('SessionDetailPage', () => {
     })
 
     it('renders session status as Pending', async () => {
-      mockBoth(pendingSession)
+      mockRequest.mockResolvedValueOnce(EMPTY_EXECUTION)
       render(<SessionDetailPage />)
       expect(await screen.findByText('Pending')).toBeInTheDocument()
     })
 
     it('renders session status as Completed', async () => {
-      mockBoth(completedSession)
+      mockRequest.mockResolvedValueOnce(COMPLETED_EXECUTION)
       render(<SessionDetailPage />)
       expect(await screen.findByText('Completed')).toBeInTheDocument()
     })
 
     it('renders scheduled_for date', async () => {
-      mockBoth(pendingSession)
+      mockRequest.mockResolvedValueOnce(EMPTY_EXECUTION)
       render(<SessionDetailPage />)
       expect(await screen.findByText(/Feb 25, 2026/)).toBeInTheDocument()
     })
@@ -110,20 +96,20 @@ describe('SessionDetailPage', () => {
 
   describe('Mark as completed button', () => {
     it('shows "Mark as completed" when status is pending', async () => {
-      mockBoth(pendingSession)
+      mockRequest.mockResolvedValueOnce(EMPTY_EXECUTION)
       render(<SessionDetailPage />)
       expect(await screen.findByRole('button', { name: /mark as completed/i })).toBeInTheDocument()
     })
 
     it('hides the button when status is completed', async () => {
-      mockBoth(completedSession)
+      mockRequest.mockResolvedValueOnce(COMPLETED_EXECUTION)
       render(<SessionDetailPage />)
       await screen.findByText('Completed')
       expect(screen.queryByRole('button', { name: /mark as completed/i })).not.toBeInTheDocument()
     })
 
     it('calls PATCH /v1/workout-sessions/{id}/complete and redirects to /sessions', async () => {
-      const LOGGED_EXEC = { ...EMPTY_EXECUTION, blocks: [
+      const LOGGED_EXEC: SessionExecution = { ...EMPTY_EXECUTION, blocks: [
         {
           name: 'Primary Strength', key: 'PRIMARY_STRENGTH', order: 0,
           items: [{
@@ -134,7 +120,6 @@ describe('SessionDetailPage', () => {
       ]}
 
       mockRequest
-        .mockResolvedValueOnce(pendingSession)
         .mockResolvedValueOnce(LOGGED_EXEC)
         .mockResolvedValueOnce(undefined) // PATCH 204
 
@@ -146,7 +131,7 @@ describe('SessionDetailPage', () => {
 
       await waitFor(() => {
         expect(mockRequest).toHaveBeenCalledWith(
-          `/v1/workout-sessions/${pendingSession.id}/complete`,
+          `/v1/workout-sessions/${EMPTY_EXECUTION.session_id}/complete`,
           expect.objectContaining({ method: 'PATCH' }),
         )
         expect(mockPush).toHaveBeenCalledWith('/sessions')
@@ -154,7 +139,7 @@ describe('SessionDetailPage', () => {
     })
 
     it('shows inline error and does not redirect when PATCH fails', async () => {
-      const LOGGED_EXEC = { ...EMPTY_EXECUTION, blocks: [
+      const LOGGED_EXEC: SessionExecution = { ...EMPTY_EXECUTION, blocks: [
         {
           name: 'Primary Strength', key: 'PRIMARY_STRENGTH', order: 0,
           items: [{
@@ -165,7 +150,6 @@ describe('SessionDetailPage', () => {
       ]}
 
       mockRequest
-        .mockResolvedValueOnce(pendingSession)
         .mockResolvedValueOnce(LOGGED_EXEC)
         .mockRejectedValueOnce(new Error('server error'))
 

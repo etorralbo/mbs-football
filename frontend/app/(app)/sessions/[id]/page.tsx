@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useReducer, useState } from 'react'
+import { useEffect, useReducer, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { request } from '@/app/_shared/api/httpClient'
@@ -12,7 +12,6 @@ import {
   canMarkCompleted,
   progressFromDraft,
 } from '@/src/features/session-execution/draftState'
-import type { WorkoutSessionDetail } from '@/app/_shared/api/types'
 import { SessionHeader } from './SessionHeader'
 import { BlockSection } from './BlockSection'
 import { ExerciseCard } from './ExerciseCard'
@@ -22,44 +21,28 @@ export default function SessionDetailPage() {
   const { id } = useParams() as { id: string }
   const router = useRouter()
 
-  // ── Fetch 1: detail (for title + scheduled_for — not in execution endpoint)
-  const [detail, setDetail] = useState<WorkoutSessionDetail | null>(null)
-  const [detailLoading, setDetailLoading] = useState(true)
-  const [notFound, setNotFound] = useState(false)
-
-  useEffect(() => {
-    request<WorkoutSessionDetail>(`/v1/workout-sessions/${id}`)
-      .then(setDetail)
-      .catch((err: unknown) => {
-        try {
-          handleApiError(err, router)
-        } catch {
-          setNotFound(true)
-        }
-      })
-      .finally(() => setDetailLoading(false))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id])
-
-  // ── Fetch 2: execution view (blocks + items + merged logs)
+  // ── Fetch: execution view (includes title, scheduled_for, blocks + logs)
   const execState = useSessionExecution(id)
 
   // ── Local draft state (useReducer)
   const [draft, dispatch] = useReducer(draftReducer, {})
 
-  // Hydrate draft once execution loads
+  // Hydrate draft once execution loads — guard prevents re-hydrating on re-renders
+  // and overwriting in-progress user edits.
+  const hydratedForRef = useRef<string | null>(null)
   useEffect(() => {
-    if (execState.status === 'success') {
+    if (execState.status === 'success' && hydratedForRef.current !== id) {
+      hydratedForRef.current = id
       dispatch({ type: 'HYDRATE', execution: execState.data })
     }
-  }, [execState.status])  // eslint-disable-line react-hooks/exhaustive-deps
+  })
 
   // ── Mark session complete
   const [completing, setCompleting] = useState(false)
   const [completeError, setCompleteError] = useState<string | null>(null)
 
   async function handleComplete() {
-    if (!detail || detail.status === 'completed') return
+    if (execState.status !== 'success' || execState.data.status === 'completed') return
 
     setCompleteError(null)
     setCompleting(true)
@@ -78,10 +61,8 @@ export default function SessionDetailPage() {
     }
   }
 
-  // ── Loading state: wait for both fetches
-  const isLoading = detailLoading || execState.status === 'loading'
-
-  if (isLoading) {
+  // ── Loading state
+  if (execState.status === 'loading') {
     return (
       <div>
         <span className="sr-only">Loading…</span>
@@ -90,12 +71,12 @@ export default function SessionDetailPage() {
     )
   }
 
-  if (notFound || !detail || execState.status === 'error') {
+  if (execState.status === 'error') {
     return <p className="text-sm text-zinc-500">Session not found.</p>
   }
 
   const execution = execState.data
-  const isCompleted = detail.status === 'completed'
+  const isCompleted = execution.status === 'completed'
   const progress = progressFromDraft(execution, draft)
   const canComplete = canMarkCompleted(draft)
 
@@ -107,15 +88,15 @@ export default function SessionDetailPage() {
           Sessions
         </Link>
         <span className="text-zinc-300">/</span>
-        <span className="text-sm text-zinc-900">{detail.template_title}</span>
+        <span className="text-sm text-zinc-900">{execution.template_title}</span>
       </div>
 
       {/* Header */}
       <div className="mt-4">
         <SessionHeader
-          title={detail.template_title}
-          status={detail.status}
-          scheduledFor={detail.scheduled_for}
+          title={execution.template_title}
+          status={execution.status}
+          scheduledFor={execution.scheduled_for}
           completedExercises={progress.completedExercises}
           totalExercises={progress.totalExercises}
           completedSets={progress.completedSets}
