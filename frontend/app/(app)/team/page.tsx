@@ -3,35 +3,28 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { request } from '@/app/_shared/api/httpClient'
-import { handleApiError } from '@/app/_shared/api/handleApiError'
 import { Button } from '@/app/_shared/components/Button'
-import type { MeResponse, CreateInviteResponse } from '@/app/_shared/api/types'
+import type { CreateInviteResponse } from '@/app/_shared/api/types'
 import { FunnelStatsCard } from '@/src/features/analytics/FunnelStatsCard'
+import { useAuth } from '@/src/shared/auth/AuthContext'
 
 export default function TeamPage() {
   const router = useRouter()
-  const [me, setMe] = useState<MeResponse | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { me, role, loading: authLoading } = useAuth()
   const [generating, setGenerating] = useState(false)
   const [inviteUrl, setInviteUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // UX guard: ATHLETE should not access team page (backend RBAC is the real authority).
   useEffect(() => {
-    request<MeResponse>('/v1/me')
-      .then(setMe)
-      .catch((err: unknown) => {
-        try {
-          handleApiError(err, router)
-        } catch {
-          // ignore — page will show empty state
-        }
-      })
-      .finally(() => setLoading(false))
-  }, [router])
+    if (!authLoading && role !== null && role !== 'COACH') {
+      router.replace('/sessions')
+    }
+  }, [authLoading, role, router])
 
   const membership = me?.memberships[0] ?? null
-  const isCoach = membership?.role === 'COACH'
+  const isCoach = role === 'COACH'
 
   async function handleGenerate() {
     if (!membership) return
@@ -58,7 +51,7 @@ export default function TeamPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  if (loading) return <p className="text-sm text-zinc-500">Loading…</p>
+  if (authLoading) return <p className="text-sm text-zinc-500">Loading…</p>
   if (!membership) return <p className="text-sm text-zinc-500">No team found.</p>
 
   return (

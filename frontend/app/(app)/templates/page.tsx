@@ -11,6 +11,7 @@ import { SkeletonList } from '@/app/_shared/components/Skeleton'
 import { AiDraftPanel } from './AiDraftPanel'
 import { ActivationBanner } from '@/src/features/activation/components/ActivationBanner'
 import { useActivationState } from '@/src/features/activation/useActivationState'
+import { useAuth } from '@/src/shared/auth/AuthContext'
 import type { WorkoutTemplate } from '@/app/_shared/api/types'
 
 export default function TemplatesPage() {
@@ -20,6 +21,14 @@ export default function TemplatesPage() {
   const [showAiPanel, setShowAiPanel] = useState(false)
   const router = useRouter()
   const { role } = useActivationState()
+  const { role: authRole, loading: authLoading } = useAuth()
+
+  // UX guard: ATHLETE should not access templates (backend RBAC is the real authority).
+  useEffect(() => {
+    if (!authLoading && authRole !== null && authRole !== 'COACH') {
+      router.replace('/sessions')
+    }
+  }, [authLoading, authRole, router])
 
   function fetchTemplates() {
     setLoading(true)
