@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
-import type { WorkoutSessionDetail } from '@/app/_shared/api/types'
+import type { WorkoutSessionDetail, SessionExecution } from '@/app/_shared/api/types'
 import SessionDetailPage from './page'
 
 // ---------------------------------------------------------------------------
@@ -28,10 +28,6 @@ vi.mock('next/link', () => ({
   ),
 }))
 
-vi.mock('./AddLogForm', () => ({
-  AddLogForm: () => null,
-}))
-
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
@@ -51,6 +47,24 @@ const MOCK_SESSION_COMPLETED: WorkoutSessionDetail = {
   status: 'completed',
 }
 
+const EMPTY_EXECUTION: SessionExecution = {
+  session_id: 'sess-1',
+  status: 'pending',
+  workout_template_id: 'tpl-1',
+  blocks: [],
+}
+
+const LOGGED_EXECUTION: SessionExecution = {
+  ...EMPTY_EXECUTION,
+  blocks: [{
+    name: 'Primary Strength', key: 'PRIMARY_STRENGTH', order: 0,
+    items: [{
+      exercise_id: 'ex-1', exercise_name: 'Squat', prescription: {},
+      logs: [{ set_number: 1, reps: 5, weight: 100, rpe: 8, done: true }],
+    }],
+  }],
+}
+
 // ---------------------------------------------------------------------------
 // Setup / teardown
 // ---------------------------------------------------------------------------
@@ -67,7 +81,9 @@ afterEach(() => {
 
 describe('SessionDetailPage — Mark as completed', () => {
   it('renders "Mark as completed" button when session is pending', async () => {
-    mockRequest.mockResolvedValue(MOCK_SESSION_PENDING)
+    mockRequest
+      .mockResolvedValueOnce(MOCK_SESSION_PENDING)
+      .mockResolvedValueOnce(EMPTY_EXECUTION)
 
     render(<SessionDetailPage />)
 
@@ -77,28 +93,29 @@ describe('SessionDetailPage — Mark as completed', () => {
   })
 
   it('does not render complete button when session is already completed', async () => {
-    mockRequest.mockResolvedValue(MOCK_SESSION_COMPLETED)
+    mockRequest
+      .mockResolvedValueOnce(MOCK_SESSION_COMPLETED)
+      .mockResolvedValueOnce({ ...EMPTY_EXECUTION, status: 'completed' })
 
     render(<SessionDetailPage />)
 
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Power Session' })).toBeInTheDocument()
-    })
+    // Wait for the heading specifically (not the breadcrumb span which also shows the title)
+    await screen.findByRole('heading', { name: 'Power Session' })
     expect(screen.queryByRole('button', { name: /mark as completed/i })).toBeNull()
   })
 
   it('calls PATCH /complete and redirects to /sessions on success', async () => {
     mockRequest
-      .mockResolvedValueOnce(MOCK_SESSION_PENDING) // GET session detail
-      .mockResolvedValueOnce(undefined)            // PATCH complete (204 no content)
+      .mockResolvedValueOnce(MOCK_SESSION_PENDING) // GET detail
+      .mockResolvedValueOnce(LOGGED_EXECUTION)     // GET execution (has done sets → CTA enabled)
+      .mockResolvedValueOnce(undefined)            // PATCH complete (204)
 
     render(<SessionDetailPage />)
 
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /mark as completed/i })).toBeInTheDocument()
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: /mark as completed/i }))
+    // Wait for button to appear AND be enabled (requires execution to load + draft hydrated)
+    const btn = await screen.findByRole('button', { name: /mark as completed/i })
+    await waitFor(() => expect(btn).not.toBeDisabled())
+    fireEvent.click(btn)
 
     await waitFor(() => {
       expect(mockRequest).toHaveBeenCalledWith(
@@ -112,15 +129,14 @@ describe('SessionDetailPage — Mark as completed', () => {
   it('shows inline error and does not redirect when PATCH fails', async () => {
     mockRequest
       .mockResolvedValueOnce(MOCK_SESSION_PENDING)
+      .mockResolvedValueOnce(LOGGED_EXECUTION)
       .mockRejectedValueOnce(new Error('network error'))
 
     render(<SessionDetailPage />)
 
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /mark as completed/i })).toBeInTheDocument()
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: /mark as completed/i }))
+    const btn = await screen.findByRole('button', { name: /mark as completed/i })
+    await waitFor(() => expect(btn).not.toBeDisabled())
+    fireEvent.click(btn)
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(/failed to complete/i)

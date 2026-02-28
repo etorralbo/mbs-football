@@ -30,7 +30,7 @@ describe('FunnelStatsCard', () => {
   it('renders stat counts on success', () => {
     mockUseFunnelStats.mockReturnValue({
       status: 'success',
-      data: { team_created: 1, invite_accepted: 3, session_completed: 5 },
+      data: { team_created: 1, invite_created: 2, invite_accepted: 3, template_created_ai: 1, assignment_created: 2, session_first_log_added: 4, session_completed: 5 },
     })
 
     render(<FunnelStatsCard />)

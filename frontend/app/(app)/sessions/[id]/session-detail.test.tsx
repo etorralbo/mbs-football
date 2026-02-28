@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 import SessionDetailPage from './page'
+import type { SessionExecution } from '@/app/_shared/api/types'
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -23,14 +24,28 @@ vi.mock('next/navigation', () => ({
   useParams: () => mockParams,
 }))
 
+vi.mock('next/link', () => ({
+  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode; [key: string]: unknown }) => (
+    <a href={href} {...rest}>{children}</a>
+  ),
+}))
+
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
+
+const EMPTY_EXECUTION: SessionExecution = {
+  session_id: 'session-uuid-001',
+  status: 'pending',
+  workout_template_id: 'wt-1',
+  blocks: [],
+}
 
 const pendingSession = {
   id: 'session-uuid-001',
   status: 'pending',
   workout_template_id: 'wt-1',
+  template_title: 'Power Session',
   athlete_profile_id: 'ap-1',
   scheduled_for: '2026-02-25',
   logs: [],
@@ -39,22 +54,6 @@ const pendingSession = {
 const completedSession = {
   ...pendingSession,
   status: 'completed',
-}
-
-const sessionWithLogs = {
-  ...pendingSession,
-  logs: [
-    {
-      log_id: 'log-1',
-      block_name: 'Primary Strength',
-      exercise_id: 'ex-uuid-abc123',
-      notes: 'Felt strong',
-      entries: [
-        { set_number: 1, reps: 5, weight: 100, rpe: 8 },
-        { set_number: 2, reps: 5, weight: 100, rpe: 8.5 },
-      ],
-    },
-  ],
 }
 
 // ---------------------------------------------------------------------------
@@ -66,6 +65,15 @@ afterEach(() => {
   mockReplace.mockReset()
 })
 
+// Helper: mock both requests for the page (detail + execution)
+function mockBoth(detail: typeof pendingSession, execution: SessionExecution = EMPTY_EXECUTION) {
+  mockRequest
+    .mockResolvedValueOnce(detail)
+    .mockResolvedValueOnce(execution)
+}
+
+// ---------------------------------------------------------------------------
+
 describe('SessionDetailPage', () => {
   describe('loading and rendering', () => {
     it('shows a loading indicator while fetching', () => {
@@ -75,31 +83,21 @@ describe('SessionDetailPage', () => {
     })
 
     it('renders session status as Pending', async () => {
-      mockRequest.mockResolvedValue(pendingSession)
+      mockBoth(pendingSession)
       render(<SessionDetailPage />)
       expect(await screen.findByText('Pending')).toBeInTheDocument()
     })
 
     it('renders session status as Completed', async () => {
-      mockRequest.mockResolvedValue(completedSession)
+      mockBoth(completedSession)
       render(<SessionDetailPage />)
       expect(await screen.findByText('Completed')).toBeInTheDocument()
     })
 
     it('renders scheduled_for date', async () => {
-      mockRequest.mockResolvedValue(pendingSession)
+      mockBoth(pendingSession)
       render(<SessionDetailPage />)
       expect(await screen.findByText(/Feb 25, 2026/)).toBeInTheDocument()
-    })
-
-    it('renders exercise logs when present', async () => {
-      mockRequest.mockResolvedValue(sessionWithLogs)
-      render(<SessionDetailPage />)
-      // Target the log block heading specifically (not the dropdown option)
-      expect(await screen.findByRole('heading', { name: 'Primary Strength' })).toBeInTheDocument()
-      expect(screen.getByText('Felt strong')).toBeInTheDocument()
-      // Header row + 2 data rows
-      expect(screen.getAllByRole('row').length).toBeGreaterThan(2)
     })
 
     it('shows "Session not found" on 404', async () => {
@@ -112,25 +110,39 @@ describe('SessionDetailPage', () => {
 
   describe('Mark as completed button', () => {
     it('shows "Mark as completed" when status is pending', async () => {
-      mockRequest.mockResolvedValue(pendingSession)
+      mockBoth(pendingSession)
       render(<SessionDetailPage />)
       expect(await screen.findByRole('button', { name: /mark as completed/i })).toBeInTheDocument()
     })
 
     it('hides the button when status is completed', async () => {
-      mockRequest.mockResolvedValue(completedSession)
+      mockBoth(completedSession)
       render(<SessionDetailPage />)
       await screen.findByText('Completed')
       expect(screen.queryByRole('button', { name: /mark as completed/i })).not.toBeInTheDocument()
     })
 
     it('calls PATCH /v1/workout-sessions/{id}/complete and redirects to /sessions', async () => {
+      const LOGGED_EXEC = { ...EMPTY_EXECUTION, blocks: [
+        {
+          name: 'Primary Strength', key: 'PRIMARY_STRENGTH', order: 0,
+          items: [{
+            exercise_id: 'ex-1', exercise_name: 'Squat', prescription: {},
+            logs: [{ set_number: 1, reps: 5, weight: 100, rpe: 8, done: true }],
+          }],
+        },
+      ]}
+
       mockRequest
-        .mockResolvedValueOnce(pendingSession) // GET
-        .mockResolvedValueOnce(undefined)       // PATCH 204
+        .mockResolvedValueOnce(pendingSession)
+        .mockResolvedValueOnce(LOGGED_EXEC)
+        .mockResolvedValueOnce(undefined) // PATCH 204
 
       render(<SessionDetailPage />)
-      fireEvent.click(await screen.findByRole('button', { name: /mark as completed/i }))
+      const btn = await screen.findByRole('button', { name: /mark as completed/i })
+      // Wait until draft hydrated (done sets → button enabled)
+      await waitFor(() => expect(btn).not.toBeDisabled())
+      fireEvent.click(btn)
 
       await waitFor(() => {
         expect(mockRequest).toHaveBeenCalledWith(
@@ -142,32 +154,30 @@ describe('SessionDetailPage', () => {
     })
 
     it('shows inline error and does not redirect when PATCH fails', async () => {
+      const LOGGED_EXEC = { ...EMPTY_EXECUTION, blocks: [
+        {
+          name: 'Primary Strength', key: 'PRIMARY_STRENGTH', order: 0,
+          items: [{
+            exercise_id: 'ex-1', exercise_name: 'Squat', prescription: {},
+            logs: [{ set_number: 1, reps: 5, weight: 100, rpe: 8, done: true }],
+          }],
+        },
+      ]}
+
       mockRequest
         .mockResolvedValueOnce(pendingSession)
+        .mockResolvedValueOnce(LOGGED_EXEC)
         .mockRejectedValueOnce(new Error('server error'))
 
       render(<SessionDetailPage />)
-      fireEvent.click(await screen.findByRole('button', { name: /mark as completed/i }))
+      const btn = await screen.findByRole('button', { name: /mark as completed/i })
+      await waitFor(() => expect(btn).not.toBeDisabled())
+      fireEvent.click(btn)
 
       await waitFor(() => {
         expect(screen.getByRole('alert')).toHaveTextContent(/failed to complete/i)
       })
       expect(mockPush).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('Add log form visibility', () => {
-    it('shows AddLogForm when session is pending', async () => {
-      mockRequest.mockResolvedValue(pendingSession)
-      render(<SessionDetailPage />)
-      expect(await screen.findByText(/add exercise log/i)).toBeInTheDocument()
-    })
-
-    it('hides AddLogForm when session is completed', async () => {
-      mockRequest.mockResolvedValue(completedSession)
-      render(<SessionDetailPage />)
-      await screen.findByText('Completed')
-      expect(screen.queryByText(/add exercise log/i)).not.toBeInTheDocument()
     })
   })
 })
