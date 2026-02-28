@@ -6,17 +6,17 @@ import TeamPage from './page'
 // Module mocks
 // ---------------------------------------------------------------------------
 
-// vi.hoisted ensures these are available when vi.mock factory functions run.
-const { mockRequest, mockWriteText, mockRouter } = vi.hoisted(() => {
+const { mockUseAuth, mockRequest, mockWriteText, mockRouter } = vi.hoisted(() => {
   const replace = vi.fn()
   return {
+    mockUseAuth: vi.fn(),
     mockRequest: vi.fn(),
     mockWriteText: vi.fn().mockResolvedValue(undefined),
-    // A stable object reference so useEffect([router]) does NOT re-run on
-    // every re-render (new object ≠ previous object in React's dependency check).
     mockRouter: { replace },
   }
 })
+
+vi.mock('@/src/shared/auth/AuthContext', () => ({ useAuth: mockUseAuth }))
 
 vi.mock('@/app/_shared/api/httpClient', async (importOriginal) => {
   const actual = await importOriginal() as object
@@ -27,10 +27,15 @@ vi.mock('next/navigation', () => ({
   useRouter: () => mockRouter,
 }))
 
+// FunnelStatsCard makes its own analytics requests — stub it so team page
+// tests don't need to handle /v1/analytics/funnel.
+vi.mock('@/src/features/analytics/FunnelStatsCard', () => ({
+  FunnelStatsCard: () => null,
+}))
+
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
-  // jsdom may not expose navigator.clipboard; define it before each test.
   Object.defineProperty(navigator, 'clipboard', {
     configurable: true,
     value: { writeText: mockWriteText },
@@ -39,6 +44,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  mockUseAuth.mockReset()
   mockRequest.mockReset()
   mockRouter.replace.mockReset()
   mockWriteText.mockReset()
@@ -66,44 +72,45 @@ const inviteResponse = {
   team_id: 't1',
 }
 
-/**
- * Sets up mockRequest so that:
- * - GET  /v1/me       → coachMe   (all calls, incl. re-runs from strict-mode effects)
- * - POST /v1/invites  → inviteResponse
- */
-function setupCoachWithInvite() {
-  mockRequest.mockImplementation((path: string) =>
-    path === '/v1/invites'
-      ? Promise.resolve(inviteResponse)
-      : Promise.resolve(coachMe),
-  )
+function authAs(me: typeof coachMe | typeof athleteMe | null, role: 'COACH' | 'ATHLETE' | null) {
+  mockUseAuth.mockReturnValue({
+    me,
+    role,
+    activeTeamId: me?.active_team_id ?? null,
+    loading: false,
+    error: null,
+    refreshMe: vi.fn(),
+  })
 }
 
 // ---------------------------------------------------------------------------
 
 describe('TeamPage', () => {
-  it('renders loading state initially', () => {
-    mockRequest.mockReturnValue(new Promise(() => {})) // never resolves
+  it('renders loading state when auth is loading', () => {
+    mockUseAuth.mockReturnValue({
+      me: null, role: null, activeTeamId: null, loading: true, error: null, refreshMe: vi.fn(),
+    })
     render(<TeamPage />)
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
   })
 
   it('renders team name and role for a coach', async () => {
-    mockRequest.mockResolvedValue(coachMe)
+    authAs(coachMe, 'COACH')
     render(<TeamPage />)
     expect(await screen.findByText('Mettle FC')).toBeInTheDocument()
     expect(screen.getByText('coach')).toBeInTheDocument()
   })
 
   it('renders team name and role for an athlete', async () => {
-    mockRequest.mockResolvedValue(athleteMe)
+    authAs(athleteMe, 'ATHLETE')
     render(<TeamPage />)
+    // Athlete guard fires a redirect, but the page still renders briefly.
     expect(await screen.findByText('Mettle FC')).toBeInTheDocument()
     expect(screen.getByText('athlete')).toBeInTheDocument()
   })
 
   it('shows the invite panel only for a coach', async () => {
-    mockRequest.mockResolvedValue(coachMe)
+    authAs(coachMe, 'COACH')
     render(<TeamPage />)
     expect(
       await screen.findByRole('button', { name: /generate invite link/i }),
@@ -111,7 +118,7 @@ describe('TeamPage', () => {
   })
 
   it('does not show the invite panel for an athlete', async () => {
-    mockRequest.mockResolvedValue(athleteMe)
+    authAs(athleteMe, 'ATHLETE')
     render(<TeamPage />)
     await screen.findByText('Mettle FC')
     expect(
@@ -120,7 +127,8 @@ describe('TeamPage', () => {
   })
 
   it('shows the invite URL after clicking generate', async () => {
-    setupCoachWithInvite()
+    authAs(coachMe, 'COACH')
+    mockRequest.mockResolvedValue(inviteResponse)
     render(<TeamPage />)
 
     fireEvent.click(await screen.findByRole('button', { name: /generate invite link/i }))
@@ -133,7 +141,8 @@ describe('TeamPage', () => {
   })
 
   it('copies the invite URL to clipboard when Copy is clicked', async () => {
-    setupCoachWithInvite()
+    authAs(coachMe, 'COACH')
+    mockRequest.mockResolvedValue(inviteResponse)
     render(<TeamPage />)
 
     fireEvent.click(await screen.findByRole('button', { name: /generate invite link/i }))
@@ -146,11 +155,8 @@ describe('TeamPage', () => {
   })
 
   it('shows an error message if invite generation fails', async () => {
-    mockRequest.mockImplementation((path: string) =>
-      path === '/v1/invites'
-        ? Promise.reject(new Error('Server error'))
-        : Promise.resolve(coachMe),
-    )
+    authAs(coachMe, 'COACH')
+    mockRequest.mockRejectedValue(new Error('Server error'))
     render(<TeamPage />)
 
     fireEvent.click(await screen.findByRole('button', { name: /generate invite link/i }))
@@ -159,17 +165,17 @@ describe('TeamPage', () => {
   })
 
   it('shows empty state when user has no memberships', async () => {
-    mockRequest.mockResolvedValue({ user_id: 'u3', memberships: [], active_team_id: null })
+    mockUseAuth.mockReturnValue({
+      me: { user_id: 'u3', memberships: [], active_team_id: null },
+      role: null, activeTeamId: null, loading: false, error: null, refreshMe: vi.fn(),
+    })
     render(<TeamPage />)
     expect(await screen.findByText(/no team found/i)).toBeInTheDocument()
   })
 
-  it('redirects to /login on UnauthorizedError', async () => {
-    const { UnauthorizedError } = await import('@/app/_shared/api/httpClient')
-    mockRequest.mockRejectedValue(new UnauthorizedError())
+  it('redirects ATHLETE to /sessions', async () => {
+    authAs(athleteMe, 'ATHLETE')
     render(<TeamPage />)
-    await waitFor(() => {
-      expect(mockRouter.replace).toHaveBeenCalledWith('/login')
-    })
+    await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/sessions'))
   })
 })
