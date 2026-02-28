@@ -579,9 +579,12 @@ class TestSessionDetail:
         mock_jwt,
         athlete_a: UserProfile,
         session_a: WorkoutSession,
+        exercise_team_a: Exercise,
     ):
         """Status reflects 'completed' after PATCH /complete."""
         mock_jwt(str(athlete_a.supabase_user_id))
+        client.post(_log_url(session_a.id), headers=HEADERS,
+                    json=_valid_log_payload(exercise_team_a.id))
 
         patch_resp = client.patch(_complete_url(session_a.id), headers=HEADERS)
         assert patch_resp.status_code == 204
@@ -599,15 +602,30 @@ class TestSessionDetail:
 class TestSessionComplete:
     """PATCH /{session_id}/complete — completion + COACH admin access."""
 
-    def test_athlete_can_complete_own_session(
+    def test_complete_without_logs_returns_422(
         self,
         client: TestClient,
         mock_jwt,
         athlete_a: UserProfile,
         session_a: WorkoutSession,
     ):
-        """ATHLETE completing their own session → 204."""
+        """Completing with no logged sets → 422 (server-side validation)."""
         mock_jwt(str(athlete_a.supabase_user_id))
+        response = client.patch(_complete_url(session_a.id), headers=HEADERS)
+        assert response.status_code == 422
+
+    def test_athlete_can_complete_own_session(
+        self,
+        client: TestClient,
+        mock_jwt,
+        athlete_a: UserProfile,
+        session_a: WorkoutSession,
+        exercise_team_a: Exercise,
+    ):
+        """ATHLETE completing their own session (with logs) → 204."""
+        mock_jwt(str(athlete_a.supabase_user_id))
+        client.post(_log_url(session_a.id), headers=HEADERS,
+                    json=_valid_log_payload(exercise_team_a.id))
         response = client.patch(_complete_url(session_a.id), headers=HEADERS)
         assert response.status_code == 204
 
@@ -627,10 +645,16 @@ class TestSessionComplete:
         self,
         client: TestClient,
         mock_jwt,
+        athlete_a: UserProfile,
         coach_a: UserProfile,
         session_a: WorkoutSession,
+        exercise_team_a: Exercise,
     ):
-        """COACH completing a session in their team → 204 (admin use case)."""
+        """COACH completing a session in their team (with logs) → 204."""
+        # Seed log as athlete first
+        mock_jwt(str(athlete_a.supabase_user_id))
+        client.post(_log_url(session_a.id), headers=HEADERS,
+                    json=_valid_log_payload(exercise_team_a.id))
         mock_jwt(str(coach_a.supabase_user_id))
         response = client.patch(_complete_url(session_a.id), headers=HEADERS)
         assert response.status_code == 204
@@ -653,9 +677,12 @@ class TestSessionComplete:
         mock_jwt,
         athlete_a: UserProfile,
         session_a: WorkoutSession,
+        exercise_team_a: Exercise,
     ):
         """Completing an already-completed session still returns 204."""
         mock_jwt(str(athlete_a.supabase_user_id))
+        client.post(_log_url(session_a.id), headers=HEADERS,
+                    json=_valid_log_payload(exercise_team_a.id))
         url = _complete_url(session_a.id)
 
         assert client.patch(url, headers=HEADERS).status_code == 204
@@ -676,10 +703,13 @@ class TestSessionCompletedEvent:
         mock_jwt,
         athlete_a: UserProfile,
         session_a: WorkoutSession,
+        exercise_team_a: Exercise,
         db_session: Session,
     ):
         """First completion → exactly one SESSION_COMPLETED row."""
         mock_jwt(str(athlete_a.supabase_user_id))
+        client.post(_log_url(session_a.id), headers=HEADERS,
+                    json=_valid_log_payload(exercise_team_a.id))
         response = client.patch(_complete_url(session_a.id), headers=HEADERS)
         assert response.status_code == 204
 
@@ -701,10 +731,13 @@ class TestSessionCompletedEvent:
         mock_jwt,
         athlete_a: UserProfile,
         session_a: WorkoutSession,
+        exercise_team_a: Exercise,
         db_session: Session,
     ):
         """Second completion is a no-op — event count stays at 1."""
         mock_jwt(str(athlete_a.supabase_user_id))
+        client.post(_log_url(session_a.id), headers=HEADERS,
+                    json=_valid_log_payload(exercise_team_a.id))
         url = _complete_url(session_a.id)
 
         client.patch(url, headers=HEADERS)

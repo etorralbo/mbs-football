@@ -1,8 +1,10 @@
 """HTTP transport layer — Workout Execution router.
 
 Exposes:
-    POST  /workout-sessions/{session_id}/logs
+    POST  /workout-sessions/{session_id}/logs   (append-only; kept for compat)
+    PUT   /workout-sessions/{session_id}/logs   (full replace per exercise, idempotent)
     GET   /workout-sessions/{session_id}
+    GET   /workout-sessions/{session_id}/execution
 
 PATCH /workout-sessions/{session_id}/complete is handled by workout_sessions.py.
 """
@@ -11,7 +13,7 @@ from datetime import date
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import CurrentUser, require_any_role, require_athlete
@@ -23,6 +25,13 @@ from app.domain.use_cases.create_workout_session_log import (
     NotFoundError as LogNotFoundError,
     ValidationError as LogValidationError,
 )
+from app.domain.use_cases.upsert_session_exercise_log import (
+    UpsertEntryItem,
+    UpsertSessionExerciseLogCommand,
+    UpsertSessionExerciseLogUseCase,
+    NotFoundError as UpsertNotFoundError,
+    ValidationError as UpsertValidationError,
+)
 from app.domain.use_cases.get_workout_session_detail import (
     GetWorkoutSessionDetailQuery,
     GetWorkoutSessionDetailUseCase,
@@ -30,6 +39,15 @@ from app.domain.use_cases.get_workout_session_detail import (
     SessionLogEntryItem,
     SessionLogItem,
     WorkoutSessionDetailResult,
+)
+from app.domain.use_cases.get_session_execution_view import (
+    BlockExecutionOut,
+    ExerciseExecutionOut,
+    GetSessionExecutionQuery,
+    GetSessionExecutionViewUseCase,
+    NotFoundError as ExecutionNotFoundError,
+    SessionExecutionResult,
+    SetLogOut,
 )
 from app.models.user_profile import Role
 from app.persistence.repositories.exercise_repository import (
@@ -41,6 +59,9 @@ from app.persistence.repositories.workout_session_log_repository import (
 )
 from app.persistence.repositories.workout_session_repository import (
     SqlAlchemyWorkoutSessionRepository,
+)
+from app.persistence.repositories.workout_template_repository import (
+    SqlAlchemyWorkoutTemplateRepository,
 )
 
 router = APIRouter(prefix="/workout-sessions", tags=["workout-execution"])
@@ -66,6 +87,25 @@ class CreateLogIn(BaseModel):
     notes: Optional[str] = None
 
 
+class UpsertLogIn(BaseModel):
+    """Body for PUT /{session_id}/logs — full replace of all entries for one exercise.
+
+    The payload must represent the complete desired state: every entry in
+    `entries` is persisted, and any previously saved entries not present here
+    are deleted.  Calling with the same payload twice is safe (idempotent).
+    """
+
+    exercise_id: uuid.UUID
+    entries: list[LogEntryIn] = Field(..., min_length=1)
+
+    @model_validator(mode="after")
+    def check_unique_set_numbers(self) -> "UpsertLogIn":
+        numbers = [e.set_number for e in self.entries]
+        if len(numbers) != len(set(numbers)):
+            raise ValueError("entries must have unique set_number values")
+        return self
+
+
 # ---------------------------------------------------------------------------
 # Response schemas
 # ---------------------------------------------------------------------------
@@ -79,6 +119,13 @@ class LogEntryOut(BaseModel):
     reps: Optional[int]
     weight: Optional[float]
     rpe: Optional[float]
+
+
+class UpsertLogOut(BaseModel):
+    """Response for PUT /{session_id}/logs — confirmed persisted entries."""
+
+    exercise_id: uuid.UUID
+    entries: list[LogEntryOut]
 
 
 class SessionLogOut(BaseModel):
@@ -109,6 +156,39 @@ def _build_create_log_use_case(db: Session) -> CreateWorkoutSessionLogUseCase:
         log_repo=SqlAlchemyWorkoutSessionLogRepository(db),
         exercise_repo=SqlAlchemyExerciseRepository(db),
         event_service=ProductEventService(db),
+    )
+
+
+def _build_upsert_log_use_case(db: Session) -> UpsertSessionExerciseLogUseCase:
+    return UpsertSessionExerciseLogUseCase(
+        session_repo=SqlAlchemyWorkoutSessionRepository(db),
+        template_repo=SqlAlchemyWorkoutTemplateRepository(db),
+        log_repo=SqlAlchemyWorkoutSessionLogRepository(db),
+        exercise_repo=SqlAlchemyExerciseRepository(db),
+        event_service=ProductEventService(db),
+    )
+
+
+def _to_upsert_command(
+    payload: UpsertLogIn,
+    session_id: uuid.UUID,
+    current_user: CurrentUser,
+) -> UpsertSessionExerciseLogCommand:
+    return UpsertSessionExerciseLogCommand(
+        session_id=session_id,
+        exercise_id=payload.exercise_id,
+        entries=[
+            UpsertEntryItem(
+                set_number=e.set_number,
+                reps=e.reps,
+                weight=e.weight,
+                rpe=e.rpe,
+            )
+            for e in payload.entries
+        ],
+        requesting_athlete_id=current_user.user_id,
+        requesting_supabase_user_id=current_user.supabase_user_id,
+        requesting_team_id=current_user.team_id,
     )
 
 
@@ -190,8 +270,149 @@ def _detail_to_out(result: WorkoutSessionDetailResult) -> SessionDetailOut:
 
 
 # ---------------------------------------------------------------------------
+# Execution view response schemas
+# ---------------------------------------------------------------------------
+
+class SetLogOutSchema(BaseModel):
+    set_number: int  # 1-based: 1 = first set
+    reps: Optional[int]
+    weight: Optional[float]
+    rpe: Optional[float]
+    done: bool
+
+
+class ExerciseExecutionOutSchema(BaseModel):
+    exercise_id: uuid.UUID
+    exercise_name: str
+    prescription: dict
+    logs: list[SetLogOutSchema]
+
+
+class BlockExecutionOutSchema(BaseModel):
+    name: str
+    key: str   # slugified stable identifier, e.g. "PRIMARY_STRENGTH"
+    order: int
+    items: list[ExerciseExecutionOutSchema]
+
+
+class WorkoutSessionExecutionOut(BaseModel):
+    session_id: uuid.UUID
+    status: str
+    workout_template_id: uuid.UUID
+    template_title: str
+    athlete_profile_id: uuid.UUID
+    scheduled_for: Optional[date]
+    blocks: list[BlockExecutionOutSchema]
+
+
+# ---------------------------------------------------------------------------
+# Execution view wiring helpers
+# ---------------------------------------------------------------------------
+
+def _build_execution_use_case(db: Session) -> GetSessionExecutionViewUseCase:
+    return GetSessionExecutionViewUseCase(
+        session_repo=SqlAlchemyWorkoutSessionRepository(db),
+        template_repo=SqlAlchemyWorkoutTemplateRepository(db),
+        log_repo=SqlAlchemyWorkoutSessionLogRepository(db),
+    )
+
+
+def _to_execution_query(
+    session_id: uuid.UUID,
+    current_user: CurrentUser,
+) -> GetSessionExecutionQuery:
+    return GetSessionExecutionQuery(
+        session_id=session_id,
+        requesting_role=current_user.role,
+        requesting_team_id=current_user.team_id,
+        requesting_athlete_id=(
+            current_user.user_id if current_user.role == Role.ATHLETE else None
+        ),
+    )
+
+
+def _execution_result_to_out(result: SessionExecutionResult) -> WorkoutSessionExecutionOut:
+    return WorkoutSessionExecutionOut(
+        session_id=result.session_id,
+        status=result.status,
+        workout_template_id=result.workout_template_id,
+        template_title=result.template_title,
+        athlete_profile_id=result.athlete_profile_id,
+        scheduled_for=result.scheduled_for,
+        blocks=[
+            BlockExecutionOutSchema(
+                name=block.name,
+                key=block.key,
+                order=block.order,
+                items=[
+                    ExerciseExecutionOutSchema(
+                        exercise_id=item.exercise_id,
+                        exercise_name=item.exercise_name,
+                        prescription=item.prescription,
+                        logs=[
+                            SetLogOutSchema(
+                                set_number=s.set_number,
+                                reps=s.reps,
+                                weight=s.weight,
+                                rpe=s.rpe,
+                                done=s.done,
+                            )
+                            for s in item.logs
+                        ],
+                    )
+                    for item in block.items
+                ],
+            )
+            for block in result.blocks
+        ],
+    )
+
+
+# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
+@router.put("/{session_id}/logs", response_model=UpsertLogOut)
+def upsert_log(
+    session_id: uuid.UUID,
+    payload: UpsertLogIn,
+    current_user: Annotated[CurrentUser, Depends(require_athlete)],
+    db: Session = Depends(get_db),
+) -> UpsertLogOut:
+    """Replace all entries for one exercise in a session (true replace, not patch).
+
+    Atomically deletes all previously saved entries for (session_id, exercise_id)
+    and inserts the entries supplied in the request body.  The body must contain
+    the *complete* desired state for that exercise — omitting a set permanently
+    removes it.  Calling with the same payload is safe (idempotent).
+
+    Returns the confirmed persisted entries ordered by set_number.
+    """
+    use_case = _build_upsert_log_use_case(db)
+    command = _to_upsert_command(payload, session_id, current_user)
+
+    try:
+        result = use_case.execute(command)
+    except UpsertNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except UpsertValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
+
+    return UpsertLogOut(
+        exercise_id=result.exercise_id,
+        entries=[
+            LogEntryOut(
+                set_number=e.set_number,
+                reps=e.reps,
+                weight=e.weight,
+                rpe=e.rpe,
+            )
+            for e in result.entries
+        ],
+    )
+
 
 @router.post(
     "/{session_id}/logs",
@@ -232,3 +453,20 @@ def get_session_detail(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
     return _detail_to_out(result)
+
+
+@router.get("/{session_id}/execution", response_model=WorkoutSessionExecutionOut)
+def get_session_execution(
+    session_id: uuid.UUID,
+    current_user: Annotated[CurrentUser, Depends(require_any_role)],
+    db: Session = Depends(get_db),
+) -> WorkoutSessionExecutionOut:
+    use_case = _build_execution_use_case(db)
+    query = _to_execution_query(session_id, current_user)
+
+    try:
+        result = use_case.execute(query)
+    except ExecutionNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+    return _execution_result_to_out(result)

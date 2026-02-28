@@ -171,6 +171,42 @@ export interface SaveFromAiRequest {
 }
 
 // ---------------------------------------------------------------------------
+// Session Execution view (GET /v1/workout-sessions/{id}/execution)
+// ---------------------------------------------------------------------------
+
+export interface ExecutionSetLog {
+  set_number: number   // 1-based: first set = 1
+  reps: number | null
+  weight: number | null
+  rpe: number | null
+  done: boolean
+}
+
+export interface ExecutionItem {
+  exercise_id: string
+  exercise_name: string
+  prescription: Record<string, unknown>
+  logs: ExecutionSetLog[]
+}
+
+export interface SessionExecutionBlock {
+  name: string
+  key: string          // slugified, e.g. "PRIMARY_STRENGTH"
+  order: number
+  items: ExecutionItem[]
+}
+
+export interface SessionExecution {
+  session_id: string
+  status: 'pending' | 'completed'
+  workout_template_id: string
+  template_title: string
+  athlete_profile_id: string
+  scheduled_for: string | null
+  blocks: SessionExecutionBlock[]
+}
+
+// ---------------------------------------------------------------------------
 // Analytics
 // ---------------------------------------------------------------------------
 

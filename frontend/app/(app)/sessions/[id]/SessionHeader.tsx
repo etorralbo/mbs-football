@@ -1,0 +1,48 @@
+import { Badge } from '@/app/_shared/components/Badge'
+
+interface Props {
+  title: string
+  status: 'pending' | 'completed' | string
+  scheduledFor: string | null
+  completedExercises: number
+  totalExercises: number
+  completedSets: number
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+export function SessionHeader({
+  title,
+  status,
+  scheduledFor,
+  completedExercises,
+  totalExercises,
+  completedSets,
+}: Props) {
+  const isCompleted = status === 'completed'
+
+  return (
+    <div>
+      <h1 className="text-xl font-semibold text-zinc-900">{title}</h1>
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <Badge variant={isCompleted ? 'completed' : 'pending'}>
+          {isCompleted ? 'Completed' : 'Pending'}
+        </Badge>
+
+        {scheduledFor && (
+          <span className="text-sm text-zinc-500">{formatDate(scheduledFor)}</span>
+        )}
+
+        <span className="text-sm text-zinc-500" aria-label="Session progress">
+          {completedExercises} / {totalExercises} exercises · {completedSets} sets done
+        </span>
+      </div>
+    </div>
+  )
+}
