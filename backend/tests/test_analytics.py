@@ -104,7 +104,13 @@ class TestFunnelEndpoint:
 
         assert response.status_code == 200
         data = response.json()
-        assert data == {"team_created": 0, "invite_accepted": 0, "session_completed": 0}
+        assert data == {
+            "team_created": 0,
+            "invite_created": 0,
+            "invite_accepted": 0,
+            "template_created_ai": 0,
+            "session_completed": 0,
+        }
 
     def test_same_user_counted_once_per_event(
         self,

@@ -3,6 +3,9 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Optional
 
+from app.domain.events.models import FunnelEvent
+from app.domain.events.service import AuthContext, ProductEventService
+from app.models.user_profile import Role
 from app.persistence.repositories.exercise_repository import AbstractExerciseRepository
 from app.persistence.repositories.workout_template_repository import (
     AbstractWorkoutTemplateRepository,
@@ -37,6 +40,7 @@ class BlockCommand:
 
 @dataclass
 class CreateWorkoutTemplateFromAiCommand:
+    requesting_user_id: uuid.UUID
     team_id: uuid.UUID
     title: str
     blocks: list[BlockCommand]
@@ -61,9 +65,11 @@ class CreateWorkoutTemplateFromAiUseCase:
         self,
         workout_template_repo: AbstractWorkoutTemplateRepository,
         exercise_repo: AbstractExerciseRepository,
+        event_service: ProductEventService,
     ) -> None:
         self._workout_template_repo = workout_template_repo
         self._exercise_repo = exercise_repo
+        self._event_service = event_service
 
     def execute(
         self, command: CreateWorkoutTemplateFromAiCommand
@@ -77,6 +83,19 @@ class CreateWorkoutTemplateFromAiUseCase:
             title=command.title,
             blocks=command.blocks,
         )
+
+        # Funnel event — post-validation, post-write, same transaction.
+        self._event_service.track(
+            event=FunnelEvent.TEMPLATE_CREATED_AI,
+            actor=AuthContext(
+                user_id=command.requesting_user_id,
+                role=Role.COACH.value,
+                team_id=command.team_id,
+            ),
+            team_id=command.team_id,
+            metadata={"template_id": str(template_id)},
+        )
+
         return WorkoutTemplateCreatedResult(id=template_id)
 
     # ------------------------------------------------------------------

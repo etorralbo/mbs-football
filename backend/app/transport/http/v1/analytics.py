@@ -22,7 +22,9 @@ router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 class FunnelOut(BaseModel):
     team_created: int
+    invite_created: int
     invite_accepted: int
+    template_created_ai: int
     session_completed: int
 
 

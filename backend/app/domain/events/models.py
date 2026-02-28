@@ -25,6 +25,7 @@ class FunnelEvent(str, enum.Enum):
     TEAM_CREATED = "team_created"
     INVITE_CREATED = "invite_created"
     INVITE_ACCEPTED = "invite_accepted"
+    TEMPLATE_CREATED_AI = "template_created_ai"
     SESSION_COMPLETED = "session_completed"
 
 
