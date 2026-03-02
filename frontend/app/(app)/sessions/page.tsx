@@ -57,16 +57,16 @@ export default function SessionsPage() {
   return (
     <>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-zinc-900">Workout Sessions</h1>
+        <h1 className="text-xl font-semibold text-white">Workout Sessions</h1>
         {role && (
-          <div className="flex rounded-lg border border-zinc-200 bg-white p-0.5">
+          <div className="flex rounded-lg border border-white/10 bg-white/5 p-0.5">
             <button
               onClick={() => setViewMode('list')}
               aria-pressed={viewMode === 'list'}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                 viewMode === 'list'
-                  ? 'bg-zinc-900 text-white'
-                  : 'text-zinc-500 hover:text-zinc-900'
+                  ? 'bg-white/15 text-white'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
               List
@@ -76,8 +76,8 @@ export default function SessionsPage() {
               aria-pressed={viewMode === 'calendar'}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                 viewMode === 'calendar'
-                  ? 'bg-zinc-900 text-white'
-                  : 'text-zinc-500 hover:text-zinc-900'
+                  ? 'bg-white/15 text-white'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
               Calendar
@@ -98,7 +98,7 @@ export default function SessionsPage() {
       )}
 
       {error && (
-        <p role="alert" className="mt-6 text-sm text-red-600">
+        <p role="alert" className="mt-6 text-sm text-red-400">
           {error}
         </p>
       )}
@@ -135,9 +135,9 @@ export default function SessionsPage() {
           {sessions.map((s) => (
             <li
               key={s.id}
-              className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white p-4"
+              className="flex items-center justify-between rounded-lg border border-white/8 bg-[#131922] p-4"
             >
-              <span className="text-sm font-medium text-zinc-900">{sessionLabel(s)}</span>
+              <span className="text-sm font-medium text-white">{sessionLabel(s)}</span>
               <div className="flex shrink-0 items-center gap-3">
                 <Badge variant={s.completed_at ? 'completed' : 'pending'}>
                   {s.completed_at ? 'Completed' : 'Pending'}
@@ -145,14 +145,14 @@ export default function SessionsPage() {
                 {s.completed_at ? (
                   <Link
                     href={`/sessions/${s.id}`}
-                    className="text-sm text-zinc-500 hover:text-zinc-700"
+                    className="text-sm text-slate-400 hover:text-white"
                   >
                     View →
                   </Link>
                 ) : (
                   <Link
                     href={`/sessions/${s.id}`}
-                    className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2"
+                    className="inline-flex items-center rounded-md bg-[#c8f135] px-3 py-1.5 text-xs font-bold text-[#0a0d14] transition-colors hover:bg-[#d4f755]"
                   >
                     Start session
                   </Link>

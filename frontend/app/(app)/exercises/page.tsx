@@ -96,10 +96,10 @@ export default function ExercisesPage() {
   return (
     <>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-zinc-900">Exercise Library</h1>
+        <h1 className="text-xl font-semibold text-white">Exercise Library</h1>
         <button
           onClick={() => { setShowCreateForm((v) => !v); setCreateError(null); setNewName('') }}
-          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700"
+          className="inline-flex items-center gap-1.5 rounded-md bg-[#c8f135] px-3 py-1.5 text-xs font-bold text-[#0a0d14] transition-colors hover:bg-[#d4f755]"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -110,8 +110,8 @@ export default function ExercisesPage() {
 
       {/* Create form */}
       {showCreateForm && (
-        <div className="mt-4 rounded-lg border border-zinc-200 bg-white p-4">
-          <p className="text-sm font-medium text-zinc-700">New exercise</p>
+        <div className="mt-4 rounded-lg border border-white/8 bg-[#131922] p-4">
+          <p className="text-sm font-medium text-white">New exercise</p>
           <div className="mt-3 flex gap-2">
             <input
               type="text"
@@ -120,25 +120,25 @@ export default function ExercisesPage() {
               onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
               maxLength={255}
               placeholder="Exercise name"
-              className="flex-1 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-sm text-zinc-700 focus:border-indigo-400 focus:outline-none"
+              className="flex-1 rounded-md border border-white/10 bg-[#0d1420] px-3 py-1.5 text-sm text-white placeholder:text-slate-600 focus:border-[#4f9cf9] focus:outline-none"
               autoFocus
             />
             <button
               onClick={handleCreate}
               disabled={creating}
-              className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              className="rounded-md bg-[#c8f135] px-3 py-1.5 text-xs font-bold text-[#0a0d14] hover:bg-[#d4f755] disabled:opacity-50"
             >
               {creating ? 'Creating…' : 'Create'}
             </button>
             <button
               onClick={() => setShowCreateForm(false)}
-              className="rounded-md px-3 py-1.5 text-xs text-zinc-500 hover:bg-zinc-50"
+              className="rounded-md px-3 py-1.5 text-xs text-slate-400 hover:bg-white/5"
             >
               Cancel
             </button>
           </div>
           {createError && (
-            <p role="alert" className="mt-2 text-xs text-red-600">{createError}</p>
+            <p role="alert" className="mt-2 text-xs text-red-400">{createError}</p>
           )}
         </div>
       )}
@@ -150,12 +150,12 @@ export default function ExercisesPage() {
           value={query}
           onChange={(e) => handleQueryChange(e.target.value)}
           placeholder="Search by name…"
-          className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 placeholder:text-zinc-400 focus:border-indigo-400 focus:outline-none"
+          className="w-full rounded-md border border-white/10 bg-[#131922] px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:border-[#4f9cf9] focus:outline-none"
         />
       </div>
 
       {error && (
-        <p role="alert" className="mt-4 text-sm text-red-600">{error}</p>
+        <p role="alert" className="mt-4 text-sm text-red-400">{error}</p>
       )}
 
       {loading && (
@@ -166,8 +166,8 @@ export default function ExercisesPage() {
       )}
 
       {!loading && exercises.length === 0 && (
-        <div className="mt-6 rounded-lg border border-dashed border-zinc-200 p-8 text-center">
-          <p className="text-sm text-zinc-500">
+        <div className="mt-6 rounded-lg border border-dashed border-white/10 p-8 text-center">
+          <p className="text-sm text-slate-500">
             {query ? `No exercises match "${query}".` : 'No exercises yet. Create the first one.'}
           </p>
         </div>
@@ -178,18 +178,18 @@ export default function ExercisesPage() {
           {exercises.map((ex) => (
             <li
               key={ex.id}
-              className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-4 py-3"
+              className="flex items-center justify-between rounded-lg border border-white/8 bg-[#131922] px-4 py-3"
             >
               <div className="min-w-0">
-                <p className="text-sm font-medium text-zinc-900">{ex.name}</p>
+                <p className="text-sm font-medium text-white">{ex.name}</p>
                 {ex.tags && (
-                  <p className="mt-0.5 text-xs text-zinc-400">{ex.tags}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">{ex.tags}</p>
                 )}
               </div>
               <button
                 onClick={() => handleDelete(ex.id, ex.name)}
                 aria-label={`Delete ${ex.name}`}
-                className="ml-4 shrink-0 rounded p-1.5 text-zinc-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                className="ml-4 shrink-0 rounded p-1.5 text-slate-600 transition-colors hover:bg-red-900/30 hover:text-red-400"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

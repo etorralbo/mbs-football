@@ -14,7 +14,7 @@ interface Props {
 
 function ActionEl({ action }: { action: Action }) {
   const cls =
-    'mt-4 inline-flex items-center rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50'
+    'mt-4 inline-flex items-center rounded-lg border border-white/10 bg-white/8 px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/12'
 
   if (action.href) {
     return (
@@ -34,9 +34,9 @@ export function AthleteEmpty({ title, description, action }: Props) {
   return (
     <div className="mt-12 flex flex-col items-center text-center">
       {/* Dumbbell icon */}
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-zinc-100">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/8">
         <svg
-          className="h-7 w-7 text-zinc-400"
+          className="h-7 w-7 text-slate-400"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -51,9 +51,9 @@ export function AthleteEmpty({ title, description, action }: Props) {
         </svg>
       </div>
 
-      <p className="mt-4 text-sm font-semibold text-zinc-900">{title}</p>
+      <p className="mt-4 text-sm font-semibold text-white">{title}</p>
       {description && (
-        <p className="mt-1 max-w-xs text-sm text-zinc-500">{description}</p>
+        <p className="mt-1 max-w-xs text-sm text-slate-400">{description}</p>
       )}
       {action && <ActionEl action={action} />}
     </div>

@@ -10,14 +10,14 @@ interface Props {
 }
 
 const inputCls =
-  'w-20 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 ' +
-  'placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 ' +
-  'disabled:bg-zinc-50 disabled:text-zinc-400'
+  'w-20 rounded-md border border-white/10 bg-[#0d1420] px-2 py-1.5 text-sm text-white ' +
+  'placeholder:text-slate-600 focus:border-[#4f9cf9] focus:outline-none focus:ring-1 focus:ring-[#4f9cf9] ' +
+  'disabled:opacity-40'
 
 export function SetRow({ setNumber, draft, disabled, onChange }: Props) {
   return (
     <div className="flex items-center gap-2">
-      <span className="w-5 text-sm text-zinc-400">{setNumber}</span>
+      <span className="w-5 text-sm text-slate-500">{setNumber}</span>
 
       <input
         type="number"
@@ -55,7 +55,7 @@ export function SetRow({ setNumber, draft, disabled, onChange }: Props) {
 
       {draft.done && (
         <span
-          className="text-xs font-medium text-emerald-600"
+          className="text-sm font-bold text-[#c8f135]"
           aria-label={`Set ${setNumber} done`}
         >
           ✓

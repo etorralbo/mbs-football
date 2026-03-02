@@ -14,10 +14,10 @@ function StatTile({
   sublabel?: string
 }) {
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-zinc-200 bg-white p-5">
-      <span className="text-3xl font-semibold text-zinc-900">{value}</span>
-      <span className="text-sm font-medium text-zinc-700">{label}</span>
-      {sublabel && <span className="text-xs text-zinc-400">{sublabel}</span>}
+    <div className="flex flex-col gap-1 rounded-lg border border-white/8 bg-[#131922] p-5">
+      <span className="text-3xl font-bold text-white">{value}</span>
+      <span className="text-sm font-medium text-slate-300">{label}</span>
+      {sublabel && <span className="text-xs text-slate-500">{sublabel}</span>}
     </div>
   )
 }
@@ -34,10 +34,10 @@ function QuickAction({
   return (
     <Link
       href={href}
-      className="flex flex-col gap-1 rounded-lg border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300 hover:bg-zinc-50"
+      className="flex flex-col gap-1 rounded-lg border border-white/8 bg-[#131922] p-4 transition-colors hover:border-white/15 hover:bg-white/5"
     >
-      <span className="text-sm font-medium text-zinc-900">{label}</span>
-      <span className="text-xs text-zinc-500">{description}</span>
+      <span className="text-sm font-medium text-white">{label}</span>
+      <span className="text-xs text-slate-500">{description}</span>
     </Link>
   )
 }
@@ -89,9 +89,9 @@ export function TeamOverviewCards() {
       {data.lowAdherenceAthletes.length > 0 && (
         <div
           role="alert"
-          className="rounded-lg border border-amber-200 bg-amber-50 p-4"
+          className="rounded-lg border border-amber-800/40 bg-amber-900/20 p-4"
         >
-          <p className="text-sm font-medium text-amber-800">
+          <p className="text-sm font-medium text-amber-400">
             {data.lowAdherenceAthletes.length === 1
               ? "1 athlete hasn\u2019t completed any session yet"
               : `${data.lowAdherenceAthletes.length} athletes haven\u2019t completed any session yet`}
@@ -100,7 +100,7 @@ export function TeamOverviewCards() {
             {data.lowAdherenceAthletes.map((a) => (
               <li
                 key={a.athlete_id}
-                className="rounded-full bg-amber-100 px-3 py-0.5 text-xs text-amber-700"
+                className="rounded-full bg-amber-900/40 px-3 py-0.5 text-xs text-amber-400"
               >
                 {a.display_name}
               </li>
@@ -111,7 +111,7 @@ export function TeamOverviewCards() {
 
       {/* Quick actions */}
       <div>
-        <h2 className="text-sm font-semibold text-zinc-700">Quick actions</h2>
+        <h2 className="text-sm font-semibold text-slate-400">Quick actions</h2>
         <div className="mt-3 grid grid-cols-3 gap-4">
           <QuickAction
             href="/templates"

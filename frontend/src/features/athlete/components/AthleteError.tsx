@@ -22,7 +22,7 @@ export function AthleteError({
       className="mt-12 flex flex-col items-center text-center"
     >
       {/* Warning icon */}
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-900/30">
         <svg
           className="h-7 w-7 text-red-400"
           fill="none"
@@ -39,11 +39,11 @@ export function AthleteError({
         </svg>
       </div>
 
-      <p className="mt-4 text-sm font-semibold text-zinc-900">
+      <p className="mt-4 text-sm font-semibold text-white">
         Something went wrong
       </p>
       {/* aria-describedby target: gives screen readers the detailed message */}
-      <p id={DESC_ID} className="mt-1 max-w-xs text-sm text-zinc-500">
+      <p id={DESC_ID} className="mt-1 max-w-xs text-sm text-slate-400">
         {message}
       </p>
 
@@ -52,7 +52,7 @@ export function AthleteError({
           <button
             type="button"
             onClick={onRetry}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#c8f135] px-4 py-2 text-sm font-bold text-[#0a0d14] transition-colors hover:bg-[#d4f755] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0d14]"
           >
             <svg
               className="h-3.5 w-3.5"
@@ -76,7 +76,7 @@ export function AthleteError({
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex items-center rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2"
+            className="inline-flex items-center rounded-lg border border-white/10 bg-white/8 px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2"
           >
             {backLabel}
           </button>

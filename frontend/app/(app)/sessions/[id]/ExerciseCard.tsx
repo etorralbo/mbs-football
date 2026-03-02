@@ -93,15 +93,15 @@ export function ExerciseCard({
   }
 
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
+    <div className="rounded-lg border border-white/8 bg-[#131922] p-4">
       {/* Exercise name + prescription */}
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-zinc-900">{item.exercise_name}</p>
-          <p className="mt-0.5 text-xs text-zinc-500">{prescriptionText(item.prescription)}</p>
+          <p className="text-sm font-semibold text-white">{item.exercise_name}</p>
+          <p className="mt-0.5 text-xs text-slate-400">{prescriptionText(item.prescription)}</p>
         </div>
         {isAlreadyDone && (
-          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
+          <span className="rounded-full bg-[#c8f135]/15 px-2 py-0.5 text-xs font-semibold text-[#c8f135] ring-1 ring-[#c8f135]/30">
             Done
           </span>
         )}
@@ -109,7 +109,7 @@ export function ExerciseCard({
 
       {/* Set rows */}
       <div className="mt-3">
-        <div className="flex items-center gap-2 text-xs text-zinc-400 mb-1.5">
+        <div className="flex items-center gap-2 text-xs text-slate-500 mb-1.5">
           <span className="w-5" />
           <span className="w-20">Reps</span>
           <span className="w-20">Weight (kg)</span>
@@ -139,7 +139,7 @@ export function ExerciseCard({
           <button
             type="button"
             onClick={handleAddSet}
-            className="mt-2 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+            className="mt-2 text-xs font-medium text-[#4f9cf9] hover:text-[#7ab5fb]"
           >
             + Add set
           </button>
@@ -150,7 +150,7 @@ export function ExerciseCard({
       {!isCompleted && !isAlreadyDone && (
         <div className="mt-3 flex items-center gap-3">
           {error && (
-            <p role="alert" className="text-xs text-red-600">
+            <p role="alert" className="text-xs text-red-400">
               {error}
             </p>
           )}

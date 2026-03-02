@@ -80,7 +80,7 @@ export default function AthleteHomePage() {
 
   return (
     <>
-      <h1 className="text-xl font-semibold text-zinc-900">Today's Workout</h1>
+      <h1 className="text-xl font-semibold text-white">Today's Workout</h1>
 
       {/*
         aria-live="polite": screen readers announce content changes when
@@ -118,8 +118,8 @@ export default function AthleteHomePage() {
 
         {/* ── Success: all pending done, nothing left */}
         {loadState === 'success' && sessions.length > 0 && !pendingSession && (
-          <div className="mt-6 rounded-xl border border-emerald-100 bg-emerald-50 p-5 text-center">
-            <p className="text-sm font-semibold text-emerald-700">
+          <div className="mt-6 rounded-xl border border-[#c8f135]/20 bg-[#c8f135]/8 p-5 text-center">
+            <p className="text-sm font-semibold text-[#c8f135]">
               All sessions done for today. Great work!
             </p>
           </div>
@@ -135,7 +135,7 @@ export default function AthleteHomePage() {
         {/* ── Recent completed sessions */}
         {loadState === 'success' && recentCompleted.length > 0 && (
           <div className="mt-8">
-            <h2 className="text-sm font-medium uppercase tracking-widest text-zinc-400">
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">
               Recent
             </h2>
             <ul className="mt-3 space-y-2">
@@ -143,17 +143,17 @@ export default function AthleteHomePage() {
                 <li key={s.id}>
                   <Link
                     href={`/athlete/session/${s.id}`}
-                    className="flex items-center justify-between rounded-lg border border-zinc-100 bg-white px-4 py-3 transition-colors hover:bg-zinc-50"
+                    className="flex items-center justify-between rounded-lg border border-white/8 bg-[#131922] px-4 py-3 transition-colors hover:bg-white/5"
                   >
-                    <span className="text-sm text-zinc-700">
+                    <span className="text-sm text-slate-200">
                       {s.template_title}
                       {s.scheduled_for && (
-                        <span className="ml-2 text-zinc-400">
+                        <span className="ml-2 text-slate-500">
                           · {formatDate(s.scheduled_for)}
                         </span>
                       )}
                     </span>
-                    <span className="text-xs font-medium text-emerald-600">
+                    <span className="text-xs font-semibold text-emerald-400">
                       Completed
                     </span>
                   </Link>

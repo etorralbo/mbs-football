@@ -37,9 +37,9 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div className="mt-12 flex flex-col items-center text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/8">
         <svg
-          className="h-5 w-5 text-zinc-400"
+          className="h-5 w-5 text-slate-400"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
@@ -54,18 +54,18 @@ export function EmptyState({
           />
         </svg>
       </div>
-      <p className="mt-3 text-sm font-medium text-zinc-900">{title}</p>
-      {description && <p className="mt-1 text-sm text-zinc-500">{description}</p>}
+      <p className="mt-3 text-sm font-medium text-white">{title}</p>
+      {description && <p className="mt-1 text-sm text-slate-400">{description}</p>}
       {primaryAction && (
         <ActionLink
           action={primaryAction}
-          className="mt-4 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+          className="mt-4 text-sm font-medium text-[#4f9cf9] hover:text-[#7ab5fb]"
         />
       )}
       {secondaryAction && (
         <ActionLink
           action={secondaryAction}
-          className="mt-2 text-sm text-zinc-500 hover:text-zinc-700"
+          className="mt-2 text-sm text-slate-500 hover:text-slate-300"
         />
       )}
     </div>

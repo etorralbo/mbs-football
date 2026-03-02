@@ -6,9 +6,9 @@ interface BadgeProps {
 }
 
 const variantClasses: Record<BadgeVariant, string> = {
-  pending: 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200',
-  completed: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200',
-  default: 'bg-zinc-100 text-zinc-600 ring-1 ring-inset ring-zinc-200',
+  pending: 'bg-amber-900/30 text-amber-400 ring-1 ring-inset ring-amber-800/50',
+  completed: 'bg-emerald-900/30 text-emerald-400 ring-1 ring-inset ring-emerald-800/50',
+  default: 'bg-white/8 text-slate-400 ring-1 ring-inset ring-white/10',
 }
 
 export function Badge({ variant = 'default', children }: BadgeProps) {
