@@ -27,10 +27,12 @@ vi.mock('next/navigation', () => ({
   useRouter: () => mockRouter,
 }))
 
-// FunnelStatsCard makes its own analytics requests — stub it so team page
-// tests don't need to handle /v1/analytics/funnel.
+// FunnelStatsCard and TeamOverviewCards make their own requests — stub them.
 vi.mock('@/src/features/analytics/FunnelStatsCard', () => ({
   FunnelStatsCard: () => null,
+}))
+vi.mock('@/src/features/dashboard/TeamOverviewCards', () => ({
+  TeamOverviewCards: () => null,
 }))
 
 // ---------------------------------------------------------------------------
@@ -54,22 +56,34 @@ afterEach(() => {
 // Fixtures
 // ---------------------------------------------------------------------------
 
+const TEAM_A = 't1'
+const TEAM_B = 't2'
+
 const coachMe = {
   user_id: 'u1',
-  memberships: [{ team_id: 't1', team_name: 'Mettle FC', role: 'COACH' }],
-  active_team_id: 't1',
+  memberships: [{ team_id: TEAM_A, team_name: 'Mettle FC', role: 'COACH' }],
+  active_team_id: TEAM_A,
+}
+
+const multiTeamCoachMe = {
+  user_id: 'u1',
+  memberships: [
+    { team_id: TEAM_A, team_name: 'Mettle FC', role: 'COACH' },
+    { team_id: TEAM_B, team_name: 'Elite FC', role: 'COACH' },
+  ],
+  active_team_id: null,
 }
 
 const athleteMe = {
   user_id: 'u2',
-  memberships: [{ team_id: 't1', team_name: 'Mettle FC', role: 'ATHLETE' }],
-  active_team_id: 't1',
+  memberships: [{ team_id: TEAM_A, team_name: 'Mettle FC', role: 'ATHLETE' }],
+  active_team_id: TEAM_A,
 }
 
 const inviteResponse = {
   code: 'ABC123',
   join_url: 'https://app.com/join?code=ABC123',
-  team_id: 't1',
+  team_id: TEAM_A,
 }
 
 function authAs(me: typeof coachMe | typeof athleteMe | null, role: 'COACH' | 'ATHLETE' | null) {
@@ -104,7 +118,6 @@ describe('TeamPage', () => {
   it('renders team name and role for an athlete', async () => {
     authAs(athleteMe, 'ATHLETE')
     render(<TeamPage />)
-    // Athlete guard fires a redirect, but the page still renders briefly.
     expect(await screen.findByText('Mettle FC')).toBeInTheDocument()
     expect(screen.getByText('athlete')).toBeInTheDocument()
   })
@@ -179,38 +192,59 @@ describe('TeamPage', () => {
     await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/sessions'))
   })
 
-  it('shows "Create a new team" link for coaches', async () => {
+  it('shows "+ New team" button for coaches', async () => {
     authAs(coachMe, 'COACH')
     render(<TeamPage />)
-    const link = await screen.findByRole('link', { name: /create a new team/i })
+    const link = await screen.findByRole('link', { name: /new team/i })
     expect(link).toHaveAttribute('href', '/create-team')
   })
 
-  it('does not show "Create a new team" link for athletes', async () => {
+  it('does not show "+ New team" button for athletes', async () => {
     authAs(athleteMe, 'ATHLETE')
     render(<TeamPage />)
     await screen.findByText('Mettle FC')
-    expect(screen.queryByRole('link', { name: /create a new team/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /new team/i })).not.toBeInTheDocument()
   })
 
-  it('shows the active team name for a multi-team coach', async () => {
-    const multiTeamMe = {
-      user_id: 'u1',
-      memberships: [
-        { team_id: 't1', team_name: 'Mettle FC', role: 'COACH' },
-        { team_id: 't2', team_name: 'Elite FC', role: 'COACH' },
-      ],
-      active_team_id: null,
-    }
+  it('renders a card for each team in memberships', async () => {
     mockUseAuth.mockReturnValue({
-      me: multiTeamMe,
+      me: multiTeamCoachMe,
       role: 'COACH',
-      activeTeamId: 't2',
+      activeTeamId: TEAM_A,
       loading: false,
       error: null,
       refreshMe: vi.fn(),
     })
     render(<TeamPage />)
-    expect(await screen.findByText('Elite FC')).toBeInTheDocument()
+    expect(await screen.findByText('Mettle FC')).toBeInTheDocument()
+    expect(screen.getByText('Elite FC')).toBeInTheDocument()
+    // Both teams show their own invite button
+    expect(screen.getAllByRole('button', { name: /generate invite link/i })).toHaveLength(2)
+  })
+
+  it('generates invite for the correct team when clicked', async () => {
+    mockUseAuth.mockReturnValue({
+      me: multiTeamCoachMe,
+      role: 'COACH',
+      activeTeamId: TEAM_A,
+      loading: false,
+      error: null,
+      refreshMe: vi.fn(),
+    })
+    const inviteB = { code: 'XYZ', join_url: 'https://app.com/join?code=XYZ', team_id: TEAM_B }
+    mockRequest.mockResolvedValue(inviteB)
+    render(<TeamPage />)
+
+    const [, secondButton] = screen.getAllByRole('button', { name: /generate invite link/i })
+    fireEvent.click(secondButton)
+
+    await waitFor(() => {
+      expect(mockRequest).toHaveBeenCalledWith(
+        '/v1/invites',
+        expect.objectContaining({
+          body: JSON.stringify({ team_id: TEAM_B }),
+        }),
+      )
+    })
   })
 })

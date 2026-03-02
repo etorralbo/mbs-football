@@ -10,13 +10,19 @@ import { FunnelStatsCard } from '@/src/features/analytics/FunnelStatsCard'
 import { TeamOverviewCards } from '@/src/features/dashboard/TeamOverviewCards'
 import { useAuth } from '@/src/shared/auth/AuthContext'
 
+type InviteState = {
+  url: string | null
+  generating: boolean
+  copied: boolean
+  error: string | null
+}
+
+const EMPTY_INVITE: InviteState = { url: null, generating: false, copied: false, error: null }
+
 export default function TeamPage() {
   const router = useRouter()
-  const { me, role, activeTeamId, loading: authLoading } = useAuth()
-  const [generating, setGenerating] = useState(false)
-  const [inviteUrl, setInviteUrl] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { me, role, loading: authLoading } = useAuth()
+  const [inviteStates, setInviteStates] = useState<Record<string, InviteState>>({})
 
   // UX guard: ATHLETE should not access team page (backend RBAC is the real authority).
   useEffect(() => {
@@ -25,98 +31,118 @@ export default function TeamPage() {
     }
   }, [authLoading, role, router])
 
-  // For multi-team coaches, show the currently active team, not always [0].
-  const membership =
-    me?.memberships.find((m) => m.team_id === activeTeamId) ??
-    me?.memberships[0] ??
-    null
   const isCoach = role === 'COACH'
 
-  async function handleGenerate() {
-    if (!membership) return
-    setError(null)
-    setGenerating(true)
+  function getInvite(teamId: string): InviteState {
+    return inviteStates[teamId] ?? EMPTY_INVITE
+  }
+
+  function patchInvite(teamId: string, patch: Partial<InviteState>) {
+    setInviteStates((prev) => ({
+      ...prev,
+      [teamId]: { ...(prev[teamId] ?? EMPTY_INVITE), ...patch },
+    }))
+  }
+
+  async function handleGenerate(teamId: string) {
+    patchInvite(teamId, { generating: true, error: null })
     try {
       const result = await request<CreateInviteResponse>('/v1/invites', {
         method: 'POST',
-        body: JSON.stringify({ team_id: membership.team_id }),
+        body: JSON.stringify({ team_id: teamId }),
       })
-      setInviteUrl(result.join_url)
-      setCopied(false)
+      patchInvite(teamId, { url: result.join_url, generating: false, copied: false })
     } catch {
-      setError('Could not generate invite link. Please try again.')
-    } finally {
-      setGenerating(false)
+      patchInvite(teamId, { generating: false, error: 'Could not generate invite link. Please try again.' })
     }
   }
 
-  async function handleCopy() {
-    if (!inviteUrl) return
-    await navigator.clipboard.writeText(inviteUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  async function handleCopy(teamId: string) {
+    const url = getInvite(teamId).url
+    if (!url) return
+    await navigator.clipboard.writeText(url)
+    patchInvite(teamId, { copied: true })
+    setTimeout(() => patchInvite(teamId, { copied: false }), 2000)
   }
 
   if (authLoading) return <p className="text-sm text-slate-400">Loading…</p>
-  if (!membership) return <p className="text-sm text-slate-400">No team found.</p>
+  if (!me || me.memberships.length === 0) return <p className="text-sm text-slate-400">No team found.</p>
 
   return (
     <>
-      <h1 className="text-xl font-semibold text-white">{membership.team_name}</h1>
-      <p className="mt-1 text-sm text-slate-400 capitalize">{membership.role.toLowerCase()}</p>
-
-      {isCoach && <TeamOverviewCards />}
-
-      {isCoach && <FunnelStatsCard />}
-
-      {isCoach && (
-        <div className="mt-6 rounded-lg border border-white/8 bg-[#131922] p-5">
-          <h2 className="text-sm font-semibold text-white">Manage teams</h2>
-          <p className="mt-1 text-xs text-slate-400">
-            Create another team to manage separate groups of athletes.
-          </p>
+      {/* Page header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-white">Teams</h1>
+        {isCoach && (
           <Link
             href="/create-team"
-            className="mt-3 inline-block text-sm text-indigo-400 hover:text-indigo-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500"
+            className="rounded-md bg-[#4f9cf9]/20 px-3 py-1.5 text-sm font-medium text-[#4f9cf9] hover:bg-[#4f9cf9]/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500"
           >
-            + Create a new team
+            + New team
           </Link>
-        </div>
-      )}
+        )}
+      </div>
 
-      {isCoach && (
-        <div className="mt-6 rounded-lg border border-white/8 bg-[#131922] p-5">
-          <h2 className="text-sm font-semibold text-white">Invite athletes</h2>
-          <p className="mt-1 text-xs text-slate-400">
-            Generate a link and share it with your athletes. Each link expires in 7 days.
-          </p>
+      {/* Active-team dashboard widgets */}
+      {isCoach && <TeamOverviewCards />}
+      {isCoach && <FunnelStatsCard />}
 
-          <div className="mt-4 space-y-3">
-            {error && (
-              <p role="alert" className="text-sm text-red-400">
-                {error}
-              </p>
-            )}
-
-            {inviteUrl && (
-              <div className="flex items-center gap-2">
-                <input
-                  readOnly
-                  value={inviteUrl}
-                  className="min-w-0 flex-1 rounded-md border border-white/10 bg-[#0d1420] px-3 py-2 text-sm text-slate-300 focus:outline-none"
-                />
-                <Button variant="secondary" onClick={handleCopy}>
-                  {copied ? 'Copied!' : 'Copy'}
-                </Button>
+      {/* Per-team cards */}
+      <div className="mt-6 space-y-4">
+        {me.memberships.map((membership) => {
+          const invite = getInvite(membership.team_id)
+          return (
+            <div
+              key={membership.team_id}
+              className="rounded-lg border border-white/8 bg-[#131922] p-5"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-semibold text-white">{membership.team_name}</p>
+                  <p className="mt-0.5 text-xs capitalize text-slate-400">
+                    {membership.role.toLowerCase()}
+                  </p>
+                </div>
               </div>
-            )}
 
-            <Button onClick={handleGenerate} disabled={generating} loading={generating}>
-              {inviteUrl ? 'Generate new link' : 'Generate invite link'}
-            </Button>
-          </div>
-        </div>
-      )}
+              {isCoach && (
+                <div className="mt-4 space-y-3">
+                  <p className="text-xs text-slate-400">
+                    Generate an invite link and share it with your athletes. Each link expires in 7 days.
+                  </p>
+
+                  {invite.error && (
+                    <p role="alert" className="text-sm text-red-400">
+                      {invite.error}
+                    </p>
+                  )}
+
+                  {invite.url && (
+                    <div className="flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={invite.url}
+                        className="min-w-0 flex-1 rounded-md border border-white/10 bg-[#0d1420] px-3 py-2 text-sm text-slate-300 focus:outline-none"
+                      />
+                      <Button variant="secondary" onClick={() => handleCopy(membership.team_id)}>
+                        {invite.copied ? 'Copied!' : 'Copy'}
+                      </Button>
+                    </div>
+                  )}
+
+                  <Button
+                    onClick={() => handleGenerate(membership.team_id)}
+                    disabled={invite.generating}
+                    loading={invite.generating}
+                  >
+                    {invite.url ? 'Generate new link' : 'Generate invite link'}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </>
   )
 }
