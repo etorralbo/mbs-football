@@ -3,7 +3,12 @@
 import { useState } from 'react'
 import { Button } from '@/app/_shared/components/Button'
 import type { ExecutionItem } from '@/app/_shared/api/types'
-import type { AthleteAction, AthleteDraft, AthleteSetDraft } from '@/src/features/athlete/athleteStore'
+import type {
+  AthleteAction,
+  AthleteDraft,
+  AthleteSetDraft,
+  SetStatusMap,
+} from '@/src/features/athlete/athleteStore'
 import { SetTableEditor } from './SetTableEditor'
 
 interface Props {
@@ -13,6 +18,8 @@ interface Props {
   totalExercises: number
   progressPct: number
   dispatch: (action: AthleteAction) => void
+  setStatuses: SetStatusMap
+  onSaveSet: (exerciseId: string, setNumber: number) => void
   onLogAndNext: (exerciseId: string) => Promise<void>
   onComplete: (exerciseId: string) => Promise<void>
   onBack: () => void
@@ -36,6 +43,8 @@ export function ExerciseFocus({
   totalExercises,
   progressPct,
   dispatch,
+  setStatuses,
+  onSaveSet,
   onLogAndNext,
   onComplete,
   onBack,
@@ -131,6 +140,8 @@ export function ExerciseFocus({
             sets={sortedSets}
             exerciseId={item.exercise_id}
             dispatch={dispatch}
+            setStatuses={setStatuses}
+            onSaveSet={(setNumber) => onSaveSet(item.exercise_id, setNumber)}
           />
         </div>
 

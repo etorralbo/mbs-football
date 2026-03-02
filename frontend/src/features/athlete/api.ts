@@ -22,10 +22,15 @@ export interface LogSetsPayload {
   }>
 }
 
-export function logSets(sessionId: string, payload: LogSetsPayload): Promise<unknown> {
+export function logSets(
+  sessionId: string,
+  payload: LogSetsPayload,
+  signal?: AbortSignal,
+): Promise<unknown> {
   return request(`/v1/workout-sessions/${sessionId}/logs`, {
     method: 'PUT',
     body: JSON.stringify(payload),
+    signal,
   })
 }
 

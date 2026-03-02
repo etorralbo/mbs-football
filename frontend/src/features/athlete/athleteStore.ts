@@ -6,6 +6,24 @@ import type { SessionExecution } from '@/app/_shared/api/types'
 
 export type SessionPhase = 'overview' | 'in_progress' | 'completed'
 
+/** Per-set async save status for optimistic UI. */
+export type SetSaveStatus = {
+  status: 'idle' | 'saving' | 'saved' | 'failed'
+  lastError?: string
+}
+
+/**
+ * Map of `${exerciseId}:${setNumber}` → save status.
+ * Only entries that have been explicitly saved (or attempted) appear here;
+ * absence means 'idle'.
+ */
+export type SetStatusMap = Record<string, SetSaveStatus>
+
+/** Canonical key for the per-set status map. */
+export function setKey(exerciseId: string, setNumber: number): string {
+  return `${exerciseId}:${setNumber}`
+}
+
 export type AthleteSetDraft = {
   actualReps: string
   actualLoad: string
@@ -23,6 +41,8 @@ export interface AthleteSessionState {
   /** Ordered list of exercise IDs across all blocks — navigation cursor */
   exerciseIds: string[]
   draft: AthleteDraft
+  /** Per-set async save statuses for optimistic UI. Absence = idle. */
+  setStatuses: SetStatusMap
 }
 
 export type AthleteAction =
@@ -33,6 +53,13 @@ export type AthleteAction =
       phase: SessionPhase
       currentExerciseIdx: number
     }
+  | {
+      type: 'SET_SAVE_STATUS'
+      exerciseId: string
+      setNumber: number
+      status: SetSaveStatus
+    }
+  | { type: 'CLEAR_SET_STATUSES'; exerciseId: string }
   | { type: 'START' }
   | { type: 'NEXT_EXERCISE' }
   | { type: 'PREV_EXERCISE' }
@@ -95,6 +122,7 @@ export const initialAthleteState: AthleteSessionState = {
   currentExerciseIdx: 0,
   exerciseIds: [],
   draft: {},
+  setStatuses: {},
 }
 
 // ---------------------------------------------------------------------------
@@ -108,7 +136,25 @@ export function athleteSessionReducer(
   switch (action.type) {
     case 'HYDRATE': {
       const { draft, exerciseIds } = buildInitialDraft(action.execution)
-      return { phase: 'overview', currentExerciseIdx: 0, exerciseIds, draft }
+      return { phase: 'overview', currentExerciseIdx: 0, exerciseIds, draft, setStatuses: {} }
+    }
+
+    case 'SET_SAVE_STATUS': {
+      const key = setKey(action.exerciseId, action.setNumber)
+      return {
+        ...state,
+        setStatuses: { ...state.setStatuses, [key]: action.status },
+      }
+    }
+
+    case 'CLEAR_SET_STATUSES': {
+      // Remove all status entries for the given exercise.
+      const prefix = `${action.exerciseId}:`
+      const updated: SetStatusMap = {}
+      for (const [k, v] of Object.entries(state.setStatuses)) {
+        if (!k.startsWith(prefix)) updated[k] = v
+      }
+      return { ...state, setStatuses: updated }
     }
 
     case 'RESTORE_DRAFT': {

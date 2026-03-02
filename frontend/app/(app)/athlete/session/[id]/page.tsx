@@ -8,6 +8,7 @@ import {
   athleteSessionReducer,
   initialAthleteState,
   selectProgress,
+  setKey,
 } from '@/src/features/athlete/athleteStore'
 import {
   getSessionExecution,
@@ -66,6 +67,10 @@ export default function AthleteSessionPage() {
 
   // Timer handle for the 300 ms auto-save debounce.
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Per-set in-flight AbortControllers, keyed by setKey(exerciseId, setNumber).
+  // Allows cancelling a stale per-set request before sending a fresh one.
+  const saveAbortControllersRef = useRef<Record<string, AbortController>>({})
 
   // ── Fetch execution.
   // Re-runs when `id` changes (navigation) or `retryKey` increments (retry).
@@ -209,8 +214,107 @@ export default function AthleteSessionPage() {
     }
   }, [id, execution])
 
+  // ── Abort all in-flight per-set saves for a given exercise.
+  // Called before any batch logSets so a stale per-set response can't
+  // overwrite the authoritative batch write.
+  function abortExerciseSaves(exerciseId: string) {
+    const prefix = `${exerciseId}:`
+    for (const [key, ac] of Object.entries(saveAbortControllersRef.current)) {
+      if (key.startsWith(prefix)) {
+        ac.abort()
+        delete saveAbortControllersRef.current[key]
+      }
+    }
+    dispatch({ type: 'CLEAR_SET_STATUSES', exerciseId })
+  }
+
+  // ── Optimistic per-set save.
+  // Cancels any in-flight request for the same (exerciseId, setNumber) before
+  // sending a new one with the latest draft value.
+  const handleSaveSet = useCallback(
+    async (exerciseId: string, setNumber: number) => {
+      const key = setKey(exerciseId, setNumber)
+
+      // Read the latest value first — bail out before touching the map if
+      // the set doesn't exist (avoids registering a controller that leaks).
+      const s = stateRef.current.draft[exerciseId]?.[setNumber]
+      if (!s) return
+
+      // Cancel previous in-flight request for this key, then register ours.
+      saveAbortControllersRef.current[key]?.abort()
+      const ac = new AbortController()
+      saveAbortControllersRef.current[key] = ac
+
+      dispatch({
+        type: 'SET_SAVE_STATUS',
+        exerciseId,
+        setNumber,
+        status: { status: 'saving' },
+      })
+
+      try {
+        await logSets(
+          id,
+          {
+            exercise_id: exerciseId,
+            entries: [
+              {
+                set_number: setNumber,
+                reps: parseOpt(s.actualReps),
+                weight: parseOpt(s.actualLoad),
+                rpe: parseOpt(s.actualRpe),
+              },
+            ],
+          },
+          ac.signal,
+        )
+        if (!ac.signal.aborted) {
+          dispatch({
+            type: 'SET_SAVE_STATUS',
+            exerciseId,
+            setNumber,
+            status: { status: 'saved' },
+          })
+        }
+      } catch (err) {
+        if (!ac.signal.aborted) {
+          dispatch({
+            type: 'SET_SAVE_STATUS',
+            exerciseId,
+            setNumber,
+            status: {
+              status: 'failed',
+              lastError: err instanceof Error ? err.message : 'Failed to save set',
+            },
+          })
+        }
+      } finally {
+        // Only remove our own entry from the map.
+        // A concurrent retry may have already replaced the key with a new AC.
+        if (saveAbortControllersRef.current[key] === ac) {
+          delete saveAbortControllersRef.current[key]
+        }
+      }
+    },
+    [id],
+  )
+
+  // ── Cancel all in-flight per-set saves when the focused exercise changes
+  // or when the component unmounts.
+  useEffect(() => {
+    return () => {
+      for (const ac of Object.values(saveAbortControllersRef.current)) {
+        ac.abort()
+      }
+      saveAbortControllersRef.current = {}
+    }
+  }, [state.currentExerciseIdx])
+
   // ── Save one exercise's sets then advance the cursor
   async function handleLogAndNext(exerciseId: string) {
+    // Abort per-set saves: the batch write is authoritative.
+    abortExerciseSaves(exerciseId)
+
     const exerciseSets = state.draft[exerciseId] ?? {}
     const entries = Object.entries(exerciseSets)
       .map(([setNum, s]) => ({
@@ -231,6 +335,9 @@ export default function AthleteSessionPage() {
 
   // ── Save the last exercise then mark the session complete
   async function handleComplete(exerciseId: string) {
+    // Abort per-set saves: the batch write is authoritative.
+    abortExerciseSaves(exerciseId)
+
     const exerciseSets = state.draft[exerciseId] ?? {}
     const entries = Object.entries(exerciseSets)
       .map(([setNum, s]) => ({
@@ -352,6 +459,8 @@ export default function AthleteSessionPage() {
           totalExercises={state.exerciseIds.length}
           progressPct={progress.progressPct}
           dispatch={dispatch}
+          setStatuses={state.setStatuses}
+          onSaveSet={handleSaveSet}
           onLogAndNext={handleLogAndNext}
           onComplete={handleComplete}
           onBack={() => dispatch({ type: 'PREV_EXERCISE' })}
