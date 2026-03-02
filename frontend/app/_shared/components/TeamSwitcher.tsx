@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
+
 import { useAuth } from '@/src/shared/auth/AuthContext'
 
 function TeamAvatar({ name, size = 'sm' }: { name: string; size?: 'sm' | 'md' }) {
@@ -63,8 +64,10 @@ export function TeamSwitcher() {
   function handleSelectTeam(teamId: string) {
     setActiveTeamId(teamId)
     setOpen(false)
-    router.refresh()
 
+    // TeamPageContent uses key={activeTeamId} so the page content remounts
+    // automatically on team change, re-running all data hooks.
+    // Only explicit navigation is needed when still on the picker page itself.
     if (pathname === '/team/select') {
       router.replace('/home')
     }

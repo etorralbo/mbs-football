@@ -28,7 +28,7 @@ afterEach(() => {
 const TEAM_A = '11111111-1111-1111-1111-111111111111'
 const TEAM_B = '22222222-2222-2222-2222-222222222222'
 
-it('renders for coach and switches team with full refresh', () => {
+it('renders for coach and switches team', () => {
   const setActiveTeamId = vi.fn()
   mockPathname.mockReturnValue('/home')
   mockUseAuth.mockReturnValue({
@@ -49,7 +49,8 @@ it('renders for coach and switches team with full refresh', () => {
   fireEvent.click(screen.getByRole('option', { name: /elite fc/i }))
 
   expect(setActiveTeamId).toHaveBeenCalledWith(TEAM_B)
-  expect(mockRefresh).toHaveBeenCalled()
+  // Page content remounts via key={activeTeamId} in TeamPageContent — no explicit router.refresh() needed.
+  expect(mockRefresh).not.toHaveBeenCalled()
 })
 
 it('does not render for athlete', () => {
