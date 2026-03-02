@@ -101,9 +101,21 @@ export function ExerciseCard({
           <p className="mt-0.5 text-xs text-slate-400">{prescriptionText(item.prescription)}</p>
         </div>
         {isAlreadyDone && (
-          <span className="rounded-full bg-[#c8f135]/15 px-2 py-0.5 text-xs font-semibold text-[#c8f135] ring-1 ring-[#c8f135]/30">
-            Done
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-[#c8f135]/15 px-2 py-0.5 text-xs font-semibold text-[#c8f135] ring-1 ring-[#c8f135]/30">
+              Done
+            </span>
+            {!isCompleted && (
+              <button
+                type="button"
+                onClick={() => dispatch({ type: 'UNDO_DONE', exerciseId: item.exercise_id })}
+                className="text-xs text-slate-400 hover:text-white"
+                aria-label={`Undo ${item.exercise_name}`}
+              >
+                Undo
+              </button>
+            )}
+          </div>
         )}
       </div>
 

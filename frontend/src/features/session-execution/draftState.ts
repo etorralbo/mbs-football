@@ -99,6 +99,7 @@ export type DraftAction =
   | { type: 'UPDATE_SET'; exerciseId: string; setNumber: number; field: 'reps' | 'weight' | 'rpe'; value: string }
   | { type: 'ADD_SET'; exerciseId: string }
   | { type: 'MARK_DONE'; exerciseId: string }
+  | { type: 'UNDO_DONE'; exerciseId: string }
 
 export function draftReducer(state: DraftState, action: DraftAction): DraftState {
   switch (action.type) {
@@ -135,6 +136,14 @@ export function draftReducer(state: DraftState, action: DraftAction): DraftState
         Object.entries(exerciseSets).map(([setNum, s]) => [setNum, { ...s, done: true }]),
       )
       return { ...state, [action.exerciseId]: markedSets }
+    }
+
+    case 'UNDO_DONE': {
+      const exerciseSets = state[action.exerciseId] ?? {}
+      const unmarkedSets = Object.fromEntries(
+        Object.entries(exerciseSets).map(([setNum, s]) => [setNum, { ...s, done: false }]),
+      )
+      return { ...state, [action.exerciseId]: unmarkedSets }
     }
 
     default:

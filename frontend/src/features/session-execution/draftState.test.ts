@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   draftFromExecution,
+  draftReducer,
   progressFromDraft,
   canMarkCompleted,
 } from './draftState'
@@ -133,5 +134,37 @@ describe('canMarkCompleted', () => {
   it('returns true when at least one set is done', () => {
     const draft = draftFromExecution(EXECUTION_WITH_LOGS)
     expect(canMarkCompleted(draft)).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// UNDO_DONE reducer action
+// ---------------------------------------------------------------------------
+
+describe('UNDO_DONE', () => {
+  it('sets all sets of the exercise back to done: false', () => {
+    const draft = draftFromExecution(EXECUTION_WITH_LOGS)
+    // ex-1 starts with done: true (has logs)
+    expect(Object.values(draft['ex-1']).every((s) => s.done)).toBe(true)
+
+    const next = draftReducer(draft, { type: 'UNDO_DONE', exerciseId: 'ex-1' })
+
+    expect(Object.values(next['ex-1']).every((s) => s.done)).toBe(false)
+  })
+
+  it('preserves set values when undoing', () => {
+    const draft = draftFromExecution(EXECUTION_WITH_LOGS)
+    const next = draftReducer(draft, { type: 'UNDO_DONE', exerciseId: 'ex-1' })
+
+    expect(next['ex-1'][1]).toEqual({ reps: '5', weight: '100', rpe: '8', done: false })
+    expect(next['ex-1'][2]).toEqual({ reps: '5', weight: '100', rpe: '8.5', done: false })
+  })
+
+  it('does not affect other exercises', () => {
+    const draft = draftFromExecution(EXECUTION_WITH_LOGS)
+    const next = draftReducer(draft, { type: 'UNDO_DONE', exerciseId: 'ex-1' })
+
+    expect(next['ex-2']).toEqual(draft['ex-2'])
+    expect(next['ex-3']).toEqual(draft['ex-3'])
   })
 })
