@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { Skeleton } from '@/app/_shared/components/Skeleton'
 import { useTeamOverview } from './useTeamOverview'
 
@@ -22,25 +21,6 @@ function StatTile({
   )
 }
 
-function QuickAction({
-  href,
-  label,
-  description,
-}: {
-  href: string
-  label: string
-  description: string
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex flex-col gap-1 rounded-lg border border-white/8 bg-[#131922] p-4 transition-colors hover:border-white/15 hover:bg-white/5"
-    >
-      <span className="text-sm font-medium text-white">{label}</span>
-      <span className="text-xs text-slate-500">{description}</span>
-    </Link>
-  )
-}
 
 export function TeamOverviewCards() {
   const state = useTeamOverview()
@@ -109,27 +89,6 @@ export function TeamOverviewCards() {
         </div>
       )}
 
-      {/* Quick actions */}
-      <div>
-        <h2 className="text-sm font-semibold text-slate-400">Quick actions</h2>
-        <div className="mt-3 grid grid-cols-3 gap-4">
-          <QuickAction
-            href="/templates"
-            label="Templates"
-            description="Create or manage workout templates"
-          />
-          <QuickAction
-            href="/sessions"
-            label="Sessions"
-            description="Review team session activity"
-          />
-          <QuickAction
-            href="/sessions"
-            label="Schedule"
-            description="View the session calendar"
-          />
-        </div>
-      </div>
     </div>
   )
 }
