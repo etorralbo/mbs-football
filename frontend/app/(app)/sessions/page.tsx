@@ -10,7 +10,10 @@ import { EmptyState } from '@/app/_shared/components/EmptyState'
 import { SkeletonList } from '@/app/_shared/components/Skeleton'
 import { ActivationBanner } from '@/src/features/activation/components/ActivationBanner'
 import { useActivationState } from '@/src/features/activation/useActivationState'
+import { CalendarView } from '@/src/features/sessions/CalendarView'
 import type { WorkoutSessionSummary } from '@/app/_shared/api/types'
+
+type ViewMode = 'list' | 'calendar'
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', {
@@ -29,6 +32,7 @@ export default function SessionsPage() {
   const [sessions, setSessions] = useState<WorkoutSessionSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
   const router = useRouter()
   const { role, steps, isLoading: activationLoading } = useActivationState()
   const hasTemplates = steps.find((s) => s.key === 'create_template')?.completed ?? false
@@ -52,7 +56,35 @@ export default function SessionsPage() {
 
   return (
     <>
-      <h1 className="text-xl font-semibold text-zinc-900">Workout Sessions</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-zinc-900">Workout Sessions</h1>
+        {role === 'COACH' && (
+          <div className="flex rounded-lg border border-zinc-200 bg-white p-0.5">
+            <button
+              onClick={() => setViewMode('list')}
+              aria-pressed={viewMode === 'list'}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-zinc-900 text-white'
+                  : 'text-zinc-500 hover:text-zinc-900'
+              }`}
+            >
+              List
+            </button>
+            <button
+              onClick={() => setViewMode('calendar')}
+              aria-pressed={viewMode === 'calendar'}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                viewMode === 'calendar'
+                  ? 'bg-zinc-900 text-white'
+                  : 'text-zinc-500 hover:text-zinc-900'
+              }`}
+            >
+              Calendar
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className="mt-4">
         <ActivationBanner />
@@ -94,7 +126,11 @@ export default function SessionsPage() {
         )
       )}
 
-      {!loading && sessions.length > 0 && (
+      {!loading && sessions.length > 0 && viewMode === 'calendar' && (
+        <CalendarView sessions={sessions} />
+      )}
+
+      {!loading && sessions.length > 0 && viewMode === 'list' && (
         <ul className="mt-6 space-y-2">
           {sessions.map((s) => (
             <li
