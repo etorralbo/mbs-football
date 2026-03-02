@@ -29,7 +29,7 @@ export function NavBar() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
         </div>
-        <span className="text-sm font-semibold text-white">MBS Football</span>
+        <span className="text-sm font-semibold text-white">Mettle Performance</span>
       </div>
       <NavLink href="/home" active={isActive('/home')}>
         Home
