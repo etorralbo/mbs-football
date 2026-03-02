@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   request,
@@ -18,22 +18,29 @@ export function CreateTeamForm() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  // Fetch the display name from Supabase metadata silently — not shown to the user.
+  const displayNameRef = useRef<string>('')
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      const meta = user?.user_metadata
+      displayNameRef.current = (meta?.name ?? meta?.full_name ?? user?.email ?? '').trim()
+    })
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const trimmed = name.trim()
-    if (!trimmed) return
+    const trimmedTeam = name.trim()
+    if (!trimmedTeam) return
 
     setError(null)
     setLoading(true)
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      const displayName = user?.user_metadata?.name ?? user?.user_metadata?.full_name ?? ''
-
       await request<CreateTeamResponse>('/v1/teams', {
         method: 'POST',
-        body: JSON.stringify({ name: trimmed, display_name: displayName }),
+        body: JSON.stringify({ name: trimmedTeam, display_name: displayNameRef.current }),
+        teamScoped: false,
       })
       router.replace(getPostActionRedirect('team_created', 'COACH') ?? '/templates')
     } catch (err) {
@@ -45,8 +52,6 @@ export function CreateTeamForm() {
         setError(
           typeof err.detail === 'string' ? err.detail : 'Please check the team name.',
         )
-      } else if (err instanceof Error && err.message.includes('409')) {
-        setError('You already manage a team.')
       } else {
         setError('Something went wrong. Please try again.')
       }
@@ -69,6 +74,7 @@ export function CreateTeamForm() {
           className="mt-1.5 w-full rounded-md border border-white/10 bg-[#0d1420] px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:border-[#4f9cf9] focus:outline-none"
           placeholder="e.g. FC Barcelona"
           autoFocus
+          required
         />
       </div>
 

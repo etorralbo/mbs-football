@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   draftFromExecution,
+  draftReducer,
   progressFromDraft,
   canMarkCompleted,
 } from './draftState'
@@ -23,7 +24,7 @@ const EXECUTION_EMPTY: SessionExecution = {
       key: 'PRIMARY_STRENGTH',
       order: 0,
       items: [
-        { exercise_id: 'ex-1', exercise_name: 'Squat', prescription: { sets: 3 }, logs: [] },
+        { exercise_id: 'ex-1', exercise_name: 'Squat', prescription: {}, logs: [] },
         { exercise_id: 'ex-2', exercise_name: 'Deadlift', prescription: {}, logs: [] },
       ],
     },
@@ -33,6 +34,44 @@ const EXECUTION_EMPTY: SessionExecution = {
       order: 1,
       items: [
         { exercise_id: 'ex-3', exercise_name: 'Stretch', prescription: { duration: '60s' }, logs: [] },
+      ],
+    },
+  ],
+}
+
+const EXECUTION_WITH_PRESCRIPTION: SessionExecution = {
+  ...EXECUTION_EMPTY,
+  blocks: [
+    {
+      name: 'Primary Strength',
+      key: 'PRIMARY_STRENGTH',
+      order: 0,
+      items: [
+        {
+          exercise_id: 'ex-1',
+          exercise_name: 'Squat',
+          prescription: { sets: 3, reps: 8, weight: 100, rpe: 8 },
+          logs: [],
+        },
+        {
+          exercise_id: 'ex-2',
+          exercise_name: 'Deadlift',
+          prescription: { sets: 0 },
+          logs: [],
+        },
+      ],
+    },
+    {
+      name: 'Recovery',
+      key: 'RECOVERY',
+      order: 1,
+      items: [
+        {
+          exercise_id: 'ex-3',
+          exercise_name: 'Stretch',
+          prescription: { sets: 2, reps: 12 },   // weight/rpe absent
+          logs: [],
+        },
       ],
     },
   ],
@@ -65,15 +104,45 @@ const EXECUTION_WITH_LOGS: SessionExecution = {
 // ---------------------------------------------------------------------------
 
 describe('draftFromExecution', () => {
-  it('creates one empty unlogged set row when exercise has no logs', () => {
+  it('creates one empty unlogged set row when exercise has no logs and no numeric sets', () => {
     const draft = draftFromExecution(EXECUTION_EMPTY)
 
     expect(draft['ex-1']).toEqual({
       1: { reps: '', weight: '', rpe: '', done: false },
     })
+    expect(draft['ex-2']).toEqual({
+      1: { reps: '', weight: '', rpe: '', done: false },
+    })
+    // ex-3 has duration but no numeric sets → 1 empty row
     expect(draft['ex-3']).toEqual({
       1: { reps: '', weight: '', rpe: '', done: false },
     })
+  })
+
+  it('creates N pre-filled rows when prescription.sets is a positive integer', () => {
+    const draft = draftFromExecution(EXECUTION_WITH_PRESCRIPTION)
+
+    expect(Object.keys(draft['ex-1'])).toHaveLength(3)
+    expect(draft['ex-1'][1]).toEqual({ reps: '8', weight: '100', rpe: '8', done: false })
+    expect(draft['ex-1'][2]).toEqual({ reps: '8', weight: '100', rpe: '8', done: false })
+    expect(draft['ex-1'][3]).toEqual({ reps: '8', weight: '100', rpe: '8', done: false })
+  })
+
+  it('falls back to 1 empty row when prescription.sets is 0 or missing', () => {
+    const draft = draftFromExecution(EXECUTION_WITH_PRESCRIPTION)
+
+    expect(draft['ex-2']).toEqual({
+      1: { reps: '', weight: '', rpe: '', done: false },
+    })
+  })
+
+  it('pre-fills only the available fields, leaving absent ones as empty string', () => {
+    const draft = draftFromExecution(EXECUTION_WITH_PRESCRIPTION)
+
+    // ex-3: sets=2, reps=12, no weight/rpe
+    expect(Object.keys(draft['ex-3'])).toHaveLength(2)
+    expect(draft['ex-3'][1]).toEqual({ reps: '12', weight: '', rpe: '', done: false })
+    expect(draft['ex-3'][2]).toEqual({ reps: '12', weight: '', rpe: '', done: false })
   })
 
   it('pre-fills sets and marks them done when logs exist', () => {
@@ -133,5 +202,37 @@ describe('canMarkCompleted', () => {
   it('returns true when at least one set is done', () => {
     const draft = draftFromExecution(EXECUTION_WITH_LOGS)
     expect(canMarkCompleted(draft)).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// UNDO_DONE reducer action
+// ---------------------------------------------------------------------------
+
+describe('UNDO_DONE', () => {
+  it('sets all sets of the exercise back to done: false', () => {
+    const draft = draftFromExecution(EXECUTION_WITH_LOGS)
+    // ex-1 starts with done: true (has logs)
+    expect(Object.values(draft['ex-1']).every((s) => s.done)).toBe(true)
+
+    const next = draftReducer(draft, { type: 'UNDO_DONE', exerciseId: 'ex-1' })
+
+    expect(Object.values(next['ex-1']).every((s) => s.done)).toBe(false)
+  })
+
+  it('preserves set values when undoing', () => {
+    const draft = draftFromExecution(EXECUTION_WITH_LOGS)
+    const next = draftReducer(draft, { type: 'UNDO_DONE', exerciseId: 'ex-1' })
+
+    expect(next['ex-1'][1]).toEqual({ reps: '5', weight: '100', rpe: '8', done: false })
+    expect(next['ex-1'][2]).toEqual({ reps: '5', weight: '100', rpe: '8.5', done: false })
+  })
+
+  it('does not affect other exercises', () => {
+    const draft = draftFromExecution(EXECUTION_WITH_LOGS)
+    const next = draftReducer(draft, { type: 'UNDO_DONE', exerciseId: 'ex-1' })
+
+    expect(next['ex-2']).toEqual(draft['ex-2'])
+    expect(next['ex-3']).toEqual(draft['ex-3'])
   })
 })

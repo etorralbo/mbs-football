@@ -46,7 +46,7 @@ export function useActivationState(): ActivationState {
       // templates / sessions get a soft 2s cap: a timeout rejection is treated
       // the same as a network failure and degrades to [].
       const [meResult, templatesResult, sessionsResult] = await Promise.allSettled([
-        request<MeResponse>('/v1/me'),
+        request<MeResponse>('/v1/me', { teamScoped: false }),
         withTimeout(request<WorkoutTemplate[]>('/v1/workout-templates'), SECONDARY_TIMEOUT_MS),
         withTimeout(request<WorkoutSessionSummary[]>('/v1/workout-sessions'), SECONDARY_TIMEOUT_MS),
       ])

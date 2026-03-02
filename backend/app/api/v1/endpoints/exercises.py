@@ -2,9 +2,9 @@
 Exercise CRUD endpoints.
 
 All endpoints are secured with JWT authentication.
-Write operations (POST, PATCH, DELETE) require COACH role.
-Read operations (GET) are available to all authenticated users.
-All operations are team-scoped to prevent IDOR.
+All operations require COACH role — athletes see exercises only through
+session execution (template → block → block_exercise), not directly.
+All operations are coach-scoped to prevent IDOR.
 """
 import uuid
 from typing import Annotated, List, Optional
@@ -15,9 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import (
     CurrentUser,
-    get_current_user,
     require_coach,
-    require_any_role,
 )
 from app.db.session import get_db
 from app.schemas.exercise import ExerciseCreate, ExerciseOut, ExerciseUpdate
@@ -38,16 +36,16 @@ def create_exercise(
     db: Annotated[Session, Depends(get_db)],
 ):
     """
-    Create a new exercise for the current user's team.
+    Create a new exercise in the coach's library.
 
     **Authorization**: Coach only
 
-    **Security**: Exercise is automatically associated with the coach's team.
+    **Security**: Exercise is automatically associated with the calling coach.
     """
     try:
         exercise = exercises_service.create_exercise(
             db=db,
-            team_id=current_user.team_id,
+            coach_id=current_user.user_id,
             exercise_data=exercise_data
         )
         return exercise
@@ -55,32 +53,32 @@ def create_exercise(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Exercise with name '{exercise_data.name}' already exists for your team"
+            detail=f"Exercise with name '{exercise_data.name}' already exists in your library"
         )
 
 
 @router.get(
     "",
     response_model=List[ExerciseOut],
-    summary="List exercises"
+    summary="List exercises (Coach only)"
 )
 def list_exercises(
-    current_user: Annotated[CurrentUser, Depends(require_any_role)],
+    current_user: Annotated[CurrentUser, Depends(require_coach)],
     db: Annotated[Session, Depends(get_db)],
     search: Optional[str] = Query(None, description="Search exercises by name (case-insensitive)")
 ):
     """
-    List all exercises for the current user's team.
+    List all exercises in the coach's library.
 
-    **Authorization**: Coach or Athlete
+    **Authorization**: Coach only
 
-    **Security**: Only returns exercises belonging to the user's team.
+    **Security**: Only returns exercises belonging to the calling coach.
 
     **Search**: Optional query parameter to filter exercises by name.
     """
     exercises = exercises_service.list_exercises(
         db=db,
-        team_id=current_user.team_id,
+        coach_id=current_user.user_id,
         search=search
     )
     return exercises
@@ -89,23 +87,23 @@ def list_exercises(
 @router.get(
     "/{exercise_id}",
     response_model=ExerciseOut,
-    summary="Get exercise by ID"
+    summary="Get exercise by ID (Coach only)"
 )
 def get_exercise(
     exercise_id: uuid.UUID,
-    current_user: Annotated[CurrentUser, Depends(require_any_role)],
+    current_user: Annotated[CurrentUser, Depends(require_coach)],
     db: Annotated[Session, Depends(get_db)],
 ):
     """
     Get a single exercise by ID.
 
-    **Authorization**: Coach or Athlete
+    **Authorization**: Coach only
 
-    **Security**: Only returns exercise if it belongs to the user's team.
+    **Security**: Only returns exercise if it belongs to the calling coach.
     """
     exercise = exercises_service.get_exercise_by_id(
         db=db,
-        team_id=current_user.team_id,
+        coach_id=current_user.user_id,
         exercise_id=exercise_id
     )
     if not exercise:
@@ -132,12 +130,12 @@ def update_exercise(
 
     **Authorization**: Coach only
 
-    **Security**: Only updates exercise if it belongs to the user's team.
+    **Security**: Only updates exercise if it belongs to the calling coach.
     """
     try:
         exercise = exercises_service.update_exercise(
             db=db,
-            team_id=current_user.team_id,
+            coach_id=current_user.user_id,
             exercise_id=exercise_id,
             exercise_data=exercise_data
         )
@@ -151,7 +149,7 @@ def update_exercise(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Exercise with name '{exercise_data.name}' already exists for your team"
+            detail=f"Exercise with name '{exercise_data.name}' already exists in your library"
         )
 
 
@@ -170,11 +168,11 @@ def delete_exercise(
 
     **Authorization**: Coach only
 
-    **Security**: Only deletes exercise if it belongs to the user's team.
+    **Security**: Only deletes exercise if it belongs to the calling coach.
     """
     deleted = exercises_service.delete_exercise(
         db=db,
-        team_id=current_user.team_id,
+        coach_id=current_user.user_id,
         exercise_id=exercise_id
     )
     if not deleted:

@@ -107,7 +107,7 @@ class TestFromAiValidation:
         # Create a second exercise in the same team to use as the second item.
         ex2 = Exercise(
             id=uuid.uuid4(),
-            team_id=onboarded_coach_jwt.team_id,
+            coach_id=onboarded_coach_jwt.id,
             name="Second Coach Exercise",
         )
         db_session.add(ex2)
@@ -185,7 +185,7 @@ class TestFromAiQueryPerformance:
         for i in range(2):
             ex = Exercise(
                 id=uuid.uuid4(),
-                team_id=onboarded_coach_jwt.team_id,
+                coach_id=onboarded_coach_jwt.id,
                 name=f"Extra Exercise {i + 2}",
             )
             db_session.add(ex)

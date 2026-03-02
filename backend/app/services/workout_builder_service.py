@@ -178,17 +178,18 @@ def reorder_blocks(
 def add_item(
     db: Session,
     team_id: uuid.UUID,
+    coach_id: uuid.UUID,
     block_id: uuid.UUID,
     data: BlockExerciseCreate,
 ) -> Optional[BlockExercise]:
     if not _get_block_for_team(db, team_id, block_id):
         return None
 
-    # Validate exercise belongs to the same team (cross-team → 404, not 403)
+    # Validate exercise belongs to the calling coach (cross-coach → 404, not 403)
     exercise = db.execute(
         select(Exercise).where(
             Exercise.id == data.exercise_id,
-            Exercise.team_id == team_id,
+            Exercise.coach_id == coach_id,
         )
     ).scalar_one_or_none()
 

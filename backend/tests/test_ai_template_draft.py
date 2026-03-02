@@ -191,19 +191,18 @@ class TestAiTemplateDraftTenantIsolation:
         mocker,
         db_session: Session,
         coach_a: UserProfile,
-        team_a: Team,
-        team_b: Team,
+        coach_b: UserProfile,
     ):
-        """Exercises from team B must never appear in team A's suggestions."""
-        # Create one exercise per team — both would match "squat" / "deadlift"
+        """Exercises from coach B must never appear in coach A's suggestions."""
+        # Create one exercise per coach — both would match "squat" / "deadlift"
         ex_a = Exercise(
-            team_id=team_a.id,
+            coach_id=coach_a.id,
             name="Back Squat",
             description="Barbell compound lower body squat",
             tags="squat compound lower barbell",
         )
         ex_b = Exercise(
-            team_id=team_b.id,
+            coach_id=coach_b.id,
             name="Front Squat",
             description="Barbell front rack squat compound",
             tags="squat compound front barbell",

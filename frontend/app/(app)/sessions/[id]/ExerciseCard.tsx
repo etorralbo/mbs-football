@@ -20,7 +20,9 @@ function prescriptionText(p: Record<string, unknown>): string {
   const parts: string[] = []
   if (p.sets) parts.push(`${p.sets} sets`)
   if (p.reps) parts.push(`${p.reps} reps`)
-  if (p.load) parts.push(`@ ${p.load}`)
+  if (p.weight) parts.push(`@ ${p.weight} kg`)
+  else if (p.load) parts.push(`@ ${p.load}`)
+  if (p.rpe) parts.push(`RPE ${p.rpe}`)
   if (p.duration) parts.push(String(p.duration))
   if (p.rest) parts.push(`rest ${p.rest}`)
   return parts.join(' · ') || '—'
@@ -101,9 +103,21 @@ export function ExerciseCard({
           <p className="mt-0.5 text-xs text-slate-400">{prescriptionText(item.prescription)}</p>
         </div>
         {isAlreadyDone && (
-          <span className="rounded-full bg-[#c8f135]/15 px-2 py-0.5 text-xs font-semibold text-[#c8f135] ring-1 ring-[#c8f135]/30">
-            Done
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-[#c8f135]/15 px-2 py-0.5 text-xs font-semibold text-[#c8f135] ring-1 ring-[#c8f135]/30">
+              Done
+            </span>
+            {!isCompleted && (
+              <button
+                type="button"
+                onClick={() => dispatch({ type: 'UNDO_DONE', exerciseId: item.exercise_id })}
+                className="text-xs text-slate-400 hover:text-white"
+                aria-label={`Undo ${item.exercise_name}`}
+              >
+                Undo
+              </button>
+            )}
+          </div>
         )}
       </div>
 

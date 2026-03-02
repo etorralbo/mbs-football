@@ -10,19 +10,20 @@ from app.db.base import Base, TimestampMixin
 
 class Exercise(Base, TimestampMixin):
     """
-    Exercise model representing a single exercise in the team's library.
+    Exercise model representing a single exercise in a coach's library.
 
-    Each exercise belongs to a team and can optionally have a video demonstration.
+    Each exercise belongs to a coach (UserProfile) rather than a team, so the
+    same library is reusable across all teams the coach manages.
     The tags field is a simple text field for MVP; can be normalized later.
     """
     __tablename__ = "exercises"
     __table_args__ = (
-        UniqueConstraint("team_id", "name", name="uq_exercise_team_name"),
+        UniqueConstraint("coach_id", "name", name="uq_exercise_coach_name"),
     )
 
-    team_id: Mapped[uuid.UUID] = mapped_column(
+    coach_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("teams.id", ondelete="CASCADE"),
+        ForeignKey("user_profiles.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )

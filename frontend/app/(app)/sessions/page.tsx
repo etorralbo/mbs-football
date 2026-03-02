@@ -33,7 +33,7 @@ function groupByAthlete(sessions: WorkoutSessionSummary[]): AthleteGroup[] {
   const map = new Map<string, AthleteGroup>()
   for (const s of sessions) {
     if (!map.has(s.athlete_id))
-      map.set(s.athlete_id, { id: s.athlete_id, name: s.athlete_name ?? s.athlete_id, sessions: [] })
+      map.set(s.athlete_id, { id: s.athlete_id, name: s.athlete_name, sessions: [] })
     map.get(s.athlete_id)!.sessions.push(s)
   }
   return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name))

@@ -69,6 +69,7 @@ def _to_command(
     return CreateWorkoutTemplateFromAiCommand(
         requesting_user_id=current_user.supabase_user_id,
         team_id=current_user.team_id,
+        coach_id=current_user.user_id,
         title=payload.title,
         blocks=[
             BlockCommand(

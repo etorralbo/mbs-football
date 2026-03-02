@@ -1,7 +1,7 @@
 """POST /v1/teams — create a new team and become its COACH.
 
 Reachable before onboarding completes (uses get_auth_user_id, not get_current_user).
-MVP: one COACH membership per user (409 if they already have one).
+A user may coach multiple teams; each call creates a new team + COACH membership.
 """
 import uuid
 from typing import Annotated
@@ -14,7 +14,6 @@ from app.core.dependencies import get_auth_user_id
 from app.db.session import get_db
 from app.domain.events.service import ProductEventService
 from app.domain.use_cases.create_team import (
-    CoachAlreadyHasTeamError,
     CreateTeamCommand,
     CreateTeamUseCase,
 )
@@ -27,7 +26,7 @@ router = APIRouter(tags=["teams"])
 
 class CreateTeamRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
-    display_name: str = Field("", max_length=255)
+    display_name: str = Field(..., min_length=1, max_length=255)
 
 
 class CreateTeamResponse(BaseModel):
@@ -52,8 +51,6 @@ def create_team(
         result = use_case.execute(
             CreateTeamCommand(supabase_user_id=user_id, team_name=payload.name, name=payload.display_name)
         )
-    except CoachAlreadyHasTeamError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 

@@ -1,4 +1,4 @@
-import { ForbiddenError, UnauthorizedError } from './httpClient'
+import { ForbiddenError, StaleTeamRequestError, UnauthorizedError } from './httpClient'
 
 /**
  * Returns true when the error is a 403 whose message indicates the user has
@@ -27,6 +27,11 @@ export function handleApiError(
   }
   if (isNotOnboardedError(err)) {
     router.replace('/onboarding')
+    return
+  }
+  if (err instanceof StaleTeamRequestError) {
+    // The active team changed while this request was in-flight. Silently
+    // discard — the UI will re-render with fresh data from the new team.
     return
   }
   throw err

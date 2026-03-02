@@ -318,10 +318,10 @@ def coach_b(db_session: Session, team_b: Team) -> UserProfile:
 
 
 @pytest.fixture
-def exercise_team_a(db_session: Session, team_a: Team) -> Exercise:
+def exercise_team_a(db_session: Session, coach_a: UserProfile) -> Exercise:
     exercise = Exercise(
         id=uuid.uuid4(),
-        team_id=team_a.id,
+        coach_id=coach_a.id,
         name="Squats",
         description="Basic squats",
         tags="strength, legs",
@@ -372,12 +372,12 @@ def onboarded_coach_jwt(onboarded_coach: UserProfile, mock_jwt) -> UserProfile:
 
 @pytest.fixture
 def coach_team_exercise_id(db_session: Session, onboarded_coach: UserProfile) -> uuid.UUID:
-    """One exercise in the onboarded coach's team."""
+    """One exercise in the onboarded coach's personal library."""
     exercise = Exercise(
         id=uuid.uuid4(),
-        team_id=onboarded_coach.team_id,
+        coach_id=onboarded_coach.id,
         name="Coach Team Exercise",
-        description="Owned by the coach's team",
+        description="Owned by the coach",
     )
     db_session.add(exercise)
     db_session.commit()
@@ -386,15 +386,34 @@ def coach_team_exercise_id(db_session: Session, onboarded_coach: UserProfile) ->
 
 @pytest.fixture
 def foreign_team_exercise_id(db_session: Session) -> uuid.UUID:
-    """One exercise belonging to a completely different team."""
+    """One exercise belonging to a completely different coach."""
     other_team = Team(id=uuid.uuid4(), name="Foreign Team")
     db_session.add(other_team)
     db_session.flush()
+    # Create a foreign coach profile with a membership
+    from app.models.membership import Membership as _Membership
+    foreign_supabase_id = uuid.uuid4()
+    foreign_coach = UserProfile(
+        id=uuid.uuid4(),
+        supabase_user_id=foreign_supabase_id,
+        team_id=other_team.id,
+        role=Role.COACH,
+        name="Foreign Coach",
+    )
+    db_session.add(foreign_coach)
+    db_session.flush()
+    db_session.add(_Membership(
+        id=uuid.uuid4(),
+        user_id=foreign_supabase_id,
+        team_id=other_team.id,
+        role=Role.COACH,
+    ))
+    db_session.flush()
     exercise = Exercise(
         id=uuid.uuid4(),
-        team_id=other_team.id,
+        coach_id=foreign_coach.id,
         name="Foreign Exercise",
-        description="Belongs to another team",
+        description="Belongs to another coach",
     )
     db_session.add(exercise)
     db_session.commit()
