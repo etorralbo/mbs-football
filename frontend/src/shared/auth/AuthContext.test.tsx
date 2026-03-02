@@ -29,7 +29,9 @@ vi.mock('@/src/shared/auth/activeTeamStore', async (importOriginal) => {
 })
 
 import { request } from '@/app/_shared/api/httpClient'
+import { _setActiveTeamIdInternal } from '@/src/shared/auth/activeTeamStore'
 const mockRequest = vi.mocked(request)
+const mockSetActiveTeamIdInternal = vi.mocked(_setActiveTeamIdInternal)
 
 // ---------------------------------------------------------------------------
 // Test data
@@ -157,6 +159,7 @@ describe('setActiveTeamId', () => {
 
     expect(result.current.activeTeamId).toBe(TEAM_A)
     expect(localStorage.getItem('activeTeamId')).toBe(TEAM_A)
+    expect(mockSetActiveTeamIdInternal).toHaveBeenCalledWith(TEAM_A)
   })
 
   it('ignores IDs not in memberships', async () => {

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/app/_shared/auth/supabaseClient'
+import { TeamSwitcher } from '@/app/_shared/components/TeamSwitcher'
 import { useAuth } from '@/src/shared/auth/AuthContext'
 
 export function NavBar() {
@@ -31,6 +32,7 @@ export function NavBar() {
         </div>
         <span className="text-sm font-semibold text-white">Mettle Performance</span>
       </div>
+      <TeamSwitcher />
       <NavLink href="/home" active={isActive('/home')}>
         Home
       </NavLink>
