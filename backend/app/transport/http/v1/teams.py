@@ -27,7 +27,7 @@ router = APIRouter(tags=["teams"])
 
 class CreateTeamRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
-    display_name: str = Field("", max_length=255)
+    display_name: str = Field(..., min_length=1, max_length=255)
 
 
 class CreateTeamResponse(BaseModel):
