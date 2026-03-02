@@ -93,15 +93,15 @@ export function AiDraftPanel() {
   }
 
   return (
-    <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-      <h2 className="text-base font-semibold text-zinc-900">AI Workout Draft</h2>
-      <p className="mt-1 text-sm text-zinc-500">
+    <div className="mt-6 rounded-lg border border-white/8 bg-[#131922] p-6">
+      <h2 className="text-base font-semibold text-white">AI Workout Draft</h2>
+      <p className="mt-1 text-sm text-slate-400">
         Describe the workout and the AI will generate a structured plan with six training blocks.
       </p>
 
       <form onSubmit={handleGenerate} className="mt-4 space-y-4">
         <div>
-          <label htmlFor="ai-prompt" className="block text-sm font-medium text-zinc-700">
+          <label htmlFor="ai-prompt" className="block text-sm font-medium text-slate-300">
             Describe the workout
           </label>
           <textarea
@@ -110,20 +110,20 @@ export function AiDraftPanel() {
             onChange={(e) => setPrompt(e.target.value)}
             rows={3}
             maxLength={2000}
-            className="mt-1.5 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="mt-1.5 w-full rounded-md border border-white/10 bg-[#0d1420] px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:border-[#4f9cf9] focus:outline-none"
             placeholder="e.g. explosive power session for a midfielder, focus on lower body"
           />
         </div>
 
         <div>
-          <label htmlFor="ai-language" className="block text-sm font-medium text-zinc-700">
+          <label htmlFor="ai-language" className="block text-sm font-medium text-slate-300">
             Language
           </label>
           <select
             id="ai-language"
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
-            className="mt-1.5 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="mt-1.5 rounded-md border border-white/10 bg-[#0d1420] px-3 py-2 text-sm text-white focus:border-[#4f9cf9] focus:outline-none"
           >
             <option value="en">English</option>
             <option value="es">Spanish</option>
@@ -131,7 +131,7 @@ export function AiDraftPanel() {
         </div>
 
         {draftError && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-red-400">
             {draftError}
           </p>
         )}
@@ -142,40 +142,40 @@ export function AiDraftPanel() {
       </form>
 
       {draft && (
-        <div className="mt-8 border-t border-zinc-100 pt-6">
-          <h3 className="text-sm font-semibold text-zinc-900">{draft.title}</h3>
+        <div className="mt-8 border-t border-white/8 pt-6">
+          <h3 className="text-sm font-semibold text-white">{draft.title}</h3>
 
           <div className="mt-4 space-y-4">
             {draft.blocks.map((block) => (
               <section
                 key={block.name}
                 aria-label={block.name}
-                className="rounded-md border border-zinc-100 bg-zinc-50 p-4"
+                className="rounded-md border border-white/8 bg-[#0d1420] p-4"
               >
-                <h4 className="text-sm font-medium text-zinc-900">{block.name}</h4>
+                <h4 className="text-sm font-medium text-white">{block.name}</h4>
                 {block.notes && (
-                  <p className="mt-1 text-xs text-zinc-500">{block.notes}</p>
+                  <p className="mt-1 text-xs text-slate-400">{block.notes}</p>
                 )}
                 {block.suggested_exercises.length > 0 ? (
                   <ul className="mt-2 space-y-1">
                     {block.suggested_exercises.map((ex) => (
-                      <li key={ex.exercise_id} className="text-xs text-zinc-600">
+                      <li key={ex.exercise_id} className="text-xs text-slate-300">
                         {ex.reason}{' '}
-                        <span className="text-zinc-400">
+                        <span className="text-slate-500">
                           ({Math.round(ex.score * 100)}%)
                         </span>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="mt-2 text-xs text-zinc-400">No exercises suggested.</p>
+                  <p className="mt-2 text-xs text-slate-500">No exercises suggested.</p>
                 )}
               </section>
             ))}
           </div>
 
           {saveError && (
-            <p role="alert" className="mt-4 text-sm text-red-600">
+            <p role="alert" className="mt-4 text-sm text-red-400">
               {saveError}
             </p>
           )}

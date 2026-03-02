@@ -5,7 +5,7 @@ function HomeLoading() {
   return (
     <div>
       {/* TodaySessionCard skeleton */}
-      <div className="mt-6 rounded-xl border border-zinc-200 bg-white p-6">
+      <div className="mt-6 rounded-xl border border-white/8 bg-[#131922] p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 space-y-2">
             <Skeleton className="h-3 w-28" />
@@ -24,7 +24,7 @@ function HomeLoading() {
           {[0, 1].map((i) => (
             <div
               key={i}
-              className="flex items-center justify-between rounded-lg border border-zinc-100 bg-white px-4 py-3"
+              className="flex items-center justify-between rounded-lg border border-white/8 bg-[#131922] px-4 py-3"
             >
               <Skeleton className="h-3 w-40" />
               <Skeleton className="h-3 w-16" />
@@ -55,7 +55,7 @@ function SessionLoading() {
               {[0, 1, 2].map((row) => (
                 <div
                   key={row}
-                  className="flex items-center gap-3 rounded-lg border border-zinc-100 bg-white px-4 py-3"
+                  className="flex items-center gap-3 rounded-lg border border-white/8 bg-[#131922] px-4 py-3"
                 >
                   <Skeleton className="h-6 w-6 flex-shrink-0 rounded-full" />
                   <div className="flex-1 space-y-1.5">

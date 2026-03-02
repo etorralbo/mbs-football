@@ -11,8 +11,8 @@ interface StatTileProps {
 function StatTile({ label, value }: StatTileProps) {
   return (
     <div className="flex flex-col items-center gap-1">
-      <span className="text-2xl font-semibold text-zinc-900">{value}</span>
-      <span className="text-center text-xs text-zinc-500">{label}</span>
+      <span className="text-2xl font-bold text-white">{value}</span>
+      <span className="text-center text-xs text-slate-500">{label}</span>
     </div>
   )
 }
@@ -24,7 +24,7 @@ export function FunnelStatsCard() {
     return (
       <div
         aria-label="Loading team activity"
-        className="mt-6 rounded-lg border border-zinc-200 bg-white p-5"
+        className="mt-6 rounded-lg border border-white/8 bg-[#131922] p-5"
       >
         <Skeleton className="h-4 w-1/4" />
         <div className="mt-4 flex justify-around">
@@ -43,9 +43,9 @@ export function FunnelStatsCard() {
   return (
     <div
       aria-label="Team activity"
-      className="mt-6 rounded-lg border border-zinc-200 bg-white p-5"
+      className="mt-6 rounded-lg border border-white/8 bg-[#131922] p-5"
     >
-      <h2 className="text-sm font-semibold text-zinc-900">Team activity</h2>
+      <h2 className="text-sm font-semibold text-white">Team activity</h2>
       <div className="mt-4 flex justify-around">
         <StatTile label="Teams created" value={data.team_created} />
         <StatTile label="Invites accepted" value={data.invite_accepted} />

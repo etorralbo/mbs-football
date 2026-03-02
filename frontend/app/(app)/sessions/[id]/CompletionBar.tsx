@@ -22,24 +22,24 @@ export function CompletionBar({
   onComplete,
 }: Props) {
   return (
-    <div className="sticky bottom-0 -mx-6 border-t border-zinc-200 bg-white/95 px-6 py-3 backdrop-blur-sm">
+    <div className="sticky bottom-0 -mx-6 border-t border-white/8 bg-[#0a0d14]/95 px-6 py-3 backdrop-blur-sm">
       <div className="flex items-center justify-between gap-4">
-        <p className="text-sm text-zinc-500">
-          <span className="font-medium text-zinc-900">{completedExercises}</span>
+        <p className="text-sm text-slate-400">
+          <span className="font-semibold text-white">{completedExercises}</span>
           {' / '}
           {totalExercises} exercises
           {' · '}
-          <span className="font-medium text-zinc-900">{completedSets}</span> sets logged
+          <span className="font-semibold text-white">{completedSets}</span> sets logged
         </p>
 
         <div className="flex flex-col items-end gap-1">
           {completeError && (
-            <p role="alert" className="text-xs text-red-600">
+            <p role="alert" className="text-xs text-red-400">
               {completeError}
             </p>
           )}
           {!canComplete && !completing && (
-            <p className="text-xs text-zinc-400">
+            <p className="text-xs text-slate-500">
               Log at least one set to complete the session
             </p>
           )}

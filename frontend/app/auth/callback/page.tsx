@@ -31,8 +31,8 @@ function CallbackHandler() {
 
 export default function AuthCallbackPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50">
-      <p className="text-sm text-zinc-500">Signing you in…</p>
+    <div className="flex min-h-screen items-center justify-center bg-[#0a0d14]">
+      <p className="text-sm text-slate-400">Signing you in…</p>
       <Suspense>
         <CallbackHandler />
       </Suspense>

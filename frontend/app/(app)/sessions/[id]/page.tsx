@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { request } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
 import { SkeletonList } from '@/app/_shared/components/Skeleton'
+import { useAuth } from '@/src/shared/auth/AuthContext'
 import { useSessionExecution } from '@/src/features/session-execution/useSessionExecution'
 import {
   draftReducer,
@@ -83,11 +84,13 @@ export default function SessionDetailPage() {
   }
 
   if (execState.status === 'error') {
-    return <p className="text-sm text-zinc-500">Session not found.</p>
+    return <p className="text-sm text-slate-400">Session not found.</p>
   }
 
   const execution = execState.data
   const isCompleted = execution.status === 'completed'
+  const { role } = useAuth()
+  const isReadOnly = isCompleted || role === 'COACH'
   const progress = progressFromDraft(execution, draft)
   const canComplete = canMarkCompleted(draft) && savingExercises.size === 0
 
@@ -95,11 +98,11 @@ export default function SessionDetailPage() {
     <>
       {/* Breadcrumb */}
       <div className="flex items-center gap-2">
-        <Link href="/sessions" className="text-sm text-zinc-500 hover:text-zinc-700">
+        <Link href="/sessions" className="text-sm text-slate-400 hover:text-slate-300">
           Sessions
         </Link>
-        <span className="text-zinc-300">/</span>
-        <span className="text-sm text-zinc-900">{execution.template_title}</span>
+        <span className="text-slate-600">/</span>
+        <span className="text-sm text-white">{execution.template_title}</span>
       </div>
 
       {/* Header */}
@@ -124,7 +127,7 @@ export default function SessionDetailPage() {
                 sessionId={id}
                 item={item}
                 exerciseSets={draft[item.exercise_id] ?? { 1: { reps: '', weight: '', rpe: '', done: false } }}
-                isCompleted={isCompleted}
+                isCompleted={isReadOnly}
                 dispatch={dispatch}
                 onSavingChange={handleSavingChange}
               />
@@ -133,8 +136,8 @@ export default function SessionDetailPage() {
         ))}
       </div>
 
-      {/* Sticky completion bar — only for pending sessions */}
-      {!isCompleted && (
+      {/* Sticky completion bar — only for pending sessions viewed by an athlete */}
+      {!isReadOnly && (
         <CompletionBar
           completedExercises={progress.completedExercises}
           totalExercises={progress.totalExercises}

@@ -35,14 +35,10 @@ vi.mock('next/link', () => ({
   ),
 }))
 
-// useActivationState is called by TemplatesPage for the ActivationBanner.
-// Stub it out so tests don't hit /v1/me again.
+// useActivationState is called by TemplatesPage for role-based empty states.
+// Stub it out so tests don't hit /v1/me.
 vi.mock('@/src/features/activation/useActivationState', () => ({
   useActivationState: () => ({ role: 'COACH', steps: [], nextAction: null, isLoading: false, error: null }),
-}))
-
-vi.mock('@/src/features/activation/components/ActivationBanner', () => ({
-  ActivationBanner: () => null,
 }))
 
 // AiDraftPanel makes its own requests — stub it out for guard tests.

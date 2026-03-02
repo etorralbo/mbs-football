@@ -9,7 +9,6 @@ import { Button } from '@/app/_shared/components/Button'
 import { EmptyState } from '@/app/_shared/components/EmptyState'
 import { SkeletonList } from '@/app/_shared/components/Skeleton'
 import { AiDraftPanel } from './AiDraftPanel'
-import { ActivationBanner } from '@/src/features/activation/components/ActivationBanner'
 import { useActivationState } from '@/src/features/activation/useActivationState'
 import { useAuth } from '@/src/shared/auth/AuthContext'
 import type { WorkoutTemplate } from '@/app/_shared/api/types'
@@ -53,7 +52,7 @@ export default function TemplatesPage() {
   return (
     <>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-zinc-900">Workout Templates</h1>
+        <h1 className="text-xl font-semibold text-white">Workout Templates</h1>
         <Button
           variant={showAiPanel ? 'secondary' : 'primary'}
           onClick={() => setShowAiPanel((v) => !v)}
@@ -64,10 +63,6 @@ export default function TemplatesPage() {
 
       {showAiPanel && <AiDraftPanel />}
 
-      <div className="mt-4">
-        <ActivationBanner />
-      </div>
-
       {loading && (
         <div className="mt-6">
           <span className="sr-only">Loading…</span>
@@ -76,10 +71,10 @@ export default function TemplatesPage() {
       )}
 
       {error && (
-        <div role="alert" className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4">
-          <p className="text-sm text-red-700">{error}</p>
+        <div role="alert" className="mt-6 rounded-lg border border-red-800/50 bg-red-900/20 p-4">
+          <p className="text-sm text-red-400">{error}</p>
           <button
-            className="mt-2 text-sm font-medium text-red-700 underline"
+            className="mt-2 text-sm font-medium text-red-400 underline hover:text-red-300"
             onClick={fetchTemplates}
           >
             Try again
@@ -108,11 +103,11 @@ export default function TemplatesPage() {
             <li key={t.id}>
               <Link
                 href={`/templates/${t.id}`}
-                className="flex flex-col rounded-lg border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300 hover:bg-zinc-50"
+                className="flex flex-col rounded-lg border border-white/8 bg-[#131922] p-4 transition-colors hover:border-white/15 hover:bg-white/5"
               >
-                <span className="text-sm font-medium text-zinc-900">{t.title}</span>
+                <span className="text-sm font-medium text-white">{t.title}</span>
                 {t.description && (
-                  <span className="mt-1 text-xs text-zinc-500">{t.description}</span>
+                  <span className="mt-1 text-xs text-slate-400">{t.description}</span>
                 )}
               </Link>
             </li>

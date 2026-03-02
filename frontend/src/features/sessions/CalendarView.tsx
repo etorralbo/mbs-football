@@ -58,30 +58,30 @@ export function CalendarView({ sessions }: Props) {
   const monthLabel = cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
   return (
-    <div className="mt-6 rounded-lg border border-zinc-200 bg-white">
+    <div className="mt-6 rounded-lg border border-white/8 bg-[#131922]">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
+      <div className="flex items-center justify-between border-b border-white/8 px-4 py-3">
         <button
           aria-label="Previous month"
           onClick={() => setCursor(new Date(year, month - 1, 1))}
-          className="rounded-md px-2 py-1 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+          className="rounded-md px-2 py-1 text-sm text-slate-400 hover:bg-white/5 hover:text-white"
         >
           ←
         </button>
-        <span className="text-sm font-semibold text-zinc-900">{monthLabel}</span>
+        <span className="text-sm font-semibold text-white">{monthLabel}</span>
         <button
           aria-label="Next month"
           onClick={() => setCursor(new Date(year, month + 1, 1))}
-          className="rounded-md px-2 py-1 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+          className="rounded-md px-2 py-1 text-sm text-slate-400 hover:bg-white/5 hover:text-white"
         >
           →
         </button>
       </div>
 
       {/* Weekday labels */}
-      <div className="grid grid-cols-7 border-b border-zinc-100">
+      <div className="grid grid-cols-7 border-b border-white/5">
         {WEEKDAYS.map((d) => (
-          <div key={d} className="py-2 text-center text-xs font-medium text-zinc-400">
+          <div key={d} className="py-2 text-center text-xs font-medium text-slate-500">
             {d}
           </div>
         ))}
@@ -96,8 +96,8 @@ export function CalendarView({ sessions }: Props) {
           return (
             <div
               key={i}
-              className={`min-h-[80px] border-b border-r border-zinc-100 p-1 last:border-r-0 ${
-                !date ? 'bg-zinc-50' : ''
+              className={`min-h-[80px] border-b border-r border-white/5 p-1 last:border-r-0 ${
+                !date ? 'bg-white/3' : ''
               }`}
             >
               {date && (
@@ -105,8 +105,8 @@ export function CalendarView({ sessions }: Props) {
                   <span
                     className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${
                       isToday
-                        ? 'bg-indigo-600 font-semibold text-white'
-                        : 'text-zinc-500'
+                        ? 'bg-[#c8f135] font-bold text-[#0a0d14]'
+                        : 'text-slate-500'
                     }`}
                   >
                     {date.getDate()}
@@ -118,8 +118,8 @@ export function CalendarView({ sessions }: Props) {
                         href={`/sessions/${s.id}`}
                         className={`block truncate rounded px-1 py-0.5 text-xs leading-tight ${
                           s.completed_at
-                            ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                            : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                            ? 'bg-emerald-900/40 text-emerald-400 hover:bg-emerald-900/60'
+                            : 'bg-[#4f9cf9]/15 text-[#4f9cf9] hover:bg-[#4f9cf9]/25'
                         }`}
                         title={s.template_title}
                       >

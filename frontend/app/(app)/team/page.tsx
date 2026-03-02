@@ -52,28 +52,28 @@ export default function TeamPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  if (authLoading) return <p className="text-sm text-zinc-500">Loading…</p>
-  if (!membership) return <p className="text-sm text-zinc-500">No team found.</p>
+  if (authLoading) return <p className="text-sm text-slate-400">Loading…</p>
+  if (!membership) return <p className="text-sm text-slate-400">No team found.</p>
 
   return (
     <>
-      <h1 className="text-xl font-semibold text-zinc-900">{membership.team_name}</h1>
-      <p className="mt-1 text-sm text-zinc-500 capitalize">{membership.role.toLowerCase()}</p>
+      <h1 className="text-xl font-semibold text-white">{membership.team_name}</h1>
+      <p className="mt-1 text-sm text-slate-400 capitalize">{membership.role.toLowerCase()}</p>
 
       {isCoach && <TeamOverviewCards />}
 
       {isCoach && <FunnelStatsCard />}
 
       {isCoach && (
-        <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-5">
-          <h2 className="text-sm font-semibold text-zinc-900">Invite athletes</h2>
-          <p className="mt-1 text-xs text-zinc-500">
+        <div className="mt-6 rounded-lg border border-white/8 bg-[#131922] p-5">
+          <h2 className="text-sm font-semibold text-white">Invite athletes</h2>
+          <p className="mt-1 text-xs text-slate-400">
             Generate a link and share it with your athletes. Each link expires in 7 days.
           </p>
 
           <div className="mt-4 space-y-3">
             {error && (
-              <p role="alert" className="text-sm text-red-600">
+              <p role="alert" className="text-sm text-red-400">
                 {error}
               </p>
             )}
@@ -83,7 +83,7 @@ export default function TeamPage() {
                 <input
                   readOnly
                   value={inviteUrl}
-                  className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-700 focus:outline-none"
+                  className="min-w-0 flex-1 rounded-md border border-white/10 bg-[#0d1420] px-3 py-2 text-sm text-slate-300 focus:outline-none"
                 />
                 <Button variant="secondary" onClick={handleCopy}>
                   {copied ? 'Copied!' : 'Copy'}

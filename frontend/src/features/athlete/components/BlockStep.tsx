@@ -2,50 +2,39 @@
 
 import { useState } from 'react'
 import { Button } from '@/app/_shared/components/Button'
-import type { ExecutionItem } from '@/app/_shared/api/types'
+import type { SessionExecutionBlock } from '@/app/_shared/api/types'
 import type {
   AthleteAction,
   AthleteDraft,
-  AthleteSetDraft,
   SetStatusMap,
 } from '@/src/features/athlete/athleteStore'
-import { SetTableEditor } from './SetTableEditor'
+import { ExerciseCard } from './ExerciseCard'
 
 interface Props {
-  item: ExecutionItem
-  exerciseSets: AthleteDraft[string]
-  exerciseNumber: number
-  totalExercises: number
+  block: SessionExecutionBlock
+  blockNumber: number
+  totalBlocks: number
   progressPct: number
+  draft: AthleteDraft
   dispatch: (action: AthleteAction) => void
   setStatuses: SetStatusMap
   onSaveSet: (exerciseId: string, setNumber: number) => void
-  onLogAndNext: (exerciseId: string) => Promise<void>
-  onComplete: (exerciseId: string) => Promise<void>
+  onBlockNext: (blockKey: string) => Promise<void>
+  onComplete: () => Promise<void>
   onBack: () => void
   onDiscardDraft?: () => void
 }
 
-function prescriptionText(p: Record<string, unknown>): string {
-  const parts: string[] = []
-  if (p.sets) parts.push(`${p.sets} sets`)
-  if (p.reps) parts.push(`${p.reps} reps`)
-  if (p.load) parts.push(`@ ${p.load}`)
-  if (p.duration) parts.push(String(p.duration))
-  if (p.rest) parts.push(`rest ${p.rest}`)
-  return parts.join(' · ') || '—'
-}
-
-export function ExerciseFocus({
-  item,
-  exerciseSets,
-  exerciseNumber,
-  totalExercises,
+export function BlockStep({
+  block,
+  blockNumber,
+  totalBlocks,
   progressPct,
+  draft,
   dispatch,
   setStatuses,
   onSaveSet,
-  onLogAndNext,
+  onBlockNext,
   onComplete,
   onBack,
   onDiscardDraft,
@@ -54,17 +43,13 @@ export function ExerciseFocus({
   const [error, setError] = useState<string | null>(null)
   const [confirmingDiscard, setConfirmingDiscard] = useState(false)
 
-  const isLast = exerciseNumber === totalExercises
-
-  const sortedSets = Object.entries(exerciseSets)
-    .map(([k, v]) => ({ setNumber: Number(k), draft: v as AthleteSetDraft }))
-    .sort((a, b) => a.setNumber - b.setNumber)
+  const isLast = blockNumber === totalBlocks
 
   async function handleNext() {
     setError(null)
     setSaving(true)
     try {
-      await onLogAndNext(item.exercise_id)
+      await onBlockNext(block.key)
     } catch {
       setError('Failed to save. Please try again.')
     } finally {
@@ -76,7 +61,7 @@ export function ExerciseFocus({
     setError(null)
     setSaving(true)
     try {
-      await onComplete(item.exercise_id)
+      await onComplete()
     } catch {
       setError('Failed to complete session. Please try again.')
     } finally {
@@ -90,7 +75,7 @@ export function ExerciseFocus({
       <div className="mb-6">
         <div className="mb-1.5 flex items-center justify-between text-xs text-slate-400">
           <span>
-            Exercise {exerciseNumber} of {totalExercises}
+            Block {blockNumber} of {totalBlocks}
           </span>
           <span>{progressPct}% complete</span>
         </div>
@@ -106,55 +91,30 @@ export function ExerciseFocus({
         </div>
       </div>
 
-      {/* Exercise card */}
-      <div className="flex-1 rounded-xl border border-white/8 bg-[#131922] p-5">
-        {/* Name */}
-        <h1 className="text-lg font-semibold text-white">
-          {item.exercise_name}
-        </h1>
-
-        {/* Target prescription badge */}
-        <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-[#4f9cf9]/10 px-2.5 py-0.5">
-          <svg
-            className="h-3 w-3 text-[#4f9cf9]"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-            />
-          </svg>
-          <span className="text-xs font-medium text-[#4f9cf9]">
-            Target: {prescriptionText(item.prescription)}
+      {/* Block header */}
+      <div className="mb-4">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-base font-semibold text-white">{block.name}</h2>
+          <span className="text-xs text-slate-400">
+            {block.items.length} {block.items.length === 1 ? 'exercise' : 'exercises'}
           </span>
         </div>
+        <div className="mt-1 h-px bg-white/8" />
+      </div>
 
-        {/* Set table */}
-        <div className="mt-5">
-          <SetTableEditor
-            sets={sortedSets}
-            exerciseId={item.exercise_id}
+      {/* Exercise cards */}
+      <div className="flex flex-1 flex-col gap-4">
+        {block.items.map((item, idx) => (
+          <ExerciseCard
+            key={item.exercise_id}
+            item={item}
+            exerciseSets={draft[item.exercise_id] ?? { 1: { actualReps: '', actualLoad: '', actualRpe: '', note: '', done: false } }}
+            exerciseIndex={idx + 1}
             dispatch={dispatch}
             setStatuses={setStatuses}
-            onSaveSet={(setNumber) => onSaveSet(item.exercise_id, setNumber)}
+            onSaveSet={onSaveSet}
           />
-        </div>
-
-        {/* Add set */}
-        <button
-          type="button"
-          onClick={() =>
-            dispatch({ type: 'ADD_SET', exerciseId: item.exercise_id })
-          }
-          className="mt-3 text-xs font-medium text-[#4f9cf9] hover:text-[#7ab5fb]"
-        >
-          + Add set
-        </button>
+        ))}
       </div>
 
       {/* Navigation footer */}
@@ -166,7 +126,7 @@ export function ExerciseFocus({
         )}
 
         <div className="flex gap-3">
-          {exerciseNumber > 1 && (
+          {blockNumber > 1 && (
             <button
               type="button"
               onClick={onBack}
@@ -195,7 +155,7 @@ export function ExerciseFocus({
               loading={saving}
               className="flex-1 py-3"
             >
-              Next exercise →
+              Next block →
             </Button>
           )}
         </div>
@@ -236,7 +196,7 @@ export function ExerciseFocus({
         )}
 
         <p className="text-center text-xs text-slate-500">
-          Progress is saved automatically when you move to the next exercise
+          Progress is saved automatically when you move to the next block
         </p>
       </div>
     </div>

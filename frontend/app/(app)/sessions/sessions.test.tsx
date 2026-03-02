@@ -31,10 +31,6 @@ vi.mock('@/src/features/activation/useActivationState', () => ({
   })),
 }))
 
-vi.mock('@/src/features/activation/components/ActivationBanner', () => ({
-  ActivationBanner: () => null,
-}))
-
 // ---------------------------------------------------------------------------
 
 afterEach(() => {

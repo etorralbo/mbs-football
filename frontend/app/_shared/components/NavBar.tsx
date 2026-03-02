@@ -22,8 +22,15 @@ export function NavBar() {
   const isAthlete = role === 'ATHLETE'
 
   return (
-    <nav className="flex h-14 items-center gap-1 border-b border-zinc-200 bg-white px-6">
-      <span className="mr-4 text-sm font-semibold text-zinc-900">Mettle Performance</span>
+    <nav className="flex h-14 items-center gap-1 border-b border-white/8 bg-[#131922] px-6">
+      <div className="mr-4 flex items-center gap-2">
+        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#4f9cf9]/20">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-[#4f9cf9]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <span className="text-sm font-semibold text-white">MBS Football</span>
+      </div>
       {isCoach && (
         <NavLink href="/templates" active={isActive('/templates')}>
           Templates
@@ -31,12 +38,17 @@ export function NavBar() {
       )}
       {isAthlete && (
         <NavLink href="/athlete" active={isActive('/athlete')}>
-          Workout
+          Training
         </NavLink>
       )}
       <NavLink href="/sessions" active={isActive('/sessions')}>
         Sessions
       </NavLink>
+      {isCoach && (
+        <NavLink href="/exercises" active={isActive('/exercises')}>
+          Exercises
+        </NavLink>
+      )}
       {isCoach && (
         <NavLink href="/team" active={isActive('/team')}>
           Team
@@ -45,7 +57,7 @@ export function NavBar() {
       <div className="ml-auto">
         <button
           onClick={handleSignOut}
-          className="rounded-md px-3 py-1.5 text-sm text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-900"
+          className="rounded-md px-3 py-1.5 text-sm text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
         >
           Sign out
         </button>
@@ -66,10 +78,10 @@ function NavLink({
   return (
     <Link
       href={href}
-      className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+      className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
         active
-          ? 'bg-zinc-100 font-medium text-zinc-900'
-          : 'text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900'
+          ? 'text-[#4f9cf9]'
+          : 'text-slate-400 hover:bg-white/5 hover:text-white'
       }`}
     >
       {children}

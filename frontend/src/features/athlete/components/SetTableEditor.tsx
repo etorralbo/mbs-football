@@ -20,7 +20,7 @@ interface Props {
 }
 
 const inputClass =
-  'w-full rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-sm text-zinc-900 focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400 disabled:cursor-not-allowed disabled:text-zinc-400'
+  'w-full rounded-md border border-white/10 bg-[#0d1420] px-2 py-1.5 text-sm text-white focus:border-[#4f9cf9] focus:outline-none disabled:cursor-not-allowed disabled:opacity-40'
 
 // Grid: # | Load | Reps | RPE | Note | Status
 const GRID = 'grid grid-cols-[1.5rem_1fr_1fr_1fr_2fr_1.5rem] items-center gap-2'
@@ -46,7 +46,7 @@ function SetStatusCell({
     return (
       <span aria-label="Saving…" className="flex items-center justify-center">
         <svg
-          className="h-3.5 w-3.5 animate-spin text-indigo-500"
+          className="h-3.5 w-3.5 animate-spin text-[#4f9cf9]"
           fill="none"
           viewBox="0 0 24 24"
           aria-hidden="true"
@@ -97,7 +97,7 @@ function SetStatusCell({
         onClick={onSave}
         title={status.lastError ?? 'Save failed — click to retry'}
         aria-label="Save failed. Click to retry"
-        className="flex items-center justify-center text-red-500 hover:text-red-600"
+        className="flex items-center justify-center text-red-400 hover:text-red-300"
       >
         <svg
           className="h-3.5 w-3.5"
@@ -124,7 +124,7 @@ function SetStatusCell({
         type="button"
         onClick={onSave}
         aria-label="Save set"
-        className="flex items-center justify-center text-zinc-400 hover:text-indigo-500"
+        className="flex items-center justify-center text-slate-500 hover:text-[#4f9cf9]"
       >
         <svg
           className="h-3.5 w-3.5"
@@ -157,7 +157,7 @@ export function SetTableEditor({
   return (
     <div>
       {/* Column headers */}
-      <div className={`mb-2 ${GRID} text-xs font-medium text-zinc-400`}>
+      <div className={`mb-2 ${GRID} text-xs font-medium text-slate-500`}>
         <span>#</span>
         <span>Load (kg)</span>
         <span>Reps</span>
@@ -178,7 +178,7 @@ export function SetTableEditor({
               key={setNumber}
               className={`${GRID} ${draft.done ? 'opacity-50' : ''}`}
             >
-              <span className="text-xs font-medium text-zinc-500">
+              <span className="text-xs font-medium text-slate-500">
                 {setNumber}
               </span>
 

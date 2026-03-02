@@ -62,14 +62,14 @@ function AddBlockForm({ templateId, onCreated, onCancel }: AddBlockFormProps) {
   }
 
   return (
-    <div className="rounded-lg border border-dashed border-zinc-300 bg-white p-4">
-      <p className="text-sm font-medium text-zinc-700">New block</p>
+    <div className="rounded-lg border border-dashed border-white/15 bg-[#131922] p-4">
+      <p className="text-sm font-medium text-white">New block</p>
 
       <div className="mt-3 flex flex-col gap-2">
         <select
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-sm text-zinc-700 focus:border-indigo-400 focus:outline-none"
+          className="rounded-md border border-white/10 bg-[#0d1420] px-2.5 py-1.5 text-sm text-white focus:border-[#4f9cf9] focus:outline-none"
         >
           {BLOCK_NAME_OPTIONS.map((n) => (
             <option key={n} value={n}>{n}</option>
@@ -84,24 +84,24 @@ function AddBlockForm({ templateId, onCreated, onCancel }: AddBlockFormProps) {
             onChange={(e) => setCustom(e.target.value)}
             maxLength={255}
             placeholder="Enter block name"
-            className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-sm text-zinc-700 focus:border-indigo-400 focus:outline-none"
+            className="rounded-md border border-white/10 bg-[#0d1420] px-2.5 py-1.5 text-sm text-white placeholder:text-slate-600 focus:border-[#4f9cf9] focus:outline-none"
           />
         )}
       </div>
 
-      {error && <p role="alert" className="mt-2 text-xs text-red-600">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-xs text-red-400">{error}</p>}
 
       <div className="mt-3 flex gap-2">
         <button
           onClick={handleCreate}
           disabled={creating}
-          className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+          className="inline-flex items-center rounded-md bg-[#c8f135] px-3 py-1.5 text-xs font-bold text-[#0a0d14] transition-colors hover:bg-[#d4f755] disabled:opacity-50"
         >
           {creating ? 'Creating…' : 'Create block'}
         </button>
         <button
           onClick={onCancel}
-          className="rounded-md px-3 py-1.5 text-xs text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700"
+          className="rounded-md px-3 py-1.5 text-xs text-slate-400 hover:bg-white/5 hover:text-slate-300"
         >
           Cancel
         </button>
@@ -192,17 +192,17 @@ export default function TemplateDetailPage() {
     )
 
   if (notFound || !template)
-    return <p className="text-sm text-zinc-500">Template not found.</p>
+    return <p className="text-sm text-slate-400">Template not found.</p>
 
   return (
     <>
       {/* Breadcrumb */}
       <div className="flex items-center gap-2">
-        <Link href="/templates" className="text-sm text-zinc-500 hover:text-zinc-700">
+        <Link href="/templates" className="text-sm text-slate-400 hover:text-slate-300">
           Templates
         </Link>
-        <span className="text-zinc-300">/</span>
-        <span className="text-sm text-zinc-900">{template.title}</span>
+        <span className="text-slate-600">/</span>
+        <span className="text-sm text-white">{template.title}</span>
       </div>
 
       {/* Title row */}
@@ -214,20 +214,20 @@ export default function TemplateDetailPage() {
             onChange={(e) => setTitleValue(e.target.value)}
             onBlur={handleTitleBlur}
             maxLength={255}
-            className="flex-1 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xl font-semibold text-zinc-900 focus:border-indigo-400 focus:outline-none"
+            className="flex-1 rounded-md border border-white/10 bg-[#0d1420] px-3 py-1.5 text-xl font-semibold text-white focus:border-[#4f9cf9] focus:outline-none"
           />
         ) : (
-          <h1 className="flex-1 text-xl font-semibold text-zinc-900">{template.title}</h1>
+          <h1 className="flex-1 text-xl font-semibold text-white">{template.title}</h1>
         )}
 
-        {savingTitle && <span className="text-xs text-zinc-400">Saving…</span>}
+        {savingTitle && <span className="text-xs text-slate-400">Saving…</span>}
 
         <button
           onClick={() => { setEditMode((v) => !v); setShowAddBlock(false) }}
           className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
             editMode
-              ? 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
-              : 'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50'
+              ? 'border-[#4f9cf9]/30 bg-[#4f9cf9]/10 text-[#4f9cf9] hover:bg-[#4f9cf9]/15'
+              : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
           }`}
         >
           {editMode ? (
@@ -249,7 +249,7 @@ export default function TemplateDetailPage() {
       </div>
 
       {template.description && !editMode && (
-        <p className="mt-1 text-sm text-zinc-500">{template.description}</p>
+        <p className="mt-1 text-sm text-slate-400">{template.description}</p>
       )}
 
       {/* fromAi success banner */}
@@ -257,19 +257,19 @@ export default function TemplateDetailPage() {
         <div
           role="status"
           aria-label="Template saved"
-          className="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3"
+          className="mt-4 rounded-lg border border-emerald-800/40 bg-emerald-900/20 px-4 py-3"
         >
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-medium text-green-800">Template saved</p>
-              <p className="mt-0.5 text-sm text-green-700">
+              <p className="text-sm font-medium text-emerald-400">Template saved</p>
+              <p className="mt-0.5 text-sm text-emerald-400/70">
                 Next step: assign it to your athletes.
               </p>
             </div>
             <div className="flex shrink-0 gap-2">
               <Link
                 href="/templates"
-                className="inline-flex items-center rounded-md border border-zinc-300 bg-white px-3 py-1 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 focus-visible:ring-offset-2"
+                className="inline-flex items-center rounded-md border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2"
               >
                 Back to templates
               </Link>
@@ -278,7 +278,7 @@ export default function TemplateDetailPage() {
                 onClick={() =>
                   document.getElementById('assign')?.scrollIntoView({ behavior: 'smooth' })
                 }
-                className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2"
+                className="inline-flex items-center rounded-md bg-[#c8f135] px-3 py-1 text-xs font-bold text-[#0a0d14] transition-colors hover:bg-[#d4f755] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135] focus-visible:ring-offset-2"
               >
                 Assign now
               </button>
@@ -314,7 +314,7 @@ export default function TemplateDetailPage() {
             ) : (
               <button
                 onClick={() => setShowAddBlock(true)}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-300 py-3 text-sm text-zinc-500 transition-colors hover:border-zinc-400 hover:text-zinc-700"
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 py-3 text-sm text-slate-400 transition-colors hover:border-white/25 hover:text-slate-300"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -325,19 +325,19 @@ export default function TemplateDetailPage() {
           </>
         ) : (
           template.blocks.map((block) => (
-            <section key={block.id} className="rounded-lg border border-zinc-200 bg-white p-5">
-              <h2 className="text-sm font-semibold text-zinc-900">{block.name}</h2>
+            <section key={block.id} className="rounded-lg border border-white/8 bg-[#131922] p-5">
+              <h2 className="border-l-2 border-[#c8f135] pl-3 text-sm font-semibold text-white">{block.name}</h2>
               {block.notes && (
-                <p className="mt-1 text-xs text-zinc-500">{block.notes}</p>
+                <p className="mt-1 text-xs text-slate-400">{block.notes}</p>
               )}
               {block.items.length > 0 ? (
                 <ul className="mt-3 space-y-1.5">
                   {block.items.map((item) => (
                     <li key={item.id} className="flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" aria-hidden="true" />
-                      <span className="text-sm text-zinc-700">{item.exercise.name}</span>
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#4f9cf9]" aria-hidden="true" />
+                      <span className="text-sm text-white">{item.exercise.name}</span>
                       {Object.values(item.prescription_json).some((v) => v != null) && (
-                        <span className="text-xs text-zinc-400">
+                        <span className="text-xs text-slate-500">
                           {(['sets', 'reps', 'load', 'rest'] as const)
                             .filter((k) => item.prescription_json[k] != null)
                             .map((k) => `${item.prescription_json[k]} ${k}`)
@@ -348,7 +348,7 @@ export default function TemplateDetailPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="mt-2 text-xs text-zinc-400">No exercises assigned.</p>
+                <p className="mt-2 text-xs text-slate-500">No exercises assigned.</p>
               )}
             </section>
           ))

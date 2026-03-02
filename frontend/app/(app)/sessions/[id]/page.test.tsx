@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
-import { afterEach, describe, it, expect, vi } from 'vitest'
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import type { SessionExecution } from '@/app/_shared/api/types'
 import SessionDetailPage from './page'
 
@@ -7,10 +7,11 @@ import SessionDetailPage from './page'
 // Module mocks
 // ---------------------------------------------------------------------------
 
-const { mockRequest, mockPush, mockReplace } = vi.hoisted(() => ({
+const { mockRequest, mockPush, mockReplace, mockUseAuth } = vi.hoisted(() => ({
   mockRequest: vi.fn(),
   mockPush: vi.fn(),
   mockReplace: vi.fn(),
+  mockUseAuth: vi.fn(),
 }))
 
 vi.mock('@/app/_shared/api/httpClient', async (importOriginal) => {
@@ -28,6 +29,8 @@ vi.mock('next/link', () => ({
     <a href={href} {...rest}>{children}</a>
   ),
 }))
+
+vi.mock('@/src/shared/auth/AuthContext', () => ({ useAuth: mockUseAuth }))
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -68,6 +71,12 @@ afterEach(() => {
   mockRequest.mockReset()
   mockPush.mockReset()
   mockReplace.mockReset()
+  mockUseAuth.mockReset()
+})
+
+// Default: viewer is an athlete (existing tests unchanged)
+beforeEach(() => {
+  mockUseAuth.mockReturnValue({ role: 'ATHLETE', loading: false })
 })
 
 // ---------------------------------------------------------------------------
@@ -129,5 +138,29 @@ describe('SessionDetailPage — Mark as completed', () => {
       expect(screen.getByRole('alert')).toHaveTextContent(/failed to complete/i)
     })
     expect(mockPush).not.toHaveBeenCalled()
+  })
+})
+
+describe('SessionDetailPage — COACH read-only', () => {
+  it('hides CompletionBar when viewer is COACH', async () => {
+    mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
+    mockRequest.mockResolvedValueOnce(EMPTY_EXECUTION)
+
+    render(<SessionDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Power Session' })
+    expect(screen.queryByRole('button', { name: /mark as completed/i })).toBeNull()
+  })
+
+  it('disables set inputs when viewer is COACH', async () => {
+    mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
+    mockRequest.mockResolvedValueOnce(LOGGED_EXECUTION)
+
+    render(<SessionDetailPage />)
+
+    await screen.findByText('Squat')
+    screen.getAllByRole('spinbutton').forEach((input) =>
+      expect(input).toBeDisabled(),
+    )
   })
 })

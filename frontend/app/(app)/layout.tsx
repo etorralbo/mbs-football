@@ -6,7 +6,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <RequireAuth>
       <AuthProvider>
-        <div className="min-h-screen bg-zinc-50">
+        <div className="min-h-screen bg-[#0a0d14]">
           <NavBar />
           <main className="mx-auto max-w-5xl px-6 py-8">{children}</main>
         </div>

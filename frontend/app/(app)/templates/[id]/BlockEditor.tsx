@@ -63,10 +63,10 @@ function ItemRow({ item, onDeleted }: ItemRowProps) {
   }
 
   return (
-    <li className="flex items-center gap-3 border-b border-zinc-100 py-2 last:border-0">
-      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" aria-hidden="true" />
+    <li className="flex items-center gap-3 border-b border-white/8 py-2 last:border-0">
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#4f9cf9]" aria-hidden="true" />
 
-      <span className="min-w-0 flex-1 truncate text-sm text-zinc-700">
+      <span className="min-w-0 flex-1 truncate text-sm text-white">
         {item.exercise.name}
       </span>
 
@@ -82,22 +82,22 @@ function ItemRow({ item, onDeleted }: ItemRowProps) {
               }
               onBlur={(e) => handlePrescriptionBlur(key, e.target.value)}
               aria-label={`${item.exercise.name} ${label}`}
-              className="w-12 rounded border border-zinc-200 bg-zinc-50 px-1 py-0.5 text-center text-xs text-zinc-700 focus:border-indigo-400 focus:outline-none"
+              className="w-12 rounded border border-white/10 bg-[#0d1420] px-1 py-0.5 text-center text-xs text-white focus:border-[#4f9cf9] focus:outline-none"
               placeholder="—"
             />
-            <span className="text-xs text-zinc-400">{label}</span>
+            <span className="text-xs text-slate-500">{label}</span>
           </div>
         ))}
       </div>
 
-      {savingFields && <span className="text-xs text-zinc-400">Saving…</span>}
-      {error && <span className="text-xs text-red-500">{error}</span>}
+      {savingFields && <span className="text-xs text-slate-400">Saving…</span>}
+      {error && <span className="text-xs text-red-400">{error}</span>}
 
       <button
         onClick={handleDelete}
         disabled={deleting}
         aria-label={`Remove ${item.exercise.name}`}
-        className="shrink-0 rounded p-1 text-zinc-300 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-40"
+        className="shrink-0 rounded p-1 text-slate-600 transition-colors hover:bg-red-900/30 hover:text-red-400 disabled:opacity-40"
       >
         {deleting ? '…' : '×'}
       </button>
@@ -188,7 +188,7 @@ export function BlockEditor({ block, onDeleted, onItemsChange }: BlockEditorProp
   return (
     <section
       aria-label={`Edit block: ${block.name}`}
-      className="rounded-lg border border-zinc-200 bg-white p-5"
+      className="rounded-lg border border-white/8 bg-[#131922] p-5"
     >
       {/* Block header row */}
       <div className="flex items-start gap-3">
@@ -200,7 +200,7 @@ export function BlockEditor({ block, onDeleted, onItemsChange }: BlockEditorProp
             onBlur={handleNameBlur}
             maxLength={255}
             placeholder="Block name"
-            className="w-full rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-sm font-semibold text-zinc-900 focus:border-indigo-400 focus:outline-none"
+            className="w-full rounded-md border border-white/10 bg-[#0d1420] px-2.5 py-1.5 text-sm font-semibold text-white focus:border-[#4f9cf9] focus:outline-none"
           />
           <textarea
             ref={notesRef}
@@ -208,14 +208,14 @@ export function BlockEditor({ block, onDeleted, onItemsChange }: BlockEditorProp
             onBlur={handleNotesBlur}
             rows={1}
             placeholder="Notes (optional)"
-            className="w-full resize-none rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-xs text-zinc-500 focus:border-indigo-400 focus:outline-none"
+            className="w-full resize-none rounded-md border border-white/10 bg-[#0d1420] px-2.5 py-1.5 text-xs text-slate-400 placeholder:text-slate-600 focus:border-[#4f9cf9] focus:outline-none"
           />
         </div>
         <button
           onClick={handleDeleteBlock}
           disabled={deleting}
           aria-label={`Delete block ${block.name}`}
-          className="mt-0.5 shrink-0 rounded p-1.5 text-zinc-300 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-40"
+          className="mt-0.5 shrink-0 rounded p-1.5 text-slate-600 transition-colors hover:bg-red-900/30 hover:text-red-400 disabled:opacity-40"
         >
           {deleting ? '…' : (
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -226,7 +226,7 @@ export function BlockEditor({ block, onDeleted, onItemsChange }: BlockEditorProp
       </div>
 
       {deleteError && (
-        <p role="alert" className="mt-1 text-xs text-red-600">{deleteError}</p>
+        <p role="alert" className="mt-1 text-xs text-red-400">{deleteError}</p>
       )}
 
       {/* Exercise items */}
@@ -241,7 +241,7 @@ export function BlockEditor({ block, onDeleted, onItemsChange }: BlockEditorProp
           ))}
         </ul>
       ) : (
-        <p className="mt-2 text-xs text-zinc-400">No exercises yet. Add one below.</p>
+        <p className="mt-2 text-xs text-slate-500">No exercises yet. Add one below.</p>
       )}
 
       {/* Add exercise search */}

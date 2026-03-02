@@ -40,12 +40,12 @@ export function OnboardingHub() {
     <div className="mt-6 flex flex-col gap-4 sm:flex-row">
       <button
         onClick={() => router.push('/create-team')}
-        className="flex flex-1 flex-col items-center gap-3 rounded-lg border-2 border-indigo-200 bg-indigo-50 p-6 text-left transition hover:border-indigo-400 hover:bg-indigo-100"
+        className="flex flex-1 flex-col items-center gap-3 rounded-lg border-2 border-[#4f9cf9]/30 bg-[#4f9cf9]/8 p-6 text-left transition hover:border-[#4f9cf9]/50 hover:bg-[#4f9cf9]/12"
       >
         <span className="text-3xl">🏋️</span>
         <div>
-          <p className="font-semibold text-zinc-900">I&apos;m a Coach</p>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="font-semibold text-white">I&apos;m a Coach</p>
+          <p className="mt-1 text-sm text-slate-400">
             Create a team and manage your athletes.
           </p>
         </div>
@@ -53,12 +53,12 @@ export function OnboardingHub() {
 
       <button
         onClick={() => router.push('/join')}
-        className="flex flex-1 flex-col items-center gap-3 rounded-lg border-2 border-emerald-200 bg-emerald-50 p-6 text-left transition hover:border-emerald-400 hover:bg-emerald-100"
+        className="flex flex-1 flex-col items-center gap-3 rounded-lg border-2 border-[#c8f135]/20 bg-[#c8f135]/8 p-6 text-left transition hover:border-[#c8f135]/35 hover:bg-[#c8f135]/12"
       >
         <span className="text-3xl">🏃</span>
         <div>
-          <p className="font-semibold text-zinc-900">I&apos;m an Athlete</p>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="font-semibold text-white">I&apos;m an Athlete</p>
+          <p className="mt-1 text-sm text-slate-400">
             Join a team using an invite code from your coach.
           </p>
         </div>

@@ -120,6 +120,7 @@ export interface WorkoutSessionSummary {
   athlete_id: string
   workout_template_id: string
   template_title: string
+  athlete_name: string
   scheduled_for: string | null
   completed_at: string | null
 }

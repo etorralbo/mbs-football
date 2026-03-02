@@ -189,3 +189,52 @@ class TestSessionListCrossTenantIsolation:
             "athlete_b (team B) must receive an empty session list — "
             "sessions from team A must not be visible across tenant boundaries."
         )
+
+
+# ---------------------------------------------------------------------------
+# 3 · athlete_name is included in the list response
+# ---------------------------------------------------------------------------
+
+class TestSessionListAthleteName:
+    """
+    GET /workout-sessions must include athlete_name in every row so that
+    coaches can distinguish sessions belonging to different athletes.
+    """
+
+    def test_coach_sees_athlete_name(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+        workout_template_a: WorkoutTemplate,
+        athlete_a: UserProfile,
+    ):
+        """Coach list response includes the athlete's display name."""
+        _assign_to_athlete_a(client, mock_jwt, coach_a, workout_template_a, athlete_a)
+
+        mock_jwt(str(coach_a.supabase_user_id))
+        r = client.get(SESSIONS_ENDPOINT, headers=HEADERS)
+
+        assert r.status_code == 200
+        data = r.json()
+        assert len(data) == 1
+        assert data[0]["athlete_name"] == athlete_a.name
+
+    def test_athlete_sees_own_name(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+        workout_template_a: WorkoutTemplate,
+        athlete_a: UserProfile,
+    ):
+        """Athlete list response also includes athlete_name (their own)."""
+        _assign_to_athlete_a(client, mock_jwt, coach_a, workout_template_a, athlete_a)
+
+        mock_jwt(str(athlete_a.supabase_user_id))
+        r = client.get(SESSIONS_ENDPOINT, headers=HEADERS)
+
+        assert r.status_code == 200
+        data = r.json()
+        assert len(data) == 1
+        assert data[0]["athlete_name"] == athlete_a.name
