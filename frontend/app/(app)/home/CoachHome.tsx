@@ -188,41 +188,22 @@ function TeamPreview() {
       {teamState.status === 'error' && (
         <p className="text-xs text-red-400">Could not load team data.</p>
       )}
-      {teamState.status === 'ok' && (
-        <div className="space-y-3">
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div>
-              <p className="text-lg font-bold text-white">
-                {teamState.data.athletes.length}
-              </p>
-              <p className="text-xs text-slate-500">Athletes</p>
-            </div>
-            <div>
-              <p className="text-lg font-bold text-white">{teamState.data.pendingCount}</p>
-              <p className="text-xs text-slate-500">Pending</p>
-            </div>
-            <div>
-              <p className="text-lg font-bold text-white">
-                {teamState.data.completedCount}
-              </p>
-              <p className="text-xs text-slate-500">Completed</p>
-            </div>
-          </div>
-          {teamState.data.lowAdherenceAthletes.length > 0 && (
-            <p className="text-xs text-amber-400">
-              ⚠{' '}
-              {teamState.data.lowAdherenceAthletes.length} athlete
-              {teamState.data.lowAdherenceAthletes.length === 1 ? '' : 's'} with no
-              completed sessions
-            </p>
-          )}
-          <Link
-            href="/team"
-            className="block text-center text-xs font-medium text-[#4f9cf9] hover:opacity-75"
-          >
-            Invite athletes →
-          </Link>
-        </div>
+      {teamState.status === 'ok' && teamState.data.athletes.length === 0 && (
+        <p className="text-xs text-slate-500">
+          No athletes yet — go to Team to invite them.
+        </p>
+      )}
+      {teamState.status === 'ok' && teamState.data.athletes.length > 0 && (
+        <ul className="space-y-1.5">
+          {teamState.data.athletes.map((athlete) => (
+            <li key={athlete.athlete_id} className="flex items-center gap-2.5">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/8 text-[10px] font-semibold text-slate-300">
+                {athlete.display_name.slice(0, 2).toUpperCase()}
+              </span>
+              <span className="text-sm text-slate-200">{athlete.display_name}</span>
+            </li>
+          ))}
+        </ul>
       )}
     </SectionCard>
   )

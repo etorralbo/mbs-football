@@ -219,15 +219,15 @@ describe('HomePage — COACH role', () => {
     })
   })
 
-  it('shows athlete count from team overview', async () => {
+  it('shows athletes from team overview', async () => {
     setupCoach()
     mockRequest.mockResolvedValue([])
 
     render(<HomePage />)
 
     await waitFor(() => {
-      // COACH_TEAM_STATE has 1 athlete
-      expect(screen.getByText('Athletes')).toBeInTheDocument()
+      // COACH_TEAM_STATE has 1 athlete: Alice
+      expect(screen.getByText('Alice')).toBeInTheDocument()
     })
   })
 
