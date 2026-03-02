@@ -32,30 +32,13 @@ export default function LoginPage() {
 
         {/* Hero content */}
         <div className="relative z-10">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white backdrop-blur-sm">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" aria-hidden="true" />
-            System Online
-          </div>
-
           <h1 className="text-4xl font-black leading-tight tracking-tight text-white">
-            Dominate the field<br />
-            with{' '}
-            <span className="text-indigo-400">precision data.</span>
+            Train with purpose.<br />
+            <span className="text-indigo-400">Every session, measured.</span>
           </h1>
           <p className="mt-4 max-w-md text-base leading-relaxed text-slate-400">
-            Elite performance tools for coaches and athletes who demand more from every session.
+            The platform that connects coaches and athletes to plan, log, and review every workout.
           </p>
-
-          <div className="mt-10 flex gap-10">
-            <div>
-              <span className="text-3xl font-black text-white">50k+</span>
-              <p className="mt-0.5 text-sm font-medium text-slate-400">Active Athletes</p>
-            </div>
-            <div>
-              <span className="text-3xl font-black text-white">98%</span>
-              <p className="mt-0.5 text-sm font-medium text-slate-400">Performance Boost</p>
-            </div>
-          </div>
         </div>
 
         {/* Footer links */}
