@@ -120,8 +120,8 @@ class UpsertSessionExerciseLogUseCase:
         if session is None:
             raise NotFoundError(f"Session {command.session_id} not found")
 
-        # 2. Exercise must belong to the team
-        exercise = self._exercise_repo.get_by_id(
+        # 2. Exercise must be accessible within the athlete's team
+        exercise = self._exercise_repo.get_by_id_for_team(
             command.exercise_id, command.requesting_team_id
         )
         if exercise is None:

@@ -42,6 +42,7 @@ class BlockCommand:
 class CreateWorkoutTemplateFromAiCommand:
     requesting_user_id: uuid.UUID
     team_id: uuid.UUID
+    coach_id: uuid.UUID
     title: str
     blocks: list[BlockCommand]
 
@@ -76,7 +77,7 @@ class CreateWorkoutTemplateFromAiUseCase:
     ) -> WorkoutTemplateCreatedResult:
         self._validate_block_structure(command.blocks)
         self._validate_item_orders(command.blocks)
-        self._validate_exercise_ownership(command.blocks, command.team_id)
+        self._validate_exercise_ownership(command.blocks, command.coach_id)
 
         template_id = self._workout_template_repo.create_with_blocks(
             team_id=command.team_id,
@@ -123,13 +124,13 @@ class CreateWorkoutTemplateFromAiUseCase:
                 )
 
     def _validate_exercise_ownership(
-        self, blocks: list[BlockCommand], team_id: uuid.UUID
+        self, blocks: list[BlockCommand], coach_id: uuid.UUID
     ) -> None:
-        """All referenced exercises must belong to the team (single IN query)."""
+        """All referenced exercises must belong to the coach (single IN query)."""
         all_ids = {item.exercise_id for block in blocks for item in block.items}
         if not all_ids:
             return
-        found_ids = self._exercise_repo.get_existing_ids(all_ids, team_id)
+        found_ids = self._exercise_repo.get_existing_ids(all_ids, coach_id)
         missing = all_ids - found_ids
         if missing:
             raise LookupError(f"Exercise {next(iter(missing))} not found in this team")

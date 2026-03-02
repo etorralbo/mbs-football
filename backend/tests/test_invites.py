@@ -169,7 +169,9 @@ class TestAcceptInvite:
     ) -> None:
         mock_jwt(str(uuid.uuid4()))
         resp = client.post(
-            "/v1/invites/accept", json={"code": "nonexistent-code"}, headers=AUTH
+            "/v1/invites/accept",
+            json={"code": "nonexistent-code", "display_name": "Test User"},
+            headers=AUTH,
         )
         assert resp.status_code == 404
 
@@ -186,7 +188,7 @@ class TestAcceptInvite:
         mock_jwt(str(athlete_id))
         resp = client.post(
             "/v1/invites/accept",
-            json={"code": invite_team_a.code},
+            json={"code": invite_team_a.code, "display_name": "Test Athlete"},
             headers=AUTH,
         )
         assert resp.status_code == 201
@@ -219,7 +221,7 @@ class TestAcceptInvite:
         mock_jwt(str(uuid.uuid4()))
         resp = client.post(
             "/v1/invites/accept",
-            json={"code": invite_team_a.code},
+            json={"code": invite_team_a.code, "display_name": "Test User"},
             headers=AUTH,
         )
         assert resp.status_code == 409
@@ -239,7 +241,7 @@ class TestAcceptInvite:
         mock_jwt(str(uuid.uuid4()))
         resp = client.post(
             "/v1/invites/accept",
-            json={"code": invite_team_a.code},
+            json={"code": invite_team_a.code, "display_name": "Test User"},
             headers=AUTH,
         )
         assert resp.status_code == 410
@@ -267,7 +269,7 @@ class TestAcceptInvite:
         mock_jwt(str(athlete_id))
         resp = client.post(
             "/v1/invites/accept",
-            json={"code": invite_team_a.code},
+            json={"code": invite_team_a.code, "display_name": "Test Athlete"},
             headers=AUTH,
         )
         assert resp.status_code == 201

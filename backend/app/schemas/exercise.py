@@ -59,7 +59,7 @@ class ExerciseOut(BaseModel):
     """
 
     id: uuid.UUID = Field(..., description="Exercise unique identifier")
-    team_id: uuid.UUID = Field(..., description="Team that owns this exercise")
+    coach_id: uuid.UUID = Field(..., description="Coach (UserProfile) who owns this exercise")
     name: str = Field(..., description="Exercise name")
     description: Optional[str] = Field(None, description="Exercise description")
     tags: Optional[str] = Field(None, description="Exercise tags")
@@ -72,7 +72,7 @@ class ExerciseOut(BaseModel):
         json_schema_extra={
             "example": {
                 "id": "123e4567-e89b-12d3-a456-426614174000",
-                "team_id": "123e4567-e89b-12d3-a456-426614174001",
+                "coach_id": "123e4567-e89b-12d3-a456-426614174001",
                 "name": "Squats",
                 "description": "Standard bodyweight squats",
                 "tags": "strength, legs, bodyweight",

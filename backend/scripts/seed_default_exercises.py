@@ -1,20 +1,20 @@
 """
-Seed a team's exercise library with a curated set of 30 sport-generic exercises.
+Seed a coach's exercise library with a curated set of 30 sport-generic exercises.
 
 Usage:
     # via env var
-    DATABASE_URL=postgresql+psycopg://... TEAM_ID=<uuid> python scripts/seed_default_exercises.py
+    DATABASE_URL=postgresql+psycopg://... COACH_ID=<uuid> python scripts/seed_default_exercises.py
 
     # via CLI argument
-    DATABASE_URL=postgresql+psycopg://... python scripts/seed_default_exercises.py <team-uuid>
+    DATABASE_URL=postgresql+psycopg://... python scripts/seed_default_exercises.py <coach-uuid>
 
     # inside Docker (local)
-    docker compose exec backend python scripts/seed_default_exercises.py <team-uuid>
+    docker compose exec backend python scripts/seed_default_exercises.py <coach-uuid>
 
     # inside Render shell (if available) or one-off job
-    python scripts/seed_default_exercises.py <team-uuid>
+    python scripts/seed_default_exercises.py <coach-uuid>
 
-Idempotent: exercises that already exist (matched by team_id + name) are skipped.
+Idempotent: exercises that already exist (matched by coach_id + name) are skipped.
 No PII is written — all names are generic and sport-agnostic.
 """
 import os
@@ -197,18 +197,18 @@ EXERCISES = [
 ]
 
 
-def _resolve_team_id() -> uuid.UUID:
-    """Return team_id from CLI arg or TEAM_ID env var."""
+def _resolve_coach_id() -> uuid.UUID:
+    """Return coach_id from CLI arg or COACH_ID env var."""
     raw = None
     if len(sys.argv) > 1:
         raw = sys.argv[1]
-    elif "TEAM_ID" in os.environ:
-        raw = os.environ["TEAM_ID"]
+    elif "COACH_ID" in os.environ:
+        raw = os.environ["COACH_ID"]
 
     if not raw:
         print(
-            "ERROR: provide team UUID as a CLI argument or via TEAM_ID env var.\n"
-            "  python scripts/seed_default_exercises.py <team-uuid>",
+            "ERROR: provide coach UserProfile UUID as a CLI argument or via COACH_ID env var.\n"
+            "  python scripts/seed_default_exercises.py <coach-uuid>",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -220,11 +220,11 @@ def _resolve_team_id() -> uuid.UUID:
         sys.exit(1)
 
 
-def seed(team_id: uuid.UUID, session: Session) -> None:
+def seed(coach_id: uuid.UUID, session: Session) -> None:
     # Fetch all existing names for this team in one query.
     existing_names: set[str] = {
         row for (row,) in session.execute(
-            select(Exercise.name).where(Exercise.team_id == team_id)
+            select(Exercise.name).where(Exercise.coach_id == coach_id)
         )
     }
 
@@ -238,7 +238,7 @@ def seed(team_id: uuid.UUID, session: Session) -> None:
             continue
 
         exercise = Exercise(
-            team_id=team_id,
+            coach_id=coach_id,
             name=data["name"],
             description=data.get("description"),
             tags=data.get("tags"),
@@ -252,7 +252,7 @@ def seed(team_id: uuid.UUID, session: Session) -> None:
 
 
 def main() -> None:
-    team_id = _resolve_team_id()
+    coach_id = _resolve_coach_id()
 
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
@@ -262,10 +262,10 @@ def main() -> None:
     engine = create_engine(database_url, pool_pre_ping=True)
     SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
-    print(f"Seeding default exercises for team {team_id} …\n")
+    print(f"Seeding default exercises for coach {coach_id} …\n")
 
     with SessionLocal() as session:
-        seed(team_id, session)
+        seed(coach_id, session)
 
     engine.dispose()
 

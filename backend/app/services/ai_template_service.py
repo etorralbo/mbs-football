@@ -152,7 +152,7 @@ _STUB_INTENTS: dict[str, str] = {
 
 def generate_stub_draft(
     db: Session,
-    team_id: uuid.UUID,
+    coach_id: uuid.UUID,
     prompt: str,
     language: str = "en",  # noqa: ARG001 — kept for API parity with generate_template_draft
 ) -> AiTemplateDraft:
@@ -160,13 +160,13 @@ def generate_stub_draft(
     Return a deterministic draft without calling OpenAI.
 
     Only reachable when ENV=="local" AND AI_STUB==True (enforced by the
-    endpoint handler).  Uses the same team-scoped exercise fetch and the
+    endpoint handler).  Uses the same coach-scoped exercise fetch and the
     same keyword-matching logic as the real function so the output looks
     realistic and tenant isolation is preserved.
     """
     exercises: list[Exercise] = list(
         db.execute(
-            select(Exercise).where(Exercise.team_id == team_id)
+            select(Exercise).where(Exercise.coach_id == coach_id)
         ).scalars()
     )
 
@@ -191,7 +191,7 @@ def generate_stub_draft(
 
 def generate_template_draft(
     db: Session,
-    team_id: uuid.UUID,
+    coach_id: uuid.UUID,
     prompt: str,
     language: str = "en",
 ) -> AiTemplateDraft:
@@ -199,16 +199,16 @@ def generate_template_draft(
     Generate a workout template draft without persisting anything.
 
     Steps:
-      1. Fetch team exercises (ensures tenant isolation).
+      1. Fetch coach's exercises (ensures tenant isolation).
       2. Call LLM → title + per-block intent strings.
       3. Validate LLM response shape; reject malformed output with 502.
       4. Match exercises to each block via keyword overlap.
       5. Assemble and return the draft in BASE_BLOCKS order.
     """
-    # 1. Team-scoped exercise fetch (IDOR-safe)
+    # 1. Coach-scoped exercise fetch (IDOR-safe)
     exercises: list[Exercise] = list(
         db.execute(
-            select(Exercise).where(Exercise.team_id == team_id)
+            select(Exercise).where(Exercise.coach_id == coach_id)
         ).scalars()
     )
 

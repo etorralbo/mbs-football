@@ -72,8 +72,8 @@ def add_item(
     current_user: Annotated[CurrentUser, Depends(require_coach)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    # Service raises 404 directly if exercise belongs to a different team
-    item = workout_builder_service.add_item(db, current_user.team_id, block_id, data)
+    # Service raises 404 directly if exercise belongs to a different coach
+    item = workout_builder_service.add_item(db, current_user.team_id, current_user.user_id, block_id, data)
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Block not found")
     return item

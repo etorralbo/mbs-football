@@ -27,7 +27,11 @@ class TestCreateTeam:
         user_id = uuid.uuid4()
         mock_jwt(str(user_id))
 
-        resp = client.post("/v1/teams", json={"name": "FC Test"}, headers=AUTH)
+        resp = client.post(
+            "/v1/teams",
+            json={"name": "FC Test", "display_name": "Test Coach"},
+            headers=AUTH,
+        )
 
         assert resp.status_code == 201
         body = resp.json()
@@ -64,7 +68,11 @@ class TestCreateTeam:
         db_session.commit()
 
         mock_jwt(str(user_id))
-        resp = client.post("/v1/teams", json={"name": "New Team"}, headers=AUTH)
+        resp = client.post(
+            "/v1/teams",
+            json={"name": "New Team", "display_name": "Test Coach"},
+            headers=AUTH,
+        )
         assert resp.status_code == 409
         assert "already manage" in resp.json()["detail"]
 
@@ -83,7 +91,11 @@ class TestCreateTeam:
         db_session.commit()
 
         mock_jwt(str(user_id))
-        resp = client.post("/v1/teams", json={"name": "New Coach Team"}, headers=AUTH)
+        resp = client.post(
+            "/v1/teams",
+            json={"name": "New Coach Team", "display_name": "Test Athlete"},
+            headers=AUTH,
+        )
         assert resp.status_code == 201
 
 
