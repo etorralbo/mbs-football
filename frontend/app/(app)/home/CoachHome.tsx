@@ -195,7 +195,7 @@ function TeamPreview() {
       )}
       {teamState.status === 'ok' && teamState.data.athletes.length > 0 && (
         <ul className="space-y-1.5">
-          {teamState.data.athletes.map((athlete) => (
+          {teamState.data.athletes.slice(0, 3).map((athlete) => (
             <li key={athlete.athlete_id} className="flex items-center gap-2.5">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/8 text-[10px] font-semibold text-slate-300">
                 {athlete.display_name.slice(0, 2).toUpperCase()}
