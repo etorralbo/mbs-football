@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/app/_shared/auth/supabaseClient'
 import { useAuth } from '@/src/shared/auth/AuthContext'
+import { TeamSwitcher } from './TeamSwitcher'
 
 export function NavBar() {
   const pathname = usePathname()
@@ -23,7 +24,7 @@ export function NavBar() {
 
   return (
     <nav className="flex h-14 items-center gap-1 border-b border-white/8 bg-[#131922] px-6">
-      <div className="mr-4 flex items-center gap-2">
+      <div className="mr-2 flex items-center gap-2">
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#4f9cf9]/20">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-[#4f9cf9]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -31,6 +32,13 @@ export function NavBar() {
         </div>
         <span className="text-sm font-semibold text-white">MBS Football</span>
       </div>
+      {isCoach && (
+        <>
+          <span className="select-none text-slate-600" aria-hidden="true">/</span>
+          <TeamSwitcher />
+          <div className="mx-2 h-4 w-px bg-white/8" aria-hidden="true" />
+        </>
+      )}
       <NavLink href="/home" active={isActive('/home')}>
         Home
       </NavLink>
