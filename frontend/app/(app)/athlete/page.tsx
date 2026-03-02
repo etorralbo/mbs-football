@@ -10,6 +10,7 @@ import { AthleteEmpty } from '@/src/features/athlete/components/AthleteEmpty'
 import { AthleteError } from '@/src/features/athlete/components/AthleteError'
 import { getAthleteSessionList } from '@/src/features/athlete/api'
 import { normalizeAthleteError } from '@/src/features/athlete/errors'
+import { ProgressSection } from '@/src/features/athlete/components/ProgressSection'
 import type { WorkoutSessionSummary } from '@/app/_shared/api/types'
 
 type LoadState = 'loading' | 'error' | 'success'
@@ -162,6 +163,8 @@ export default function AthleteHomePage() {
           </div>
         )}
       </section>
+
+      {loadState === 'success' && <ProgressSection />}
     </>
   )
 }

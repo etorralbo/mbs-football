@@ -38,6 +38,11 @@ export function NavBar() {
         Sessions
       </NavLink>
       {isCoach && (
+        <NavLink href="/exercises" active={isActive('/exercises')}>
+          Exercises
+        </NavLink>
+      )}
+      {isCoach && (
         <NavLink href="/team" active={isActive('/team')}>
           Team
         </NavLink>
