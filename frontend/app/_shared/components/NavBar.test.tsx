@@ -34,13 +34,30 @@ vi.mock('@/app/_shared/auth/supabaseClient', () => ({
 // ---------------------------------------------------------------------------
 
 function authAs(role: 'COACH' | 'ATHLETE' | null) {
+  const teamId = '11111111-1111-1111-1111-111111111111'
+  const me = role
+    ? {
+      user_id: 'u1',
+      memberships: [
+        {
+          team_id: teamId,
+          team_name: 'Mettle FC',
+          role,
+        },
+      ],
+      active_team_id: teamId,
+    }
+    : null
+
   mockUseAuth.mockReturnValue({
-    me: null,
+    me,
     role,
-    activeTeamId: null,
+    activeTeamId: me?.active_team_id ?? null,
     loading: role === null,
     error: null,
     refreshMe: vi.fn(),
+    setActiveTeamId: vi.fn(),
+    clearActiveTeam: vi.fn(),
   })
 }
 
@@ -60,6 +77,15 @@ describe('NavBar — COACH', () => {
   it('renders the Templates link', () => {
     render(<NavBar />)
     expect(screen.getByRole('link', { name: /templates/i })).toHaveAttribute('href', '/templates')
+  })
+
+  it('renders active team switcher before Home', () => {
+    const { container } = render(<NavBar />)
+    const nav = container.querySelector('nav')
+    const switcher = screen.getByRole('button', { name: /active team: mettle fc/i })
+    const home = screen.getByRole('link', { name: /home/i })
+    expect(nav?.children[1]).toContainElement(switcher)
+    expect(nav?.children[2]).toBe(home)
   })
 
   it('renders the Sessions link', () => {

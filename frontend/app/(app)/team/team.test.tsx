@@ -260,25 +260,7 @@ describe('TeamPage', () => {
   })
 
 
-  it('shows active team selector for multi-team coaches and switches context', async () => {
-    const setActiveTeamId = vi.fn()
-    authAs(multiTeamCoachMe, 'COACH', { activeTeamId: TEAM_A, setActiveTeamId })
-    render(<TeamPage />)
 
-    const selector = await screen.findByLabelText(/active team workspace/i)
-    expect(selector).toBeInTheDocument()
-
-    fireEvent.change(selector, { target: { value: TEAM_B } })
-    expect(setActiveTeamId).toHaveBeenCalledWith(TEAM_B)
-  })
-
-  it('does not show active team selector for athletes', async () => {
-    authAs(athleteMe, 'ATHLETE')
-    render(<TeamPage />)
-
-    await screen.findByText('Mettle FC')
-    expect(screen.queryByLabelText(/active team workspace/i)).not.toBeInTheDocument()
-  })
 
   it('shows active badge on the selected team card', async () => {
     authAs(multiTeamCoachMe, 'COACH', { activeTeamId: TEAM_A })

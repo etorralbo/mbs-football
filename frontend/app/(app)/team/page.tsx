@@ -21,7 +21,7 @@ const EMPTY_INVITE: InviteState = { url: null, generating: false, copied: false,
 
 export default function TeamPage() {
   const router = useRouter()
-  const { me, role, activeTeamId, loading: authLoading, setActiveTeamId } = useAuth()
+  const { me, role, activeTeamId, loading: authLoading } = useAuth()
   const [inviteStates, setInviteStates] = useState<Record<string, InviteState>>({})
 
   // UX guard: ATHLETE should not access team page (backend RBAC is the real authority).
@@ -32,8 +32,6 @@ export default function TeamPage() {
   }, [authLoading, role, router])
 
   const isCoach = role === 'COACH'
-  const coachMemberships = me?.memberships.filter((membership) => membership.role === 'COACH') ?? []
-  const canSwitchTeam = isCoach && coachMemberships.length > 1
 
   function getInvite(teamId: string): InviteState {
     return inviteStates[teamId] ?? EMPTY_INVITE
@@ -87,28 +85,6 @@ export default function TeamPage() {
         </div>
       </div>
 
-      {canSwitchTeam && (
-        <div className="mt-4 rounded-lg border border-white/10 bg-[#131922] p-4">
-          <label htmlFor="active-team" className="block text-sm font-medium text-white">
-            Active team workspace
-          </label>
-          <p className="mt-1 text-xs text-slate-400">
-            Switch context to update dashboard metrics and assign work for a different squad.
-          </p>
-          <select
-            id="active-team"
-            value={activeTeamId ?? ''}
-            onChange={(event) => setActiveTeamId(event.target.value)}
-            className="mt-3 w-full rounded-md border border-white/10 bg-[#0d1420] px-3 py-2 text-sm text-slate-200 focus:border-indigo-400 focus:outline-none"
-          >
-            {coachMemberships.map((membership) => (
-              <option key={membership.team_id} value={membership.team_id}>
-                {membership.team_name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
 
       {/* Active-team dashboard widgets */}
       {isCoach && <TeamOverviewCards />}
