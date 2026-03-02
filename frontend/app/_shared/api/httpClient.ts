@@ -1,4 +1,8 @@
 import { supabase } from '@/app/_shared/auth/supabaseClient'
+import {
+  getActiveTeamId,
+  isValidUuid,
+} from '@/src/shared/auth/activeTeamStore'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000'
 
@@ -52,6 +56,17 @@ export class ServerError extends Error {
   }
 }
 
+/**
+ * Thrown by team-scoped requests when no active team has been selected.
+ * Callers (or the global error handler) should redirect to /team/select.
+ */
+export class TeamNotSelectedError extends Error {
+  constructor() {
+    super('No team selected')
+    this.name = 'TeamNotSelectedError'
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -74,24 +89,62 @@ function extractMessage(body: unknown): string {
 // Client
 // ---------------------------------------------------------------------------
 
+export type RequestOptions = RequestInit & {
+  /**
+   * Set to false for bootstrap endpoints that do not require a team context
+   * (e.g. /v1/me, POST /v1/teams, POST /v1/invites/accept, onboarding).
+   * Defaults to true — all other requests are team-scoped.
+   */
+  teamScoped?: boolean
+}
+
 export async function request<T>(
   path: string,
-  options: RequestInit = {},
+  options: RequestOptions = {},
 ): Promise<T> {
+  const { teamScoped = true, ...fetchOptions } = options
+
   const {
     data: { session },
   } = await supabase.auth.getSession()
   const token = session?.access_token ?? null
 
+  // Build headers, stripping any manually-supplied X-Team-Id.
+  const callerHeaders = (fetchOptions.headers ?? {}) as Record<string, string>
+  if ('X-Team-Id' in callerHeaders || 'x-team-id' in callerHeaders) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error(
+        '[httpClient] X-Team-Id must not be set manually. ' +
+          'Use the active team context (setActiveTeamId) instead.',
+      )
+    }
+    delete callerHeaders['X-Team-Id']
+    delete callerHeaders['x-team-id']
+  }
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string>),
+    ...callerHeaders,
   }
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  const response = await fetch(`${BASE_URL}${path}`, { ...options, headers })
+  // Team-scoped requests require an active team.
+  if (teamScoped) {
+    const activeTeamId = getActiveTeamId()
+    if (activeTeamId && isValidUuid(activeTeamId)) {
+      headers['X-Team-Id'] = activeTeamId
+    } else {
+      throw new TeamNotSelectedError()
+    }
+  }
+
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...fetchOptions,
+    headers,
+  })
 
   const contentType = response.headers.get('content-type') ?? ''
   const isJson = contentType.includes('application/json')

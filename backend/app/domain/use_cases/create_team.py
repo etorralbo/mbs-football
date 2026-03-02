@@ -10,10 +10,6 @@ from app.persistence.repositories.team_repository import AbstractTeamRepository
 from app.persistence.repositories.user_profile_repository import AbstractUserProfileRepository
 
 
-class CoachAlreadyHasTeamError(Exception):
-    """Raised when a user already holds a COACH role (MVP: one team per coach)."""
-
-
 # ---------------------------------------------------------------------------
 # Command / Result DTOs
 # ---------------------------------------------------------------------------
@@ -51,12 +47,6 @@ class CreateTeamUseCase:
         self._event_service = event_service
 
     def execute(self, command: CreateTeamCommand) -> CreateTeamResult:
-        # MVP: one team per COACH.
-        if self._membership_repo.has_coach_membership(command.supabase_user_id):
-            raise CoachAlreadyHasTeamError(
-                "You already manage a team. A coach can only manage one team."
-            )
-
         team = self._team_repo.create(command.team_name)
         membership = self._membership_repo.create(
             user_id=command.supabase_user_id,

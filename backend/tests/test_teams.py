@@ -55,11 +55,11 @@ class TestCreateTeam:
         assert p is not None
         assert p.role == Role.COACH
 
-    def test_second_team_returns_409(
+    def test_coach_can_create_second_team(
         self, client: TestClient, db_session: Session, mock_jwt
     ) -> None:
+        """A coach with an existing team can create another one."""
         user_id = uuid.uuid4()
-        # Pre-create a COACH membership
         team = Team(id=uuid.uuid4(), name="Existing Team")
         db_session.add(team)
         db_session.flush()
@@ -70,11 +70,13 @@ class TestCreateTeam:
         mock_jwt(str(user_id))
         resp = client.post(
             "/v1/teams",
-            json={"name": "New Team", "display_name": "Test Coach"},
+            json={"name": "Second Team", "display_name": "Test Coach"},
             headers=AUTH,
         )
-        assert resp.status_code == 409
-        assert "already manage" in resp.json()["detail"]
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["role"] == "COACH"
+        assert body["team_id"] != str(team.id)  # A new team was created
 
     def test_athlete_can_create_team(
         self, client: TestClient, db_session: Session, mock_jwt

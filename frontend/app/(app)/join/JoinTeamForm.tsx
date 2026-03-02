@@ -56,6 +56,7 @@ export function JoinTeamForm() {
       await request<AcceptInviteResponse>('/v1/invites/accept', {
         method: 'POST',
         body: JSON.stringify({ code: trimmed, display_name: trimmedDisplay }),
+        teamScoped: false,
       })
       router.replace(getPostActionRedirect('invite_accepted', 'ATHLETE') ?? '/templates')
     } catch (err) {

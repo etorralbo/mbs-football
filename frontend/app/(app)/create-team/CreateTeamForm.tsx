@@ -49,6 +49,7 @@ export function CreateTeamForm() {
       await request<CreateTeamResponse>('/v1/teams', {
         method: 'POST',
         body: JSON.stringify({ name: trimmedTeam, display_name: trimmedDisplay }),
+        teamScoped: false,
       })
       router.replace(getPostActionRedirect('team_created', 'COACH') ?? '/templates')
     } catch (err) {
