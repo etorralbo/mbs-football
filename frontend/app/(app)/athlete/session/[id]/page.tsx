@@ -1,10 +1,9 @@
 'use client'
 
-import { useEffect, useReducer, useRef, useState } from 'react'
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
-import { SkeletonList } from '@/app/_shared/components/Skeleton'
 import {
   athleteSessionReducer,
   initialAthleteState,
@@ -15,10 +14,15 @@ import {
   logSets,
   completeSession,
 } from '@/src/features/athlete/api'
+import { normalizeAthleteError } from '@/src/features/athlete/errors'
 import { SessionOverview } from '@/src/features/athlete/components/SessionOverview'
 import { ExerciseFocus } from '@/src/features/athlete/components/ExerciseFocus'
 import { SessionCompleted } from '@/src/features/athlete/components/SessionCompleted'
+import { AthleteLoading } from '@/src/features/athlete/components/AthleteLoading'
+import { AthleteError } from '@/src/features/athlete/components/AthleteError'
 import type { SessionExecution } from '@/app/_shared/api/types'
+
+type LoadState = 'loading' | 'error' | 'success'
 
 function parseOpt(value: string): number | null {
   const n = parseFloat(value)
@@ -28,35 +32,68 @@ function parseOpt(value: string): number | null {
 export default function AthleteSessionPage() {
   const { id } = useParams() as { id: string }
   const router = useRouter()
+  // "Latest ref" pattern: keeps a current router reference inside effects
+  // without adding router to the dep-array (which could cause spurious re-fetches).
+  const routerRef = useRef(router)
+  routerRef.current = router
 
   const [execution, setExecution] = useState<SessionExecution | null>(null)
-  const [loadStatus, setLoadStatus] = useState<'loading' | 'error' | 'success'>(
-    'loading',
-  )
+  const [loadState, setLoadState] = useState<LoadState>('loading')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [canRetry, setCanRetry] = useState(true)
+  const [retryKey, setRetryKey] = useState(0)
 
   const [state, dispatch] = useReducer(athleteSessionReducer, initialAthleteState)
-  const hydratedRef = useRef<string | null>(null)
+  // Stores the session_id of the last successfully hydrated store.
+  // Using session_id (not the URL param `id`) guards against stale execution state
+  // when `id` changes before the new fetch resolves.
+  const hydratedSessionRef = useRef<string | null>(null)
 
-  // ── Fetch execution
+  // ── Fetch execution.
+  // Re-runs when `id` changes (navigation) or `retryKey` increments (retry).
+  // Clearing `execution` to null on start prevents the hydration effect from
+  // applying stale data before the new response arrives.
   useEffect(() => {
-    getSessionExecution(id)
+    const ac = new AbortController()
+
+    setLoadState('loading')
+    setErrorMessage(null)
+    setCanRetry(true)
+    setExecution(null) // clear stale data; blocks hydration effect until new data arrives
+
+    getSessionExecution(id, ac.signal)
       .then((data) => {
         setExecution(data)
-        setLoadStatus('success')
+        setLoadState('success')
       })
       .catch((err: unknown) => {
+        if (ac.signal.aborted) return
         try {
-          handleApiError(err, router)
-        } catch {
-          setLoadStatus('error')
+          handleApiError(err, routerRef.current)
+        } catch (e: unknown) {
+          const { message, forbidden, notFound } = normalizeAthleteError(e)
+          setErrorMessage(message)
+          setCanRetry(!forbidden && !notFound)
+          setLoadState('error')
         }
       })
-  }, [id, router])
 
-  // ── Hydrate store once (guard prevents re-hydrate on re-renders)
+    return () => ac.abort()
+  }, [id, retryKey]) // router intentionally excluded — stable ref, routerRef handles it
+
+  // ── Hydrate store once per session.
+  // Triple-guard:
+  //   1. `execution` is null until fetch resolves → no-op during loading.
+  //   2. `execution.session_id === id` → prevents applying data from a previous
+  //      session if state updates arrive out of order.
+  //   3. `hydratedSessionRef` → prevents re-hydrating on every re-render after success.
   useEffect(() => {
-    if (execution && hydratedRef.current !== id) {
-      hydratedRef.current = id
+    if (
+      execution &&
+      execution.session_id === id &&
+      hydratedSessionRef.current !== id
+    ) {
+      hydratedSessionRef.current = id
       dispatch({ type: 'HYDRATE', execution })
       if (execution.status === 'completed') {
         dispatch({ type: 'COMPLETE' })
@@ -64,7 +101,10 @@ export default function AthleteSessionPage() {
     }
   })
 
-  // ── Save one exercise's sets and advance cursor
+  const handleRetry = useCallback(() => setRetryKey((k) => k + 1), [])
+  const handleGoHome = useCallback(() => routerRef.current.push('/athlete'), [])
+
+  // ── Save one exercise's sets then advance the cursor
   async function handleLogAndNext(exerciseId: string) {
     const exerciseSets = state.draft[exerciseId] ?? {}
     const entries = Object.entries(exerciseSets)
@@ -84,7 +124,7 @@ export default function AthleteSessionPage() {
     dispatch({ type: 'NEXT_EXERCISE' })
   }
 
-  // ── Save last exercise and mark session complete
+  // ── Save the last exercise then mark the session complete
   async function handleComplete(exerciseId: string) {
     const exerciseSets = state.draft[exerciseId] ?? {}
     const entries = Object.entries(exerciseSets)
@@ -105,21 +145,23 @@ export default function AthleteSessionPage() {
     dispatch({ type: 'COMPLETE' })
   }
 
-  // ── Loading
-  if (loadStatus === 'loading') {
-    return (
-      <div>
-        <span className="sr-only">Loading…</span>
-        <SkeletonList rows={4} />
-      </div>
-    )
+  // ── Loading skeleton (shape-matched to SessionOverview)
+  if (loadState === 'loading') {
+    return <AthleteLoading variant="session" />
   }
 
-  if (loadStatus === 'error' || !execution) {
+  // ── Error with retry + back-to-home
+  if (loadState === 'error' || !execution) {
     return (
-      <p role="alert" className="text-sm text-zinc-500">
-        Session not found.
-      </p>
+      <AthleteError
+        message={
+          errorMessage ??
+          "We couldn't load this session. Check your connection and try again."
+        }
+        onRetry={canRetry ? handleRetry : undefined}
+        onBack={handleGoHome}
+        backLabel="Back to home"
+      />
     )
   }
 
@@ -139,7 +181,7 @@ export default function AthleteSessionPage() {
     return (
       <SessionCompleted
         title={execution.template_title}
-        onGoHome={() => router.push('/athlete')}
+        onGoHome={handleGoHome}
       />
     )
   }
@@ -154,7 +196,7 @@ export default function AthleteSessionPage() {
     }
 
     return (
-      <>
+      <section aria-live="polite" aria-label="Exercise progress">
         {/* Breadcrumb */}
         <div className="mb-4 flex items-center gap-2">
           <button
@@ -179,13 +221,13 @@ export default function AthleteSessionPage() {
           onComplete={handleComplete}
           onBack={() => dispatch({ type: 'PREV_EXERCISE' })}
         />
-      </>
+      </section>
     )
   }
 
   // ── Overview phase (default)
   return (
-    <>
+    <section aria-live="polite" aria-label="Session overview">
       {/* Breadcrumb */}
       <div className="mb-4 flex items-center gap-2">
         <Link href="/athlete" className="text-sm text-zinc-500 hover:text-zinc-700">
@@ -199,6 +241,6 @@ export default function AthleteSessionPage() {
         execution={execution}
         onStart={() => dispatch({ type: 'START' })}
       />
-    </>
+    </section>
   )
 }

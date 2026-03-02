@@ -1,12 +1,15 @@
 import { request } from '@/app/_shared/api/httpClient'
 import type { SessionExecution, WorkoutSessionSummary } from '@/app/_shared/api/types'
 
-export function getAthleteSessionList(): Promise<WorkoutSessionSummary[]> {
-  return request<WorkoutSessionSummary[]>('/v1/workout-sessions')
+export function getAthleteSessionList(signal?: AbortSignal): Promise<WorkoutSessionSummary[]> {
+  return request<WorkoutSessionSummary[]>('/v1/workout-sessions', { signal })
 }
 
-export function getSessionExecution(sessionId: string): Promise<SessionExecution> {
-  return request<SessionExecution>(`/v1/workout-sessions/${sessionId}/execution`)
+export function getSessionExecution(
+  sessionId: string,
+  signal?: AbortSignal,
+): Promise<SessionExecution> {
+  return request<SessionExecution>(`/v1/workout-sessions/${sessionId}/execution`, { signal })
 }
 
 export interface LogSetsPayload {
