@@ -29,10 +29,6 @@ vi.mock('@/src/features/activation/useActivationState', () => ({
   useActivationState: vi.fn(),
 }))
 
-vi.mock('@/src/features/activation/components/ActivationBanner', () => ({
-  ActivationBanner: () => null,
-}))
-
 import { request } from '@/app/_shared/api/httpClient'
 import { useActivationState } from '@/src/features/activation/useActivationState'
 import SessionsPage from './page'

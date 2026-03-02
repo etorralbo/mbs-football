@@ -8,7 +8,6 @@ import { handleApiError } from '@/app/_shared/api/handleApiError'
 import { Badge } from '@/app/_shared/components/Badge'
 import { EmptyState } from '@/app/_shared/components/EmptyState'
 import { SkeletonList } from '@/app/_shared/components/Skeleton'
-import { ActivationBanner } from '@/src/features/activation/components/ActivationBanner'
 import { useActivationState } from '@/src/features/activation/useActivationState'
 import { CalendarView } from '@/src/features/sessions/CalendarView'
 import type { WorkoutSessionSummary } from '@/app/_shared/api/types'
@@ -84,10 +83,6 @@ export default function SessionsPage() {
             </button>
           </div>
         )}
-      </div>
-
-      <div className="mt-4">
-        <ActivationBanner />
       </div>
 
       {loading && (
