@@ -117,6 +117,18 @@ describe('SessionsPage — session list CTAs', () => {
     })
     expect(screen.getByRole('link', { name: /view/i })).toBeInTheDocument()
   })
+
+  it('renders "View →" for pending sessions when role is COACH', async () => {
+    mockUseActivationState.mockReturnValue({ ...baseActivationState, role: 'COACH' })
+    mockRequest.mockResolvedValue([PENDING_SESSION])
+
+    render(<SessionsPage />)
+
+    await waitFor(() => {
+      expect(screen.queryByRole('link', { name: /start session/i })).toBeNull()
+      expect(screen.getByRole('link', { name: /view/i })).toBeInTheDocument()
+    })
+  })
 })
 
 describe('SessionsPage empty state', () => {

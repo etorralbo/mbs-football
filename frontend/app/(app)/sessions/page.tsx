@@ -137,7 +137,7 @@ export default function SessionsPage() {
                 <Badge variant={s.completed_at ? 'completed' : 'pending'}>
                   {s.completed_at ? 'Completed' : 'Pending'}
                 </Badge>
-                {s.completed_at ? (
+                {(s.completed_at || role === 'COACH') ? (
                   <Link
                     href={`/sessions/${s.id}`}
                     className="text-sm text-slate-400 hover:text-white"
