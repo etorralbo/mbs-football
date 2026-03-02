@@ -57,6 +57,7 @@ const PENDING_SESSION = {
 const COMPLETED_SESSION = {
   ...PENDING_SESSION,
   id: 'sess-2',
+  athlete_id: 'ath-2',
   template_title: 'Speed Session',
   athlete_name: 'Bob Athlete',
   completed_at: '2026-02-01T10:00:00Z',
@@ -132,15 +133,15 @@ describe('SessionsPage — session list CTAs', () => {
     })
   })
 
-  it('shows athlete name as subtitle when role is COACH', async () => {
+  it('shows athlete names as section headings when role is COACH', async () => {
     mockUseActivationState.mockReturnValue({ ...baseActivationState, role: 'COACH' })
     mockRequest.mockResolvedValue([PENDING_SESSION, COMPLETED_SESSION])
 
     render(<SessionsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Alice Athlete')).toBeInTheDocument()
-      expect(screen.getByText('Bob Athlete')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /alice athlete/i })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /bob athlete/i })).toBeInTheDocument()
     })
   })
 
