@@ -24,7 +24,7 @@ import {
   storedLogsToAthleteDraft,
 } from '@/src/features/athlete/persistence'
 import { SessionOverview } from '@/src/features/athlete/components/SessionOverview'
-import { ExerciseFocus } from '@/src/features/athlete/components/ExerciseFocus'
+import { BlockStep } from '@/src/features/athlete/components/BlockStep'
 import { SessionCompleted } from '@/src/features/athlete/components/SessionCompleted'
 import { AthleteLoading } from '@/src/features/athlete/components/AthleteLoading'
 import { AthleteError } from '@/src/features/athlete/components/AthleteError'
@@ -132,7 +132,7 @@ export default function AthleteSessionPage() {
             type: 'RESTORE_DRAFT',
             restoredDraft: storedLogsToAthleteDraft(stored.logsByExercise),
             phase: stored.phase,
-            currentExerciseIdx: stored.currentExerciseIndex,
+            currentBlockIdx: stored.currentBlockIndex,
           })
           setDraftRestored(true)
         }
@@ -160,7 +160,7 @@ export default function AthleteSessionPage() {
   // ── Auto-save draft with 300 ms debounce; flush pending save on unmount.
   useEffect(() => {
     if (
-      state.exerciseIds.length === 0 ||
+      state.blocks.length === 0 ||
       state.phase === 'completed' ||
       !execution ||
       execution.status === 'completed'
@@ -174,11 +174,11 @@ export default function AthleteSessionPage() {
       const s = stateRef.current
       if (s.phase !== 'completed') {
         saveDraft({
-          draftVersion: 1,
+          draftVersion: 2,
           sessionId: id,
           savedAt: Date.now(),
           phase: s.phase === 'in_progress' ? 'in_progress' : 'overview',
-          currentExerciseIndex: s.currentExerciseIdx,
+          currentBlockIndex: s.currentBlockIdx,
           logsByExercise: athleteDraftToStoredLogs(s.draft),
         })
       }
@@ -190,20 +190,20 @@ export default function AthleteSessionPage() {
         clearTimeout(persistTimerRef.current)
         // Flush on unmount (e.g. user navigates away mid-session).
         const s = stateRef.current
-        if (s.phase !== 'completed' && s.exerciseIds.length > 0) {
+        if (s.phase !== 'completed' && s.blocks.length > 0) {
           saveDraft({
-            draftVersion: 1,
+            draftVersion: 2,
             sessionId: id,
             savedAt: Date.now(),
             phase: s.phase === 'in_progress' ? 'in_progress' : 'overview',
-            currentExerciseIndex: s.currentExerciseIdx,
+            currentBlockIndex: s.currentBlockIdx,
             logsByExercise: athleteDraftToStoredLogs(s.draft),
           })
         }
         persistTimerRef.current = null
       }
     }
-  }, [state.draft, state.currentExerciseIdx, state.phase, id, execution])
+  }, [state.draft, state.currentBlockIdx, state.phase, id, execution])
 
   // ── Discard draft: clear storage and re-hydrate from server data.
   const handleDiscardDraft = useCallback(() => {
@@ -214,18 +214,22 @@ export default function AthleteSessionPage() {
     }
   }, [id, execution])
 
-  // ── Abort all in-flight per-set saves for a given exercise.
-  // Called before any batch logSets so a stale per-set response can't
-  // overwrite the authoritative batch write.
-  function abortExerciseSaves(exerciseId: string) {
-    const prefix = `${exerciseId}:`
-    for (const [key, ac] of Object.entries(saveAbortControllersRef.current)) {
-      if (key.startsWith(prefix)) {
-        ac.abort()
-        delete saveAbortControllersRef.current[key]
+  // ── Abort all in-flight per-set saves for all exercises in a given block.
+  // Called before any batch logSets so stale per-set responses can't
+  // overwrite the authoritative batch writes.
+  function abortBlockSaves(blockKey: string) {
+    const block = state.blocks.find((b) => b.key === blockKey)
+    if (!block) return
+    for (const exerciseId of block.exerciseIds) {
+      const prefix = `${exerciseId}:`
+      for (const [key, ac] of Object.entries(saveAbortControllersRef.current)) {
+        if (key.startsWith(prefix)) {
+          ac.abort()
+          delete saveAbortControllersRef.current[key]
+        }
       }
+      dispatch({ type: 'CLEAR_SET_STATUSES', exerciseId })
     }
-    dispatch({ type: 'CLEAR_SET_STATUSES', exerciseId })
   }
 
   // ── Optimistic per-set save.
@@ -299,7 +303,7 @@ export default function AthleteSessionPage() {
     [id],
   )
 
-  // ── Cancel all in-flight per-set saves when the focused exercise changes
+  // ── Cancel all in-flight per-set saves when the current block changes
   // or when the component unmounts.
   useEffect(() => {
     return () => {
@@ -308,14 +312,11 @@ export default function AthleteSessionPage() {
       }
       saveAbortControllersRef.current = {}
     }
-  }, [state.currentExerciseIdx])
+  }, [state.currentBlockIdx])
 
-  // ── Save one exercise's sets then advance the cursor
-  async function handleLogAndNext(exerciseId: string) {
-    // Abort per-set saves: the batch write is authoritative.
-    abortExerciseSaves(exerciseId)
-
-    const exerciseSets = state.draft[exerciseId] ?? {}
+  // ── Save one exercise's sets (best-effort helper for batch block saves).
+  async function saveExerciseIfNeeded(exerciseId: string) {
+    const exerciseSets = stateRef.current.draft[exerciseId] ?? {}
     const entries = Object.entries(exerciseSets)
       .map(([setNum, s]) => ({
         set_number: Number(setNum),
@@ -328,31 +329,26 @@ export default function AthleteSessionPage() {
     if (entries.length > 0) {
       await logSets(id, { exercise_id: exerciseId, entries })
     }
-
-    dispatch({ type: 'MARK_EXERCISE_DONE', exerciseId })
-    dispatch({ type: 'NEXT_EXERCISE' })
   }
 
-  // ── Save the last exercise then mark the session complete
-  async function handleComplete(exerciseId: string) {
-    // Abort per-set saves: the batch write is authoritative.
-    abortExerciseSaves(exerciseId)
+  // ── Save all exercises in a block, mark it done, advance to next block.
+  // Uses Promise.allSettled so partial failures don't block navigation.
+  async function handleBlockNext(blockKey: string) {
+    abortBlockSaves(blockKey)
+    const block = state.blocks.find((b) => b.key === blockKey)
+    if (!block) return
+    await Promise.allSettled(block.exerciseIds.map((eid) => saveExerciseIfNeeded(eid)))
+    dispatch({ type: 'MARK_BLOCK_DONE', blockKey })
+    dispatch({ type: 'NEXT_BLOCK' })
+  }
 
-    const exerciseSets = state.draft[exerciseId] ?? {}
-    const entries = Object.entries(exerciseSets)
-      .map(([setNum, s]) => ({
-        set_number: Number(setNum),
-        reps: parseOpt(s.actualReps),
-        weight: parseOpt(s.actualLoad),
-        rpe: parseOpt(s.actualRpe),
-      }))
-      .filter((e) => e.reps !== null || e.weight !== null || e.rpe !== null)
-
-    if (entries.length > 0) {
-      await logSets(id, { exercise_id: exerciseId, entries })
-    }
-
-    dispatch({ type: 'MARK_EXERCISE_DONE', exerciseId })
+  // ── Save all exercises in the current block, then mark the session complete.
+  async function handleComplete() {
+    const block = state.blocks[state.currentBlockIdx]
+    if (!block) return
+    abortBlockSaves(block.key)
+    await Promise.allSettled(block.exerciseIds.map((eid) => saveExerciseIfNeeded(eid)))
+    dispatch({ type: 'MARK_BLOCK_DONE', blockKey: block.key })
     await completeSession(id)
     dispatch({ type: 'COMPLETE' })
   }
@@ -378,15 +374,6 @@ export default function AthleteSessionPage() {
   }
 
   const progress = selectProgress(state)
-  const currentExerciseId = state.exerciseIds[state.currentExerciseIdx]
-
-  function findItem(exerciseId: string) {
-    for (const block of execution!.blocks) {
-      const item = block.items.find((i) => i.exercise_id === exerciseId)
-      if (item) return item
-    }
-    return null
-  }
 
   // ── Completed phase
   if (state.phase === 'completed') {
@@ -426,17 +413,13 @@ export default function AthleteSessionPage() {
     </div>
   ) : null
 
-  // ── In-progress phase: single-exercise focus view
-  if (state.phase === 'in_progress' && currentExerciseId) {
-    const item = findItem(currentExerciseId)
-    if (!item) return null
-
-    const exerciseSets = state.draft[currentExerciseId] ?? {
-      1: { actualReps: '', actualLoad: '', actualRpe: '', note: '', done: false },
-    }
+  // ── In-progress phase: block-based step view
+  if (state.phase === 'in_progress') {
+    const currentBlock = execution.blocks[state.currentBlockIdx]
+    if (!currentBlock) return null
 
     return (
-      <section aria-live="polite" aria-label="Exercise progress">
+      <section aria-live="polite" aria-label="Workout progress">
         {draftToast}
 
         {/* Breadcrumb */}
@@ -449,21 +432,21 @@ export default function AthleteSessionPage() {
             {execution.template_title}
           </button>
           <span className="text-slate-600">/</span>
-          <span className="text-sm text-white">{item.exercise_name}</span>
+          <span className="text-sm text-white">{currentBlock.name}</span>
         </div>
 
-        <ExerciseFocus
-          item={item}
-          exerciseSets={exerciseSets}
-          exerciseNumber={state.currentExerciseIdx + 1}
-          totalExercises={state.exerciseIds.length}
+        <BlockStep
+          block={currentBlock}
+          blockNumber={state.currentBlockIdx + 1}
+          totalBlocks={state.blocks.length}
           progressPct={progress.progressPct}
+          draft={state.draft}
           dispatch={dispatch}
           setStatuses={state.setStatuses}
           onSaveSet={handleSaveSet}
-          onLogAndNext={handleLogAndNext}
+          onBlockNext={handleBlockNext}
           onComplete={handleComplete}
-          onBack={() => dispatch({ type: 'PREV_EXERCISE' })}
+          onBack={() => dispatch({ type: 'PREV_BLOCK' })}
           onDiscardDraft={handleDiscardDraft}
         />
       </section>

@@ -35,11 +35,19 @@ export type AthleteSetDraft = {
 /** Record<exerciseId, Record<setNumber (1-based), AthleteSetDraft>> */
 export type AthleteDraft = Record<string, Record<number, AthleteSetDraft>>
 
+/** One block's snapshot: key, name, order, and ordered exercise IDs. */
+export interface BlockSnapshot {
+  key: string
+  name: string
+  order: number
+  exerciseIds: string[]
+}
+
 export interface AthleteSessionState {
   phase: SessionPhase
-  currentExerciseIdx: number
-  /** Ordered list of exercise IDs across all blocks — navigation cursor */
-  exerciseIds: string[]
+  currentBlockIdx: number
+  /** Ordered list of blocks — each block holds its ordered exercise IDs. */
+  blocks: BlockSnapshot[]
   draft: AthleteDraft
   /** Per-set async save statuses for optimistic UI. Absence = idle. */
   setStatuses: SetStatusMap
@@ -51,7 +59,7 @@ export type AthleteAction =
       type: 'RESTORE_DRAFT'
       restoredDraft: AthleteDraft
       phase: SessionPhase
-      currentExerciseIdx: number
+      currentBlockIdx: number
     }
   | {
       type: 'SET_SAVE_STATUS'
@@ -61,8 +69,8 @@ export type AthleteAction =
     }
   | { type: 'CLEAR_SET_STATUSES'; exerciseId: string }
   | { type: 'START' }
-  | { type: 'NEXT_EXERCISE' }
-  | { type: 'PREV_EXERCISE' }
+  | { type: 'NEXT_BLOCK' }
+  | { type: 'PREV_BLOCK' }
   | {
       type: 'UPDATE_SET'
       exerciseId: string
@@ -71,7 +79,7 @@ export type AthleteAction =
       value: string
     }
   | { type: 'ADD_SET'; exerciseId: string }
-  | { type: 'MARK_EXERCISE_DONE'; exerciseId: string }
+  | { type: 'MARK_BLOCK_DONE'; blockKey: string }
   | { type: 'COMPLETE' }
 
 // ---------------------------------------------------------------------------
@@ -80,12 +88,14 @@ export type AthleteAction =
 
 function buildInitialDraft(execution: SessionExecution): {
   draft: AthleteDraft
-  exerciseIds: string[]
+  blocks: BlockSnapshot[]
 } {
   const draft: AthleteDraft = {}
-  const exerciseIds: string[] = []
+  const blocks: BlockSnapshot[] = []
 
   for (const block of execution.blocks) {
+    const exerciseIds: string[] = []
+
     for (const item of block.items) {
       exerciseIds.push(item.exercise_id)
 
@@ -108,9 +118,11 @@ function buildInitialDraft(execution: SessionExecution): {
         }
       }
     }
+
+    blocks.push({ key: block.key, name: block.name, order: block.order, exerciseIds })
   }
 
-  return { draft, exerciseIds }
+  return { draft, blocks }
 }
 
 // ---------------------------------------------------------------------------
@@ -119,8 +131,8 @@ function buildInitialDraft(execution: SessionExecution): {
 
 export const initialAthleteState: AthleteSessionState = {
   phase: 'overview',
-  currentExerciseIdx: 0,
-  exerciseIds: [],
+  currentBlockIdx: 0,
+  blocks: [],
   draft: {},
   setStatuses: {},
 }
@@ -135,8 +147,8 @@ export function athleteSessionReducer(
 ): AthleteSessionState {
   switch (action.type) {
     case 'HYDRATE': {
-      const { draft, exerciseIds } = buildInitialDraft(action.execution)
-      return { phase: 'overview', currentExerciseIdx: 0, exerciseIds, draft, setStatuses: {} }
+      const { draft, blocks } = buildInitialDraft(action.execution)
+      return { phase: 'overview', currentBlockIdx: 0, blocks, draft, setStatuses: {} }
     }
 
     case 'SET_SAVE_STATUS': {
@@ -172,25 +184,25 @@ export function athleteSessionReducer(
         ...state,
         draft: merged,
         phase: action.phase,
-        currentExerciseIdx: action.currentExerciseIdx,
+        currentBlockIdx: action.currentBlockIdx,
       }
     }
 
     case 'START':
-      return { ...state, phase: 'in_progress', currentExerciseIdx: 0 }
+      return { ...state, phase: 'in_progress', currentBlockIdx: 0 }
 
-    case 'NEXT_EXERCISE': {
-      const nextIdx = state.currentExerciseIdx + 1
-      if (nextIdx >= state.exerciseIds.length) {
+    case 'NEXT_BLOCK': {
+      const next = state.currentBlockIdx + 1
+      if (next >= state.blocks.length) {
         return { ...state, phase: 'completed' }
       }
-      return { ...state, currentExerciseIdx: nextIdx }
+      return { ...state, currentBlockIdx: next }
     }
 
-    case 'PREV_EXERCISE':
+    case 'PREV_BLOCK':
       return {
         ...state,
-        currentExerciseIdx: Math.max(0, state.currentExerciseIdx - 1),
+        currentBlockIdx: Math.max(0, state.currentBlockIdx - 1),
       }
 
     case 'UPDATE_SET': {
@@ -236,18 +248,21 @@ export function athleteSessionReducer(
       }
     }
 
-    case 'MARK_EXERCISE_DONE': {
-      const exerciseSets = state.draft[action.exerciseId] ?? {}
-      const markedSets = Object.fromEntries(
-        Object.entries(exerciseSets).map(([setNum, s]) => [
-          setNum,
-          { ...s, done: true },
-        ]),
-      )
-      return {
-        ...state,
-        draft: { ...state.draft, [action.exerciseId]: markedSets },
+    case 'MARK_BLOCK_DONE': {
+      const block = state.blocks.find((b) => b.key === action.blockKey)
+      if (!block) return state
+
+      const updatedDraft: AthleteDraft = { ...state.draft }
+      for (const exerciseId of block.exerciseIds) {
+        const exerciseSets = state.draft[exerciseId] ?? {}
+        updatedDraft[exerciseId] = Object.fromEntries(
+          Object.entries(exerciseSets).map(([setNum, s]) => [
+            setNum,
+            { ...s, done: true },
+          ]),
+        )
       }
+      return { ...state, draft: updatedDraft }
     }
 
     case 'COMPLETE':
@@ -266,16 +281,29 @@ export function selectProgress(state: AthleteSessionState): {
   completedCount: number
   totalCount: number
   progressPct: number
+  totalBlocks: number
+  blockProgressPct: number
 } {
-  const total = state.exerciseIds.length
-  const completed = state.exerciseIds.filter((id) => {
+  const allExerciseIds = state.blocks.flatMap((b) => b.exerciseIds)
+  const total = allExerciseIds.length
+  const completed = allExerciseIds.filter((id) => {
     const sets = Object.values(state.draft[id] ?? {})
     return sets.length > 0 && sets.every((s) => s.done)
   }).length
+
+  const totalBlocks = state.blocks.length
+  const completedBlocks = state.blocks.filter((b) =>
+    b.exerciseIds.every((id) => {
+      const sets = Object.values(state.draft[id] ?? {})
+      return sets.length > 0 && sets.every((s) => s.done)
+    }),
+  ).length
 
   return {
     completedCount: completed,
     totalCount: total,
     progressPct: total > 0 ? Math.round((completed / total) * 100) : 0,
+    totalBlocks,
+    blockProgressPct: totalBlocks > 0 ? Math.round((completedBlocks / totalBlocks) * 100) : 0,
   }
 }
