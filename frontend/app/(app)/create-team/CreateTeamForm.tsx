@@ -12,12 +12,14 @@ import type { CreateTeamResponse } from '@/app/_shared/api/types'
 import { Button } from '@/app/_shared/components/Button'
 import { getPostActionRedirect } from '@/src/features/activation/postActionRedirect'
 import { supabase } from '@/app/_shared/auth/supabaseClient'
+import { useAuth } from '@/src/shared/auth/AuthContext'
 
 export function CreateTeamForm() {
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const { setActiveTeamId, refreshMe } = useAuth()
   // Fetch the display name from Supabase metadata silently — not shown to the user.
   const displayNameRef = useRef<string>('')
 
@@ -37,11 +39,13 @@ export function CreateTeamForm() {
     setLoading(true)
 
     try {
-      await request<CreateTeamResponse>('/v1/teams', {
+      const result = await request<CreateTeamResponse>('/v1/teams', {
         method: 'POST',
         body: JSON.stringify({ name: trimmedTeam, display_name: displayNameRef.current }),
         teamScoped: false,
       })
+      setActiveTeamId(result.team_id)
+      refreshMe()
       router.replace(getPostActionRedirect('team_created', 'COACH') ?? '/templates')
     } catch (err) {
       if (err instanceof UnauthorizedError) {
