@@ -21,7 +21,7 @@ const EMPTY_INVITE: InviteState = { url: null, generating: false, copied: false,
 
 export default function TeamPage() {
   const router = useRouter()
-  const { me, role, loading: authLoading } = useAuth()
+  const { me, role, activeTeamId, loading: authLoading, setActiveTeamId } = useAuth()
   const [inviteStates, setInviteStates] = useState<Record<string, InviteState>>({})
 
   // UX guard: ATHLETE should not access team page (backend RBAC is the real authority).
@@ -32,6 +32,8 @@ export default function TeamPage() {
   }, [authLoading, role, router])
 
   const isCoach = role === 'COACH'
+  const coachMemberships = me?.memberships.filter((membership) => membership.role === 'COACH') ?? []
+  const canSwitchTeam = isCoach && coachMemberships.length > 1
 
   function getInvite(teamId: string): InviteState {
     return inviteStates[teamId] ?? EMPTY_INVITE
@@ -73,15 +75,40 @@ export default function TeamPage() {
       {/* Page header */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-white">Teams</h1>
-        {isCoach && (
-          <Link
-            href="/create-team"
-            className="rounded-md bg-[#4f9cf9]/20 px-3 py-1.5 text-sm font-medium text-[#4f9cf9] hover:bg-[#4f9cf9]/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500"
-          >
-            + New team
-          </Link>
-        )}
+        <div className="flex items-center gap-3">
+          {isCoach && (
+            <Link
+              href="/create-team"
+              className="rounded-md bg-[#4f9cf9]/20 px-3 py-1.5 text-sm font-medium text-[#4f9cf9] hover:bg-[#4f9cf9]/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500"
+            >
+              + New team
+            </Link>
+          )}
+        </div>
       </div>
+
+      {canSwitchTeam && (
+        <div className="mt-4 rounded-lg border border-white/10 bg-[#131922] p-4">
+          <label htmlFor="active-team" className="block text-sm font-medium text-white">
+            Active team workspace
+          </label>
+          <p className="mt-1 text-xs text-slate-400">
+            Switch context to update dashboard metrics and assign work for a different squad.
+          </p>
+          <select
+            id="active-team"
+            value={activeTeamId ?? ''}
+            onChange={(event) => setActiveTeamId(event.target.value)}
+            className="mt-3 w-full rounded-md border border-white/10 bg-[#0d1420] px-3 py-2 text-sm text-slate-200 focus:border-indigo-400 focus:outline-none"
+          >
+            {coachMemberships.map((membership) => (
+              <option key={membership.team_id} value={membership.team_id}>
+                {membership.team_name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Active-team dashboard widgets */}
       {isCoach && <TeamOverviewCards />}
@@ -98,7 +125,14 @@ export default function TeamPage() {
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="font-semibold text-white">{membership.team_name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-white">{membership.team_name}</p>
+                    {activeTeamId === membership.team_id && (
+                      <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+                        Active
+                      </span>
+                    )}
+                  </div>
                   <p className="mt-0.5 text-xs capitalize text-slate-400">
                     {membership.role.toLowerCase()}
                   </p>

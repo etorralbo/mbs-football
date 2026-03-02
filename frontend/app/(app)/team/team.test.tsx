@@ -86,7 +86,11 @@ const inviteResponse = {
   team_id: TEAM_A,
 }
 
-function authAs(me: typeof coachMe | typeof athleteMe | null, role: 'COACH' | 'ATHLETE' | null) {
+function authAs(
+  me: typeof coachMe | typeof athleteMe | typeof multiTeamCoachMe | null,
+  role: 'COACH' | 'ATHLETE' | null,
+  overrides?: Record<string, unknown>,
+) {
   mockUseAuth.mockReturnValue({
     me,
     role,
@@ -94,6 +98,9 @@ function authAs(me: typeof coachMe | typeof athleteMe | null, role: 'COACH' | 'A
     loading: false,
     error: null,
     refreshMe: vi.fn(),
+    setActiveTeamId: vi.fn(),
+    clearActiveTeam: vi.fn(),
+    ...overrides,
   })
 }
 
@@ -102,7 +109,7 @@ function authAs(me: typeof coachMe | typeof athleteMe | null, role: 'COACH' | 'A
 describe('TeamPage', () => {
   it('renders loading state when auth is loading', () => {
     mockUseAuth.mockReturnValue({
-      me: null, role: null, activeTeamId: null, loading: true, error: null, refreshMe: vi.fn(),
+      me: null, role: null, activeTeamId: null, loading: true, error: null, refreshMe: vi.fn(), setActiveTeamId: vi.fn(), clearActiveTeam: vi.fn(),
     })
     render(<TeamPage />)
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
@@ -180,7 +187,7 @@ describe('TeamPage', () => {
   it('shows empty state when user has no memberships', async () => {
     mockUseAuth.mockReturnValue({
       me: { user_id: 'u3', memberships: [], active_team_id: null },
-      role: null, activeTeamId: null, loading: false, error: null, refreshMe: vi.fn(),
+      role: null, activeTeamId: null, loading: false, error: null, refreshMe: vi.fn(), setActiveTeamId: vi.fn(), clearActiveTeam: vi.fn(),
     })
     render(<TeamPage />)
     expect(await screen.findByText(/no team found/i)).toBeInTheDocument()
@@ -214,10 +221,12 @@ describe('TeamPage', () => {
       loading: false,
       error: null,
       refreshMe: vi.fn(),
+      setActiveTeamId: vi.fn(),
+      clearActiveTeam: vi.fn(),
     })
     render(<TeamPage />)
-    expect(await screen.findByText('Mettle FC')).toBeInTheDocument()
-    expect(screen.getByText('Elite FC')).toBeInTheDocument()
+    expect((await screen.findAllByText('Mettle FC')).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText('Elite FC')).length).toBeGreaterThan(0)
     // Both teams show their own invite button
     expect(screen.getAllByRole('button', { name: /generate invite link/i })).toHaveLength(2)
   })
@@ -230,6 +239,8 @@ describe('TeamPage', () => {
       loading: false,
       error: null,
       refreshMe: vi.fn(),
+      setActiveTeamId: vi.fn(),
+      clearActiveTeam: vi.fn(),
     })
     const inviteB = { code: 'XYZ', join_url: 'https://app.com/join?code=XYZ', team_id: TEAM_B }
     mockRequest.mockResolvedValue(inviteB)
@@ -246,5 +257,33 @@ describe('TeamPage', () => {
         }),
       )
     })
+  })
+
+
+  it('shows active team selector for multi-team coaches and switches context', async () => {
+    const setActiveTeamId = vi.fn()
+    authAs(multiTeamCoachMe, 'COACH', { activeTeamId: TEAM_A, setActiveTeamId })
+    render(<TeamPage />)
+
+    const selector = await screen.findByLabelText(/active team workspace/i)
+    expect(selector).toBeInTheDocument()
+
+    fireEvent.change(selector, { target: { value: TEAM_B } })
+    expect(setActiveTeamId).toHaveBeenCalledWith(TEAM_B)
+  })
+
+  it('does not show active team selector for athletes', async () => {
+    authAs(athleteMe, 'ATHLETE')
+    render(<TeamPage />)
+
+    await screen.findByText('Mettle FC')
+    expect(screen.queryByLabelText(/active team workspace/i)).not.toBeInTheDocument()
+  })
+
+  it('shows active badge on the selected team card', async () => {
+    authAs(multiTeamCoachMe, 'COACH', { activeTeamId: TEAM_A })
+    render(<TeamPage />)
+
+    expect(await screen.findByText('Active')).toBeInTheDocument()
   })
 })
