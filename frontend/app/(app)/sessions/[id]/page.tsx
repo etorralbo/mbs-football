@@ -83,7 +83,7 @@ export default function SessionDetailPage() {
   }
 
   if (execState.status === 'error') {
-    return <p className="text-sm text-zinc-500">Session not found.</p>
+    return <p className="text-sm text-slate-400">Session not found.</p>
   }
 
   const execution = execState.data
@@ -95,11 +95,11 @@ export default function SessionDetailPage() {
     <>
       {/* Breadcrumb */}
       <div className="flex items-center gap-2">
-        <Link href="/sessions" className="text-sm text-zinc-500 hover:text-zinc-700">
+        <Link href="/sessions" className="text-sm text-slate-400 hover:text-slate-300">
           Sessions
         </Link>
-        <span className="text-zinc-300">/</span>
-        <span className="text-sm text-zinc-900">{execution.template_title}</span>
+        <span className="text-slate-600">/</span>
+        <span className="text-sm text-white">{execution.template_title}</span>
       </div>
 
       {/* Header */}

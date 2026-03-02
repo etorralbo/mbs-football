@@ -14,11 +14,11 @@ export function ActivationChecklist({ steps }: Props) {
             {step.completed ? '✅' : '⏳'}
           </span>
           {step.completed ? (
-            <span className="text-xs text-zinc-400 line-through">{step.label}</span>
+            <span className="text-xs text-slate-500 line-through">{step.label}</span>
           ) : (
             <Link
               href={step.href}
-              className="text-xs text-zinc-700 hover:text-indigo-600 hover:underline"
+              className="text-xs text-slate-300 hover:text-[#4f9cf9] hover:underline"
             >
               {step.label}
             </Link>

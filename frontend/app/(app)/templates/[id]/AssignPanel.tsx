@@ -122,25 +122,25 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
     !loading && (mode === 'team' || (mode === 'athletes' && selectedCount > 0))
 
   return (
-    <div className="mt-8 rounded-lg border border-zinc-200 bg-white p-5">
-      <h2 className="text-sm font-semibold text-zinc-900">Assign workout</h2>
-      <p className="mt-1 text-xs text-zinc-500">
+    <div className="mt-8 rounded-lg border border-white/8 bg-[#131922] p-5">
+      <h2 className="text-sm font-semibold text-white">Assign workout</h2>
+      <p className="mt-1 text-xs text-slate-400">
         Create sessions for athletes so they can view and complete this workout.
       </p>
 
       <div className="mt-4 space-y-4">
         {/* Mode selector */}
         <div>
-          <label className="block text-sm font-medium text-zinc-700">Assign to</label>
+          <label className="block text-sm font-medium text-slate-300">Assign to</label>
           <div className="mt-1.5 flex gap-2">
             <button
               type="button"
               onClick={() => setMode('team')}
               disabled={loading}
-              className={`rounded-md px-3 py-1.5 text-sm transition-colors disabled:opacity-50 ${
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 ${
                 mode === 'team'
-                  ? 'bg-indigo-600 text-white'
-                  : 'border border-zinc-300 text-zinc-700 hover:bg-zinc-50'
+                  ? 'bg-[#4f9cf9] text-[#0a0d14]'
+                  : 'border border-white/10 text-slate-300 hover:bg-white/8'
               }`}
             >
               Whole team
@@ -149,10 +149,10 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
               type="button"
               onClick={() => setMode('athletes')}
               disabled={loading}
-              className={`rounded-md px-3 py-1.5 text-sm transition-colors disabled:opacity-50 ${
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 ${
                 mode === 'athletes'
-                  ? 'bg-indigo-600 text-white'
-                  : 'border border-zinc-300 text-zinc-700 hover:bg-zinc-50'
+                  ? 'bg-[#4f9cf9] text-[#0a0d14]'
+                  : 'border border-white/10 text-slate-300 hover:bg-white/8'
               }`}
             >
               Select athletes
@@ -164,21 +164,21 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
         {mode === 'athletes' && (
           <div>
             <div className="flex items-center justify-between">
-              <span className="block text-sm font-medium text-zinc-700">Athletes</span>
+              <span className="block text-sm font-medium text-slate-300">Athletes</span>
               {athletes.length > 0 && (
                 <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={selectAll}
-                    className="text-xs text-indigo-600 hover:underline"
+                    className="text-xs text-[#4f9cf9] hover:underline"
                   >
                     Select all
                   </button>
-                  <span className="text-zinc-300">·</span>
+                  <span className="text-slate-600">·</span>
                   <button
                     type="button"
                     onClick={clearSelection}
-                    className="text-xs text-zinc-500 hover:underline"
+                    className="text-xs text-slate-400 hover:underline"
                   >
                     Clear
                   </button>
@@ -187,7 +187,7 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
             </div>
 
             {athletes.length === 0 ? (
-              <p className="mt-1.5 text-sm text-zinc-400">No athletes on this team yet.</p>
+              <p className="mt-1.5 text-sm text-slate-500">No athletes on this team yet.</p>
             ) : (
               <ul className="mt-2 space-y-1.5">
                 {athletes.map((a) => (
@@ -198,9 +198,9 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
                         checked={selected.has(a.athlete_id)}
                         onChange={() => toggleAthlete(a.athlete_id)}
                         disabled={loading}
-                        className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+                        className="h-4 w-4 rounded border-white/20 accent-[#4f9cf9] focus:ring-[#4f9cf9]"
                       />
-                      <span className="text-sm text-zinc-700">{a.display_name}</span>
+                      <span className="text-sm text-white">{a.display_name}</span>
                     </label>
                   </li>
                 ))}
@@ -211,9 +211,9 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
 
         {/* Scheduled date (optional) */}
         <div>
-          <label htmlFor="scheduled-for" className="block text-sm font-medium text-zinc-700">
+          <label htmlFor="scheduled-for" className="block text-sm font-medium text-slate-300">
             Scheduled date{' '}
-            <span className="font-normal text-zinc-400">(optional)</span>
+            <span className="font-normal text-slate-500">(optional)</span>
           </label>
           <input
             id="scheduled-for"
@@ -221,25 +221,25 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
             value={scheduledFor}
             onChange={(e) => setScheduledFor(e.target.value)}
             disabled={loading}
-            className="mt-1.5 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
+            className="mt-1.5 w-full rounded-md border border-white/10 bg-[#0d1420] px-3 py-2 text-sm text-white focus:border-[#4f9cf9] focus:outline-none disabled:opacity-50"
           />
         </div>
 
         {error && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-red-400">
             {error}
           </p>
         )}
 
         {success && (
           <div>
-            <p role="status" className="text-sm text-green-700">
+            <p role="status" className="text-sm text-emerald-400">
               {success}
             </p>
             {showGoToSessions && (
               <Link
                 href="/sessions"
-                className="mt-1 inline-block text-xs text-indigo-600 hover:underline"
+                className="mt-1 inline-block text-xs text-[#4f9cf9] hover:underline"
               >
                 Go to sessions →
               </Link>

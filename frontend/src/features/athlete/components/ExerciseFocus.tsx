@@ -88,15 +88,15 @@ export function ExerciseFocus({
     <div className="flex min-h-[calc(100vh-8rem)] flex-col">
       {/* Progress bar */}
       <div className="mb-6">
-        <div className="mb-1.5 flex items-center justify-between text-xs text-zinc-500">
+        <div className="mb-1.5 flex items-center justify-between text-xs text-slate-400">
           <span>
             Exercise {exerciseNumber} of {totalExercises}
           </span>
           <span>{progressPct}% complete</span>
         </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100">
+        <div className="h-1.5 overflow-hidden rounded-full bg-white/8">
           <div
-            className="h-1.5 rounded-full bg-indigo-500 transition-all duration-300"
+            className="h-1.5 rounded-full bg-[#4f9cf9] transition-all duration-300"
             style={{ width: `${progressPct}%` }}
             role="progressbar"
             aria-valuenow={progressPct}
@@ -107,16 +107,16 @@ export function ExerciseFocus({
       </div>
 
       {/* Exercise card */}
-      <div className="flex-1 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <div className="flex-1 rounded-xl border border-white/8 bg-[#131922] p-5">
         {/* Name */}
-        <h1 className="text-lg font-semibold text-zinc-900">
+        <h1 className="text-lg font-semibold text-white">
           {item.exercise_name}
         </h1>
 
         {/* Target prescription badge */}
-        <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-0.5">
+        <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-[#4f9cf9]/10 px-2.5 py-0.5">
           <svg
-            className="h-3 w-3 text-indigo-500"
+            className="h-3 w-3 text-[#4f9cf9]"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -129,7 +129,7 @@ export function ExerciseFocus({
               d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
             />
           </svg>
-          <span className="text-xs font-medium text-indigo-700">
+          <span className="text-xs font-medium text-[#4f9cf9]">
             Target: {prescriptionText(item.prescription)}
           </span>
         </div>
@@ -151,7 +151,7 @@ export function ExerciseFocus({
           onClick={() =>
             dispatch({ type: 'ADD_SET', exerciseId: item.exercise_id })
           }
-          className="mt-3 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+          className="mt-3 text-xs font-medium text-[#4f9cf9] hover:text-[#7ab5fb]"
         >
           + Add set
         </button>
@@ -160,7 +160,7 @@ export function ExerciseFocus({
       {/* Navigation footer */}
       <div className="mt-6 space-y-3 pb-6">
         {error && (
-          <p role="alert" className="text-center text-xs text-red-600">
+          <p role="alert" className="text-center text-xs text-red-400">
             {error}
           </p>
         )}
@@ -171,7 +171,7 @@ export function ExerciseFocus({
               type="button"
               onClick={onBack}
               disabled={saving}
-              className="flex-1 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex-1 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-slate-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
               ← Back
             </button>
@@ -203,7 +203,7 @@ export function ExerciseFocus({
         {onDiscardDraft && (
           <div className="flex justify-center">
             {confirmingDiscard ? (
-              <span className="flex items-center gap-2 text-xs text-zinc-500">
+              <span className="flex items-center gap-2 text-xs text-slate-400">
                 Reset all edits?{' '}
                 <button
                   type="button"
@@ -211,14 +211,14 @@ export function ExerciseFocus({
                     setConfirmingDiscard(false)
                     onDiscardDraft()
                   }}
-                  className="font-medium text-red-600 hover:text-red-700"
+                  className="font-medium text-red-400 hover:text-red-300"
                 >
                   Yes, discard
                 </button>
                 <button
                   type="button"
                   onClick={() => setConfirmingDiscard(false)}
-                  className="font-medium text-zinc-500 hover:text-zinc-700"
+                  className="font-medium text-slate-400 hover:text-slate-300"
                 >
                   Cancel
                 </button>
@@ -227,7 +227,7 @@ export function ExerciseFocus({
               <button
                 type="button"
                 onClick={() => setConfirmingDiscard(true)}
-                className="text-xs text-zinc-400 hover:text-zinc-600"
+                className="text-xs text-slate-500 hover:text-slate-400"
               >
                 Discard draft
               </button>
@@ -235,7 +235,7 @@ export function ExerciseFocus({
           </div>
         )}
 
-        <p className="text-center text-xs text-zinc-400">
+        <p className="text-center text-xs text-slate-500">
           Progress is saved automatically when you move to the next exercise
         </p>
       </div>

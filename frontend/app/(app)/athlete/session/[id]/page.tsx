@@ -406,7 +406,7 @@ export default function AthleteSessionPage() {
       className="fixed inset-x-0 z-50 flex justify-center px-4 pointer-events-none"
       style={{ top: 'max(1rem, env(safe-area-inset-top, 0px))' }}
     >
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-900 px-4 py-2 text-xs font-medium text-white shadow-lg">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/8 bg-[#131922] px-4 py-2 text-xs font-medium text-white shadow-lg">
         <svg
           className="h-3.5 w-3.5 text-emerald-400"
           fill="none"
@@ -444,12 +444,12 @@ export default function AthleteSessionPage() {
           <button
             type="button"
             onClick={() => dispatch({ type: 'START' })}
-            className="text-sm text-zinc-500 hover:text-zinc-700"
+            className="text-sm text-slate-400 hover:text-slate-300"
           >
             {execution.template_title}
           </button>
-          <span className="text-zinc-300">/</span>
-          <span className="text-sm text-zinc-900">{item.exercise_name}</span>
+          <span className="text-slate-600">/</span>
+          <span className="text-sm text-white">{item.exercise_name}</span>
         </div>
 
         <ExerciseFocus
@@ -477,11 +477,11 @@ export default function AthleteSessionPage() {
 
       {/* Breadcrumb */}
       <div className="mb-4 flex items-center gap-2">
-        <Link href="/athlete" className="text-sm text-zinc-500 hover:text-zinc-700">
+        <Link href="/athlete" className="text-sm text-slate-400 hover:text-slate-300">
           Home
         </Link>
-        <span className="text-zinc-300">/</span>
-        <span className="text-sm text-zinc-900">{execution.template_title}</span>
+        <span className="text-slate-600">/</span>
+        <span className="text-sm text-white">{execution.template_title}</span>
       </div>
 
       <SessionOverview

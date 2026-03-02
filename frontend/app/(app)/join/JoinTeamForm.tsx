@@ -66,7 +66,7 @@ export function JoinTeamForm() {
   return (
     <form onSubmit={handleSubmit} className="mt-6 space-y-4">
       <div>
-        <label htmlFor="invite-code" className="block text-sm font-medium text-zinc-700">
+        <label htmlFor="invite-code" className="block text-sm font-medium text-slate-300">
           Invite code
         </label>
         <input
@@ -74,7 +74,7 @@ export function JoinTeamForm() {
           type="text"
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          className="mt-1.5 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="mt-1.5 w-full rounded-md border border-white/10 bg-[#0d1420] px-3 py-2 font-mono text-sm text-white placeholder:text-slate-600 focus:border-[#4f9cf9] focus:outline-none"
           placeholder="Paste your invite code here"
           autoFocus
           spellCheck={false}
@@ -82,7 +82,7 @@ export function JoinTeamForm() {
       </div>
 
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-red-400">
           {error}
         </p>
       )}
