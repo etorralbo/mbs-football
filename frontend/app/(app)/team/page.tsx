@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { request } from '@/app/_shared/api/httpClient'
 import { Button } from '@/app/_shared/components/Button'
@@ -11,7 +12,7 @@ import { useAuth } from '@/src/shared/auth/AuthContext'
 
 export default function TeamPage() {
   const router = useRouter()
-  const { me, role, loading: authLoading } = useAuth()
+  const { me, role, activeTeamId, loading: authLoading } = useAuth()
   const [generating, setGenerating] = useState(false)
   const [inviteUrl, setInviteUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -24,7 +25,11 @@ export default function TeamPage() {
     }
   }, [authLoading, role, router])
 
-  const membership = me?.memberships[0] ?? null
+  // For multi-team coaches, show the currently active team, not always [0].
+  const membership =
+    me?.memberships.find((m) => m.team_id === activeTeamId) ??
+    me?.memberships[0] ??
+    null
   const isCoach = role === 'COACH'
 
   async function handleGenerate() {
@@ -63,6 +68,21 @@ export default function TeamPage() {
       {isCoach && <TeamOverviewCards />}
 
       {isCoach && <FunnelStatsCard />}
+
+      {isCoach && (
+        <div className="mt-6 rounded-lg border border-white/8 bg-[#131922] p-5">
+          <h2 className="text-sm font-semibold text-white">Manage teams</h2>
+          <p className="mt-1 text-xs text-slate-400">
+            Create another team to manage separate groups of athletes.
+          </p>
+          <Link
+            href="/create-team"
+            className="mt-3 inline-block text-sm text-indigo-400 hover:text-indigo-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500"
+          >
+            + Create a new team
+          </Link>
+        </div>
+      )}
 
       {isCoach && (
         <div className="mt-6 rounded-lg border border-white/8 bg-[#131922] p-5">

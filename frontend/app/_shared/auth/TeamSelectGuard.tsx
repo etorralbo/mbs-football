@@ -14,12 +14,14 @@ import { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/src/shared/auth/AuthContext'
 
+const TEAM_SELECT_PATH = '/team/select'
+
 // Paths where the Team Picker redirect must NOT fire.
 // - /team/select  : the picker itself (would cause an infinite loop)
 // - /create-team  : a coach without any selected team must still be able to
 //                   create a new team from the nav or after onboarding
 // - /join         : same rationale — joining a team is a bootstrap action
-const EXCLUDED_PATHS = ['/team/select', '/create-team', '/join']
+const EXCLUDED_PATHS = [TEAM_SELECT_PATH, '/create-team', '/join']
 
 interface TeamSelectGuardProps {
   children: React.ReactNode

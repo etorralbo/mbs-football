@@ -178,4 +178,39 @@ describe('TeamPage', () => {
     render(<TeamPage />)
     await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/sessions'))
   })
+
+  it('shows "Create a new team" link for coaches', async () => {
+    authAs(coachMe, 'COACH')
+    render(<TeamPage />)
+    const link = await screen.findByRole('link', { name: /create a new team/i })
+    expect(link).toHaveAttribute('href', '/create-team')
+  })
+
+  it('does not show "Create a new team" link for athletes', async () => {
+    authAs(athleteMe, 'ATHLETE')
+    render(<TeamPage />)
+    await screen.findByText('Mettle FC')
+    expect(screen.queryByRole('link', { name: /create a new team/i })).not.toBeInTheDocument()
+  })
+
+  it('shows the active team name for a multi-team coach', async () => {
+    const multiTeamMe = {
+      user_id: 'u1',
+      memberships: [
+        { team_id: 't1', team_name: 'Mettle FC', role: 'COACH' },
+        { team_id: 't2', team_name: 'Elite FC', role: 'COACH' },
+      ],
+      active_team_id: null,
+    }
+    mockUseAuth.mockReturnValue({
+      me: multiTeamMe,
+      role: 'COACH',
+      activeTeamId: 't2',
+      loading: false,
+      error: null,
+      refreshMe: vi.fn(),
+    })
+    render(<TeamPage />)
+    expect(await screen.findByText('Elite FC')).toBeInTheDocument()
+  })
 })
