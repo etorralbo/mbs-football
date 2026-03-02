@@ -179,8 +179,31 @@ function ExercisesPreview() {
 // Section 4 — Team
 // ---------------------------------------------------------------------------
 
+const RANK_STYLES = [
+  'text-[#c8f135]',  // #1 — lime
+  'text-slate-300',  // #2 — silver
+  'text-slate-500',  // #3 — bronze
+]
+
 function TeamPreview() {
   const teamState = useTeamOverview()
+
+  const topAthletes =
+    teamState.status === 'ok'
+      ? teamState.data.athletes
+          .map((a) => ({
+            ...a,
+            completedCount: teamState.data.sessions.filter(
+              (s) => s.athlete_id === a.athlete_id && s.completed_at,
+            ).length,
+          }))
+          .sort(
+            (a, b) =>
+              b.completedCount - a.completedCount ||
+              a.display_name.localeCompare(b.display_name),
+          )
+          .slice(0, 3)
+      : []
 
   return (
     <SectionCard title="Team" viewAllHref="/team">
@@ -188,19 +211,27 @@ function TeamPreview() {
       {teamState.status === 'error' && (
         <p className="text-xs text-red-400">Could not load team data.</p>
       )}
-      {teamState.status === 'ok' && teamState.data.athletes.length === 0 && (
+      {teamState.status === 'ok' && topAthletes.length === 0 && (
         <p className="text-xs text-slate-500">
           No athletes yet — go to Team to invite them.
         </p>
       )}
-      {teamState.status === 'ok' && teamState.data.athletes.length > 0 && (
-        <ul className="space-y-1.5">
-          {teamState.data.athletes.slice(0, 3).map((athlete) => (
+      {teamState.status === 'ok' && topAthletes.length > 0 && (
+        <ul className="space-y-2">
+          {topAthletes.map((athlete, index) => (
             <li key={athlete.athlete_id} className="flex items-center gap-2.5">
+              <span className={`w-4 shrink-0 text-center text-xs font-bold tabular-nums ${RANK_STYLES[index]}`}>
+                {index + 1}
+              </span>
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/8 text-[10px] font-semibold text-slate-300">
                 {athlete.display_name.slice(0, 2).toUpperCase()}
               </span>
-              <span className="text-sm text-slate-200">{athlete.display_name}</span>
+              <span className="min-w-0 flex-1 truncate text-sm text-slate-200">
+                {athlete.display_name}
+              </span>
+              <span className="shrink-0 text-xs tabular-nums text-slate-500">
+                {athlete.completedCount}
+              </span>
             </li>
           ))}
         </ul>
