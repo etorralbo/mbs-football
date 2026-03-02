@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "MBS Football",
-    template: "%s | MBS Football",
+    default: "Mettle Performance",
+    template: "%s | Mettle Performance",
   },
   description: "Athlete & coach management platform",
 };
