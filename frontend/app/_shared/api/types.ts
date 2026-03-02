@@ -151,6 +151,19 @@ export interface WorkoutSessionDetail {
 }
 
 // ---------------------------------------------------------------------------
+// Builder API — block created/returned without items
+// (POST /v1/workout-templates/{id}/blocks, PATCH /v1/blocks/{id})
+// ---------------------------------------------------------------------------
+
+export interface WorkoutBlockSummary {
+  id: string
+  workout_template_id: string
+  order: number
+  name: string
+  notes: string | null
+}
+
+// ---------------------------------------------------------------------------
 // Save from AI (POST /v1/workout-templates/from-ai)
 // ---------------------------------------------------------------------------
 
