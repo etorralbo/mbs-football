@@ -54,8 +54,8 @@ A `frontend/.env.example` file (no secrets) should be kept up to date.
 ## Testing
 ### Unit / component tests (Vitest + RTL)
 ```bash
-npm run test          # watch mode
-npm run test:run      # single pass (CI)
+npm test              # watch mode
+npx vitest run        # single pass (CI)
 ```
 - Co-locate tests: `src/features/workouts/WorkoutCard.test.tsx`
 - Mock the API client (`src/lib/api/`) — never hit the real backend in unit tests.
