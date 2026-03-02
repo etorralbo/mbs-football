@@ -49,6 +49,7 @@ const PENDING_SESSION = {
   athlete_id: 'ath-1',
   workout_template_id: 'tpl-1',
   template_title: 'Power Session',
+  athlete_name: 'Alice Athlete',
   scheduled_for: null,
   completed_at: null,
 }
@@ -57,6 +58,7 @@ const COMPLETED_SESSION = {
   ...PENDING_SESSION,
   id: 'sess-2',
   template_title: 'Speed Session',
+  athlete_name: 'Bob Athlete',
   completed_at: '2026-02-01T10:00:00Z',
 }
 
@@ -127,6 +129,29 @@ describe('SessionsPage — session list CTAs', () => {
     await waitFor(() => {
       expect(screen.queryByRole('link', { name: /start session/i })).toBeNull()
       expect(screen.getByRole('link', { name: /view/i })).toBeInTheDocument()
+    })
+  })
+
+  it('shows athlete name as subtitle when role is COACH', async () => {
+    mockUseActivationState.mockReturnValue({ ...baseActivationState, role: 'COACH' })
+    mockRequest.mockResolvedValue([PENDING_SESSION, COMPLETED_SESSION])
+
+    render(<SessionsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Alice Athlete')).toBeInTheDocument()
+      expect(screen.getByText('Bob Athlete')).toBeInTheDocument()
+    })
+  })
+
+  it('does not show athlete name subtitle when role is ATHLETE', async () => {
+    mockUseActivationState.mockReturnValue({ ...baseActivationState, role: 'ATHLETE' })
+    mockRequest.mockResolvedValue([PENDING_SESSION])
+
+    render(<SessionsPage />)
+
+    await waitFor(() => {
+      expect(screen.queryByText('Alice Athlete')).toBeNull()
     })
   })
 })

@@ -15,7 +15,7 @@ from app.models.workout_template import WorkoutTemplate
 
 @dataclass
 class WorkoutSessionRow:
-    """Lightweight DTO: session fields + template title (fetched via JOIN)."""
+    """Lightweight DTO: session fields + template title + athlete name (fetched via JOIN)."""
 
     id: uuid.UUID
     assignment_id: uuid.UUID
@@ -24,6 +24,7 @@ class WorkoutSessionRow:
     scheduled_for: Optional[date]
     completed_at: Optional[datetime]
     template_title: str
+    athlete_name: str
 
 
 class AbstractWorkoutSessionRepository(ABC):
@@ -120,7 +121,7 @@ class SqlAlchemyWorkoutSessionRepository(AbstractWorkoutSessionRepository):
 
     def list_by_team(self, team_id: uuid.UUID) -> list[WorkoutSessionRow]:
         stmt = (
-            select(WorkoutSession, WorkoutTemplate.title)
+            select(WorkoutSession, WorkoutTemplate.title, UserProfile.name)
             .join(UserProfile, WorkoutSession.athlete_id == UserProfile.id)
             .join(WorkoutTemplate, WorkoutSession.workout_template_id == WorkoutTemplate.id)
             .where(UserProfile.team_id == team_id)
@@ -134,6 +135,7 @@ class SqlAlchemyWorkoutSessionRepository(AbstractWorkoutSessionRepository):
                 scheduled_for=row.WorkoutSession.scheduled_for,
                 completed_at=row.WorkoutSession.completed_at,
                 template_title=row.title,
+                athlete_name=row.name,
             )
             for row in self._db.execute(stmt)
         ]
@@ -144,7 +146,7 @@ class SqlAlchemyWorkoutSessionRepository(AbstractWorkoutSessionRepository):
         team_id: uuid.UUID,
     ) -> list[WorkoutSessionRow]:
         stmt = (
-            select(WorkoutSession, WorkoutTemplate.title)
+            select(WorkoutSession, WorkoutTemplate.title, UserProfile.name)
             .join(UserProfile, WorkoutSession.athlete_id == UserProfile.id)
             .join(WorkoutTemplate, WorkoutSession.workout_template_id == WorkoutTemplate.id)
             .where(
@@ -161,6 +163,7 @@ class SqlAlchemyWorkoutSessionRepository(AbstractWorkoutSessionRepository):
                 scheduled_for=row.WorkoutSession.scheduled_for,
                 completed_at=row.WorkoutSession.completed_at,
                 template_title=row.title,
+                athlete_name=row.name,
             )
             for row in self._db.execute(stmt)
         ]

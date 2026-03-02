@@ -132,7 +132,12 @@ export default function SessionsPage() {
               key={s.id}
               className="flex items-center justify-between rounded-lg border border-white/8 bg-[#131922] p-4"
             >
-              <span className="text-sm font-medium text-white">{sessionLabel(s)}</span>
+              <div>
+                <span className="text-sm font-medium text-white">{sessionLabel(s)}</span>
+                {role === 'COACH' && (
+                  <p className="mt-0.5 text-xs text-slate-400">{s.athlete_name}</p>
+                )}
+              </div>
               <div className="flex shrink-0 items-center gap-3">
                 <Badge variant={s.completed_at ? 'completed' : 'pending'}>
                   {s.completed_at ? 'Completed' : 'Pending'}
