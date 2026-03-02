@@ -84,7 +84,15 @@ docker compose exec backend alembic downgrade base
 
 | Revision | Description |
 |----------|-------------|
-| `deca97f5042e` | Schema hardening (indexes, CHECK, UNIQUE constraints) — **head** |
+| `a8b9c0d1e2f3` | Recreate funnel_event enum with lowercase values — **head** |
+| `f6a7b8c9d0e1` | Add session_first_log_added to funnel_event enum |
+| `e5f6a7b8c9d0` | Add assignment_created to funnel_event enum |
+| `d4e5f6a7b8c9` | Add template_created_ai to funnel_event enum |
+| `c3d4e5f6a7b8` | Add invite_created to funnel_event enum |
+| `a1b2c3d4e5f6` | Add session_completed to funnel_event enum |
+| `ff6f8d76c493` | Add product_events table |
+| `e1f2a3b4c5d6` | Add memberships and invites (Sprint 5) |
+| `deca97f5042e` | Schema hardening (indexes, CHECK, UNIQUE constraints) |
 | `b1c4d9e2f037` | Add set_number positive constraint |
 | `a3f7c2d8e914` | Sprint 3–4: assignments, sessions, execution logs |
 | `d48fd4f74c77` | Sprint 2: blocks model |
@@ -117,7 +125,7 @@ psql $DATABASE_URL -c "SELECT 1"   # verify connectivity
 alembic upgrade head
 
 # 3. Verify
-alembic current   # must show: deca97f5042e (head)
+alembic current   # must show: a8b9c0d1e2f3 (head)
 alembic check     # must exit 0
 ```
 

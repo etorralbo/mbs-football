@@ -383,17 +383,23 @@ All endpoints are prefixed with `/v1`.
 
 ### Require UserProfile (`get_current_user`)
 
-| Method | Path                          | Role        | Description                  |
-|--------|-------------------------------|-------------|------------------------------|
-| GET    | `/v1/exercises`               | Any         | List exercises (team-scoped) |
-| POST   | `/v1/exercises`               | COACH       | Create exercise              |
-| GET    | `/v1/exercises/{id}`          | Any         | Get exercise                 |
-| PATCH  | `/v1/exercises/{id}`          | COACH       | Update exercise              |
-| DELETE | `/v1/exercises/{id}`          | COACH       | Delete exercise              |
-| GET    | `/v1/workout-templates`       | Any         | List templates               |
-| POST   | `/v1/workout-templates`       | COACH       | Create template              |
-| GET    | `/v1/sessions`                | Any         | List sessions                |
-| POST   | `/v1/sessions`                | COACH       | Create session               |
+| Method | Path                                          | Role    | Description                              |
+|--------|-----------------------------------------------|---------|------------------------------------------|
+| GET    | `/v1/exercises`                               | Any     | List exercises (team-scoped)             |
+| POST   | `/v1/exercises`                               | COACH   | Create exercise                          |
+| GET    | `/v1/exercises/{id}`                          | Any     | Get exercise                             |
+| PATCH  | `/v1/exercises/{id}`                          | COACH   | Update exercise                          |
+| DELETE | `/v1/exercises/{id}`                          | COACH   | Delete exercise                          |
+| GET    | `/v1/workout-templates`                       | Any     | List templates (team-scoped)             |
+| POST   | `/v1/workout-templates`                       | COACH   | Create template                          |
+| POST   | `/v1/workout-templates/from-ai`               | COACH   | Create template via AI draft             |
+| GET    | `/v1/workout-assignments`                     | COACH   | List assignments                         |
+| POST   | `/v1/workout-assignments`                     | COACH   | Assign template to athlete(s) or team    |
+| GET    | `/v1/workout-sessions`                        | Any     | List sessions (athlete: own; coach: all) |
+| PATCH  | `/v1/workout-sessions/{id}/complete`          | ATHLETE | Mark session as completed                |
+| GET    | `/v1/workout-sessions/{id}/execution`         | Any     | Session execution view (blocks + logs)   |
+| PUT    | `/v1/workout-sessions/{id}/logs`              | ATHLETE | Save set logs for an exercise            |
+| GET    | `/v1/athletes`                                | COACH   | List athletes in the team                |
 
 ### Planned analytics endpoint
 
@@ -439,10 +445,20 @@ Run this checklist after every production deploy.
 - [ ] Existing user with memberships is redirected from `/onboarding` to `/templates`
 - [ ] Sign out from the NavBar clears the session and redirects to `/login`
 
+### Sessions & workout flow
+
+- [ ] Coach can assign a template to an athlete via `POST /v1/workout-assignments`
+- [ ] Assigned session appears in `GET /v1/workout-sessions` for both coach and athlete
+- [ ] Coach session list includes `athlete_name` to distinguish between athletes
+- [ ] Athlete can log sets via `PUT /v1/workout-sessions/{id}/logs`
+- [ ] Athlete can mark session complete via `PATCH /v1/workout-sessions/{id}/complete`
+- [ ] Coach sees the session as read-only (no "Start session" / no "Mark as completed")
+
 ### Multi-tenant isolation
 
 - [ ] Coach from Team A cannot read exercises belonging to Team B
 - [ ] Athlete cannot create or delete exercises (`403`)
+- [ ] Athlete cannot see sessions belonging to other teams
 
 ---
 
