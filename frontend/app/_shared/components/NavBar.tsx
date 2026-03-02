@@ -56,7 +56,7 @@ export function NavBar() {
       )}
       {isCoach && (
         <NavLink href="/team" active={isActive('/team')}>
-          Teams
+          Team
         </NavLink>
       )}
       <div className="ml-auto">

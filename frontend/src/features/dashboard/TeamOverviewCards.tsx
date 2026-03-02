@@ -65,30 +65,33 @@ export function TeamOverviewCards() {
         />
       </div>
 
-      {/* Low adherence alert */}
-      {data.lowAdherenceAthletes.length > 0 && (
-        <div
-          role="alert"
-          className="rounded-lg border border-amber-800/40 bg-amber-900/20 p-4"
-        >
-          <p className="text-sm font-medium text-amber-400">
-            {data.lowAdherenceAthletes.length === 1
-              ? "1 athlete hasn\u2019t completed any session yet"
-              : `${data.lowAdherenceAthletes.length} athletes haven\u2019t completed any session yet`}
+      {/* Athletes roster */}
+      {data.athletes.length > 0 && (
+        <div className="rounded-lg border border-white/8 bg-[#131922] px-5 py-4">
+          <p className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-500">
+            Athletes
+            <span className="ml-1.5 rounded-full bg-white/8 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">
+              {data.athletes.length}
+            </span>
           </p>
-          <ul className="mt-2 flex flex-wrap gap-2">
-            {data.lowAdherenceAthletes.map((a) => (
-              <li
-                key={a.athlete_id}
-                className="rounded-full bg-amber-900/40 px-3 py-0.5 text-xs text-amber-400"
-              >
-                {a.display_name}
+          <ul className="space-y-1.5">
+            {data.athletes.map((athlete) => (
+              <li key={athlete.athlete_id} className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/8 text-[10px] font-semibold text-slate-300">
+                  {athlete.display_name.slice(0, 2).toUpperCase()}
+                </span>
+                <span className="text-sm text-slate-200">{athlete.display_name}</span>
               </li>
             ))}
           </ul>
         </div>
       )}
 
+      {data.athletes.length === 0 && (
+        <p className="text-xs text-slate-500">
+          No athletes yet — go to Team to generate an invite link.
+        </p>
+      )}
     </div>
   )
 }
