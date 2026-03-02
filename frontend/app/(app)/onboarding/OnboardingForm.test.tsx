@@ -46,12 +46,12 @@ afterEach(() => {
 
 describe('OnboardingHub', () => {
   describe('when user already has a membership', () => {
-    it('redirects to /templates without rendering CTAs', async () => {
+    it('redirects to /home without rendering CTAs', async () => {
       mockRequest.mockResolvedValue(WITH_MEMBERSHIP)
       render(<OnboardingHub />)
 
       await waitFor(() => {
-        expect(mockReplace).toHaveBeenCalledWith('/templates')
+        expect(mockReplace).toHaveBeenCalledWith('/home')
       })
       expect(screen.queryByText(/coach/i)).not.toBeInTheDocument()
     })

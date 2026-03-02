@@ -19,7 +19,7 @@ export function OnboardingHub() {
     request<MeResponse>('/v1/me')
       .then((me) => {
         if (me.memberships.length > 0) {
-          router.replace('/templates')
+          router.replace('/home')
         } else {
           setChecking(false)
         }
