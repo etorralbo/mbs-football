@@ -16,6 +16,7 @@ interface Props {
   onLogAndNext: (exerciseId: string) => Promise<void>
   onComplete: (exerciseId: string) => Promise<void>
   onBack: () => void
+  onDiscardDraft?: () => void
 }
 
 function prescriptionText(p: Record<string, unknown>): string {
@@ -38,9 +39,11 @@ export function ExerciseFocus({
   onLogAndNext,
   onComplete,
   onBack,
+  onDiscardDraft,
 }: Props) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false)
 
   const isLast = exerciseNumber === totalExercises
 
@@ -185,6 +188,41 @@ export function ExerciseFocus({
             </Button>
           )}
         </div>
+
+        {onDiscardDraft && (
+          <div className="flex justify-center">
+            {confirmingDiscard ? (
+              <span className="flex items-center gap-2 text-xs text-zinc-500">
+                Reset all edits?{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmingDiscard(false)
+                    onDiscardDraft()
+                  }}
+                  className="font-medium text-red-600 hover:text-red-700"
+                >
+                  Yes, discard
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDiscard(false)}
+                  className="font-medium text-zinc-500 hover:text-zinc-700"
+                >
+                  Cancel
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmingDiscard(true)}
+                className="text-xs text-zinc-400 hover:text-zinc-600"
+              >
+                Discard draft
+              </button>
+            )}
+          </div>
+        )}
 
         <p className="text-center text-xs text-zinc-400">
           Progress is saved automatically when you move to the next exercise

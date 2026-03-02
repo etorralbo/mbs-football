@@ -15,6 +15,13 @@ import {
   completeSession,
 } from '@/src/features/athlete/api'
 import { normalizeAthleteError } from '@/src/features/athlete/errors'
+import {
+  loadDraft,
+  saveDraft,
+  clearDraft,
+  athleteDraftToStoredLogs,
+  storedLogsToAthleteDraft,
+} from '@/src/features/athlete/persistence'
 import { SessionOverview } from '@/src/features/athlete/components/SessionOverview'
 import { ExerciseFocus } from '@/src/features/athlete/components/ExerciseFocus'
 import { SessionCompleted } from '@/src/features/athlete/components/SessionCompleted'
@@ -49,6 +56,17 @@ export default function AthleteSessionPage() {
   // when `id` changes before the new fetch resolves.
   const hydratedSessionRef = useRef<string | null>(null)
 
+  // Toast: shown briefly after a draft is restored from localStorage.
+  const [draftRestored, setDraftRestored] = useState(false)
+
+  // "Latest state" ref used to flush a pending auto-save on unmount without
+  // capturing stale closure state inside the debounce cleanup.
+  const stateRef = useRef(state)
+  stateRef.current = state
+
+  // Timer handle for the 300 ms auto-save debounce.
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // ── Fetch execution.
   // Re-runs when `id` changes (navigation) or `retryKey` increments (retry).
   // Clearing `execution` to null on start prevents the hydration effect from
@@ -81,7 +99,7 @@ export default function AthleteSessionPage() {
     return () => ac.abort()
   }, [id, retryKey]) // router intentionally excluded — stable ref, routerRef handles it
 
-  // ── Hydrate store once per session.
+  // ── Hydrate store once per session, then attempt draft restore.
   // Triple-guard:
   //   1. `execution` is null until fetch resolves → no-op during loading.
   //   2. `execution.session_id === id` → prevents applying data from a previous
@@ -95,14 +113,101 @@ export default function AthleteSessionPage() {
     ) {
       hydratedSessionRef.current = id
       dispatch({ type: 'HYDRATE', execution })
+
       if (execution.status === 'completed') {
+        // Clear any stale draft immediately — don't wait for the state.phase
+        // effect to fire after the reducer round-trip.
+        clearDraft(id)
         dispatch({ type: 'COMPLETE' })
+      } else {
+        // Restore a locally-saved draft if one exists and is still valid.
+        const stored = loadDraft(id)
+        if (stored) {
+          dispatch({
+            type: 'RESTORE_DRAFT',
+            restoredDraft: storedLogsToAthleteDraft(stored.logsByExercise),
+            phase: stored.phase,
+            currentExerciseIdx: stored.currentExerciseIndex,
+          })
+          setDraftRestored(true)
+        }
       }
     }
   })
 
   const handleRetry = useCallback(() => setRetryKey((k) => k + 1), [])
   const handleGoHome = useCallback(() => routerRef.current.push('/athlete'), [])
+
+  // ── Auto-dismiss "Draft restored" toast after 3 s.
+  useEffect(() => {
+    if (!draftRestored) return
+    const t = setTimeout(() => setDraftRestored(false), 3_000)
+    return () => clearTimeout(t)
+  }, [draftRestored])
+
+  // ── Clear stored draft once the session is marked completed.
+  useEffect(() => {
+    if (state.phase === 'completed') {
+      clearDraft(id)
+    }
+  }, [state.phase, id])
+
+  // ── Auto-save draft with 300 ms debounce; flush pending save on unmount.
+  useEffect(() => {
+    if (
+      state.exerciseIds.length === 0 ||
+      state.phase === 'completed' ||
+      !execution ||
+      execution.status === 'completed'
+    ) {
+      return
+    }
+
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current)
+
+    persistTimerRef.current = setTimeout(() => {
+      const s = stateRef.current
+      if (s.phase !== 'completed') {
+        saveDraft({
+          draftVersion: 1,
+          sessionId: id,
+          savedAt: Date.now(),
+          phase: s.phase === 'in_progress' ? 'in_progress' : 'overview',
+          currentExerciseIndex: s.currentExerciseIdx,
+          logsByExercise: athleteDraftToStoredLogs(s.draft),
+        })
+      }
+      persistTimerRef.current = null
+    }, 300)
+
+    return () => {
+      if (persistTimerRef.current) {
+        clearTimeout(persistTimerRef.current)
+        // Flush on unmount (e.g. user navigates away mid-session).
+        const s = stateRef.current
+        if (s.phase !== 'completed' && s.exerciseIds.length > 0) {
+          saveDraft({
+            draftVersion: 1,
+            sessionId: id,
+            savedAt: Date.now(),
+            phase: s.phase === 'in_progress' ? 'in_progress' : 'overview',
+            currentExerciseIndex: s.currentExerciseIdx,
+            logsByExercise: athleteDraftToStoredLogs(s.draft),
+          })
+        }
+        persistTimerRef.current = null
+      }
+    }
+  }, [state.draft, state.currentExerciseIdx, state.phase, id, execution])
+
+  // ── Discard draft: clear storage and re-hydrate from server data.
+  const handleDiscardDraft = useCallback(() => {
+    clearDraft(id)
+    setDraftRestored(false)
+    if (execution) {
+      dispatch({ type: 'HYDRATE', execution })
+    }
+  }, [id, execution])
 
   // ── Save one exercise's sets then advance the cursor
   async function handleLogAndNext(exerciseId: string) {
@@ -186,6 +291,34 @@ export default function AthleteSessionPage() {
     )
   }
 
+  // ── "Draft restored" toast — rendered in both active phases
+  const draftToast = draftRestored ? (
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed inset-x-0 z-50 flex justify-center px-4 pointer-events-none"
+      style={{ top: 'max(1rem, env(safe-area-inset-top, 0px))' }}
+    >
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-900 px-4 py-2 text-xs font-medium text-white shadow-lg">
+        <svg
+          className="h-3.5 w-3.5 text-emerald-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M5 13l4 4L19 7"
+          />
+        </svg>
+        Draft restored
+      </span>
+    </div>
+  ) : null
+
   // ── In-progress phase: single-exercise focus view
   if (state.phase === 'in_progress' && currentExerciseId) {
     const item = findItem(currentExerciseId)
@@ -197,6 +330,8 @@ export default function AthleteSessionPage() {
 
     return (
       <section aria-live="polite" aria-label="Exercise progress">
+        {draftToast}
+
         {/* Breadcrumb */}
         <div className="mb-4 flex items-center gap-2">
           <button
@@ -220,6 +355,7 @@ export default function AthleteSessionPage() {
           onLogAndNext={handleLogAndNext}
           onComplete={handleComplete}
           onBack={() => dispatch({ type: 'PREV_EXERCISE' })}
+          onDiscardDraft={handleDiscardDraft}
         />
       </section>
     )
@@ -228,6 +364,8 @@ export default function AthleteSessionPage() {
   // ── Overview phase (default)
   return (
     <section aria-live="polite" aria-label="Session overview">
+      {draftToast}
+
       {/* Breadcrumb */}
       <div className="mb-4 flex items-center gap-2">
         <Link href="/athlete" className="text-sm text-zinc-500 hover:text-zinc-700">

@@ -27,6 +27,12 @@ export interface AthleteSessionState {
 
 export type AthleteAction =
   | { type: 'HYDRATE'; execution: SessionExecution }
+  | {
+      type: 'RESTORE_DRAFT'
+      restoredDraft: AthleteDraft
+      phase: SessionPhase
+      currentExerciseIdx: number
+    }
   | { type: 'START' }
   | { type: 'NEXT_EXERCISE' }
   | { type: 'PREV_EXERCISE' }
@@ -102,7 +108,26 @@ export function athleteSessionReducer(
   switch (action.type) {
     case 'HYDRATE': {
       const { draft, exerciseIds } = buildInitialDraft(action.execution)
-      return { ...state, draft, exerciseIds }
+      return { phase: 'overview', currentExerciseIdx: 0, exerciseIds, draft }
+    }
+
+    case 'RESTORE_DRAFT': {
+      // Merge local draft over server draft, but skip exercises already done on server.
+      const merged: AthleteDraft = { ...state.draft }
+      for (const [exerciseId, localSets] of Object.entries(action.restoredDraft)) {
+        const serverSets = Object.values(state.draft[exerciseId] ?? {})
+        const alreadyDone =
+          serverSets.length > 0 && serverSets.every((s) => s.done)
+        if (!alreadyDone) {
+          merged[exerciseId] = localSets
+        }
+      }
+      return {
+        ...state,
+        draft: merged,
+        phase: action.phase,
+        currentExerciseIdx: action.currentExerciseIdx,
+      }
     }
 
     case 'START':
