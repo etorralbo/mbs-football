@@ -1,4 +1,4 @@
-import { render, screen, cleanup, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('next/navigation', () => ({
@@ -119,6 +119,22 @@ describe('SessionsPage — session list CTAs', () => {
       expect(screen.getByRole('link', { name: /start session/i })).toBeInTheDocument()
     })
     expect(screen.getByRole('link', { name: /view/i })).toBeInTheDocument()
+  })
+
+  it('asks for confirmation when starting a session scheduled for another day', async () => {
+    mockUseActivationState.mockReturnValue(ACTIVATION_ATHLETE)
+    mockRequest.mockResolvedValue([{ ...PENDING_SESSION, scheduled_for: '2099-12-31' }])
+
+    render(<SessionsPage />)
+
+    const startButton = await screen.findByRole('button', { name: /start session/i })
+    fireEvent.click(startButton)
+
+    expect(screen.getByRole('heading', { name: /start for today/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /start for today/i })).toHaveAttribute(
+      'href',
+      '/sessions/sess-1',
+    )
   })
 
   it('renders "View →" for pending sessions when role is COACH', async () => {

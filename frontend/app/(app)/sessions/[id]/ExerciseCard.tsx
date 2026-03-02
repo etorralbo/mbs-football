@@ -1,8 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { request, ConflictError, ValidationError } from '@/app/_shared/api/httpClient'
-import { Button } from '@/app/_shared/components/Button'
 import type { ExecutionItem } from '@/app/_shared/api/types'
 import type { DraftAction, DraftState } from '@/src/features/session-execution/draftState'
 import { SetRow } from './SetRow'
@@ -49,8 +48,12 @@ export function ExerciseCard({
     .sort((a, b) => a.setNumber - b.setNumber)
 
   const isAlreadyDone = sortedSets.every((s) => s.draft.done)
+  const canMarkDone = useMemo(
+    () => sortedSets.some(({ draft }) => draft.reps || draft.weight || draft.rpe),
+    [sortedSets],
+  )
 
-  async function handleSave() {
+  async function handleMarkDone() {
     const validEntries = sortedSets
       .map(({ setNumber, draft }) => ({
         set_number: setNumber,
@@ -168,9 +171,21 @@ export function ExerciseCard({
               {error}
             </p>
           )}
-          <Button size="sm" variant="secondary" onClick={handleSave} loading={saving}>
-            {saving ? 'Saving…' : 'Save sets'}
-          </Button>
+          <button
+            type="button"
+            aria-label={`Mark ${item.exercise_name} done`}
+            disabled={saving || !canMarkDone}
+            onClick={handleMarkDone}
+            className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition-colors ${
+              canMarkDone
+                ? 'border-white/15 bg-white/5 text-slate-300 hover:border-[#c8f135]/60 hover:text-[#c8f135]'
+                : 'border-white/10 bg-white/[0.02] text-slate-600'
+            } disabled:cursor-not-allowed`}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-4 w-4" aria-hidden="true">
+              <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
         </div>
       )}
     </div>

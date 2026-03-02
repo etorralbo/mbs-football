@@ -6,7 +6,7 @@
  * 2. Exercise names + prescription text render within blocks
  * 3. Editing a reps input updates its value
  * 4. "Mark as completed" is disabled when no sets are logged
- * 5. "Mark as completed" is enabled after a per-exercise save succeeds
+ * 5. "Mark as completed" is enabled after a per-exercise done action succeeds
  */
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
@@ -177,8 +177,8 @@ describe('SessionExecutionPage — CompletionBar gating', () => {
     })
   })
 
-  it('"Mark as completed" is disabled while a per-exercise save is in-flight', async () => {
-    // Squat already done (canComplete=true), Stretch not done (Save button visible)
+  it('"Mark as completed" is disabled while a per-exercise done action is in-flight', async () => {
+    // Squat already done (canComplete=true), Stretch not done (check action visible)
     mockRequest
       .mockResolvedValueOnce(MOCK_EXECUTION_LOGGED)   // GET /execution
       .mockImplementationOnce(() => new Promise(() => {})) // PUT /logs — never resolves
@@ -196,8 +196,8 @@ describe('SessionExecutionPage — CompletionBar gating', () => {
     )!
     fireEvent.change(stretchRepsInput, { target: { value: '10' } })
 
-    // Click "Save sets" for Stretch — PUT /logs never resolves
-    fireEvent.click(screen.getByRole('button', { name: /save sets/i }))
+    // Click check action for Stretch — PUT /logs never resolves
+    fireEvent.click(screen.getByRole('button', { name: /mark stretch done/i }))
 
     // Complete button must be disabled while save is in-flight
     await waitFor(() => expect(completeBtn).toBeDisabled())

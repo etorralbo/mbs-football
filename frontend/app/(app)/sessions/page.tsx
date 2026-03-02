@@ -22,6 +22,12 @@ function formatDate(iso: string): string {
   })
 }
 
+function isToday(iso: string): boolean {
+  const d = new Date(iso)
+  const now = new Date()
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
+}
+
 function sessionLabel(s: WorkoutSessionSummary): string {
   const date = s.scheduled_for ? ` · ${formatDate(s.scheduled_for)}` : ''
   return `${s.template_title}${date}`
@@ -45,14 +51,19 @@ export default function SessionsPage() {
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(null)
+  const [confirmStartSession, setConfirmStartSession] = useState<WorkoutSessionSummary | null>(null)
   const router = useRouter()
   const { role, steps, isLoading: activationLoading } = useActivationState()
   const hasTemplates = steps.find((s) => s.key === 'create_template')?.completed ?? false
+  const isAthlete = role === 'ATHLETE'
 
   const athleteOptions = groupByAthlete(sessions).map(({ id, name }) => ({ id, name }))
   const visibleSessions = selectedAthleteId
     ? sessions.filter((s) => s.athlete_id === selectedAthleteId)
     : sessions
+  const athletePendingCount = isAthlete
+    ? visibleSessions.filter((s) => !s.completed_at).length
+    : 0
 
   useEffect(() => {
     document.title = 'Sessions | Mettle Performance'
@@ -119,6 +130,15 @@ export default function SessionsPage() {
           )}
         </div>
       </div>
+
+      {isAthlete && (
+        <p className="mt-2 text-xs text-slate-400">
+          Your sessions are all in one place. Switch between list and calendar view.
+          {athletePendingCount > 0 && (
+            <span className="ml-1 text-[#c8f135]">{athletePendingCount} pending.</span>
+          )}
+        </p>
+      )}
 
       {loading && (
         <div className="mt-6">
@@ -217,17 +237,53 @@ export default function SessionsPage() {
                     View →
                   </Link>
                 ) : (
-                  <Link
-                    href={`/sessions/${s.id}`}
-                    className="inline-flex items-center rounded-md bg-[#c8f135] px-3 py-1.5 text-xs font-bold text-[#0a0d14] transition-colors hover:bg-[#d4f755]"
-                  >
-                    Start session
-                  </Link>
+                  s.scheduled_for && !isToday(s.scheduled_for) ? (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmStartSession(s)}
+                      className="inline-flex items-center rounded-md bg-[#c8f135] px-3 py-1.5 text-xs font-bold text-[#0a0d14] transition-colors hover:bg-[#d4f755]"
+                    >
+                      Start session
+                    </button>
+                  ) : (
+                    <Link
+                      href={`/sessions/${s.id}`}
+                      className="inline-flex items-center rounded-md bg-[#c8f135] px-3 py-1.5 text-xs font-bold text-[#0a0d14] transition-colors hover:bg-[#d4f755]"
+                    >
+                      Start session
+                    </Link>
+                  )
                 )}
               </div>
             </li>
           ))}
         </ul>
+      )}
+
+      {confirmStartSession && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4">
+          <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#131922] p-5 shadow-2xl">
+            <h2 className="text-base font-semibold text-white">Start for today?</h2>
+            <p className="mt-2 text-sm text-slate-300">
+              This session is scheduled for {formatDate(confirmStartSession.scheduled_for!)}. Do you want to move forward with today&#39;s workout?
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmStartSession(null)}
+                className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/5"
+              >
+                Cancel
+              </button>
+              <Link
+                href={`/sessions/${confirmStartSession.id}`}
+                className="rounded-md bg-[#c8f135] px-3 py-1.5 text-xs font-bold text-[#0a0d14] hover:bg-[#d4f755]"
+              >
+                Start for today
+              </Link>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )

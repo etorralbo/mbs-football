@@ -39,11 +39,6 @@ export function NavBar() {
           Templates
         </NavLink>
       )}
-      {isAthlete && (
-        <NavLink href="/athlete" active={isActive('/athlete')}>
-          Training
-        </NavLink>
-      )}
       <NavLink href="/sessions" active={isActive('/sessions')}>
         Sessions
       </NavLink>
