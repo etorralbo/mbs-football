@@ -81,7 +81,7 @@ export default function SessionsPage() {
             <select
               value={selectedAthleteId ?? ''}
               onChange={(e) => setSelectedAthleteId(e.target.value || null)}
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 focus:outline-none"
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 focus:outline-none [color-scheme:dark]"
               aria-label="Filter by athlete"
             >
               <option value="">All athletes</option>
