@@ -6,8 +6,8 @@ describe('getPostActionRedirect', () => {
     expect(getPostActionRedirect('team_created', 'COACH')).toBe('/team')
   })
 
-  it('invite_accepted → /sessions', () => {
-    expect(getPostActionRedirect('invite_accepted', 'ATHLETE')).toBe('/sessions')
+  it('invite_accepted → /home', () => {
+    expect(getPostActionRedirect('invite_accepted', 'ATHLETE')).toBe('/home')
   })
 
   it('template_created_ai → null (stay on detail page)', () => {

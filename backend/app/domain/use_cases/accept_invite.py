@@ -31,6 +31,7 @@ class InviteExpiredError(Exception):
 class AcceptInviteCommand:
     supabase_user_id: uuid.UUID
     code: str
+    name: str = ""
 
 
 @dataclass
@@ -104,7 +105,7 @@ class AcceptInviteUseCase:
             self._user_profile_repo.create(
                 supabase_user_id=command.supabase_user_id,
                 team_id=invite.team_id,
-                name="",
+                name=command.name,
                 role=invite.role,
             )
 

@@ -31,6 +31,9 @@ export function NavBar() {
         </div>
         <span className="text-sm font-semibold text-white">MBS Football</span>
       </div>
+      <NavLink href="/home" active={isActive('/home')}>
+        Home
+      </NavLink>
       {isCoach && (
         <NavLink href="/templates" active={isActive('/templates')}>
           Templates

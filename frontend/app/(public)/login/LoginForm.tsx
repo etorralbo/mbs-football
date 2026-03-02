@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/app/_shared/auth/supabaseClient'
@@ -13,6 +13,13 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const router = useRouter()
+
+  // Redirect already-authenticated users away from the login page
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) router.replace('/home')
+    })
+  }, [router])
 
   async function handleGoogleSignIn() {
     setError(null)
@@ -41,7 +48,7 @@ export function LoginForm() {
         setError('Invalid email or password.')
         return
       }
-      router.push('/onboarding')
+      router.replace('/onboarding')
     } finally {
       setLoading(false)
     }
@@ -102,7 +109,7 @@ export function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              autoComplete="current-password"
+              autoComplete="off"
               className="w-full rounded-lg border border-white/10 bg-[#1a212e] py-2.5 pl-10 pr-3 text-sm text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               placeholder="••••••••"
             />

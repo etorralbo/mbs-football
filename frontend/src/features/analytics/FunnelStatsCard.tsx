@@ -29,8 +29,6 @@ export function FunnelStatsCard() {
         <Skeleton className="h-4 w-1/4" />
         <div className="mt-4 flex justify-around">
           <Skeleton className="h-8 w-16" />
-          <Skeleton className="h-8 w-16" />
-          <Skeleton className="h-8 w-16" />
         </div>
       </div>
     )
@@ -39,6 +37,7 @@ export function FunnelStatsCard() {
   if (state.status === 'error') return null
 
   const { data } = state
+  const pendingInvites = Math.max(0, data.invite_created - data.invite_accepted)
 
   return (
     <div
@@ -47,9 +46,7 @@ export function FunnelStatsCard() {
     >
       <h2 className="text-sm font-semibold text-white">Team activity</h2>
       <div className="mt-4 flex justify-around">
-        <StatTile label="Teams created" value={data.team_created} />
-        <StatTile label="Invites accepted" value={data.invite_accepted} />
-        <StatTile label="Sessions completed" value={data.session_completed} />
+        <StatTile label="Pending invites" value={pendingInvites} />
       </div>
     </div>
   )

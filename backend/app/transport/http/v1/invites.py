@@ -90,6 +90,7 @@ def create_invite(
 
 class AcceptInviteRequest(BaseModel):
     code: str = Field(..., min_length=1, max_length=64)
+    display_name: str = Field("", max_length=255)
 
 
 class AcceptInviteResponse(BaseModel):
@@ -112,7 +113,7 @@ def accept_invite(
     )
     try:
         result = use_case.execute(
-            AcceptInviteCommand(supabase_user_id=user_id, code=payload.code)
+            AcceptInviteCommand(supabase_user_id=user_id, code=payload.code, name=payload.display_name)
         )
     except InviteNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))

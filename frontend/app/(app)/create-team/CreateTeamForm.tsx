@@ -11,6 +11,7 @@ import {
 import type { CreateTeamResponse } from '@/app/_shared/api/types'
 import { Button } from '@/app/_shared/components/Button'
 import { getPostActionRedirect } from '@/src/features/activation/postActionRedirect'
+import { supabase } from '@/app/_shared/auth/supabaseClient'
 
 export function CreateTeamForm() {
   const [name, setName] = useState('')
@@ -27,9 +28,12 @@ export function CreateTeamForm() {
     setLoading(true)
 
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const displayName = user?.user_metadata?.name ?? user?.user_metadata?.full_name ?? ''
+
       await request<CreateTeamResponse>('/v1/teams', {
         method: 'POST',
-        body: JSON.stringify({ name: trimmed }),
+        body: JSON.stringify({ name: trimmed, display_name: displayName }),
       })
       router.replace(getPostActionRedirect('team_created', 'COACH') ?? '/templates')
     } catch (err) {

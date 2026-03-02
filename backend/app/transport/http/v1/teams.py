@@ -27,6 +27,7 @@ router = APIRouter(tags=["teams"])
 
 class CreateTeamRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
+    display_name: str = Field("", max_length=255)
 
 
 class CreateTeamResponse(BaseModel):
@@ -49,7 +50,7 @@ def create_team(
     )
     try:
         result = use_case.execute(
-            CreateTeamCommand(supabase_user_id=user_id, team_name=payload.name)
+            CreateTeamCommand(supabase_user_id=user_id, team_name=payload.name, name=payload.display_name)
         )
     except CoachAlreadyHasTeamError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))

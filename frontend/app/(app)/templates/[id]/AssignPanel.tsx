@@ -221,7 +221,7 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
             value={scheduledFor}
             onChange={(e) => setScheduledFor(e.target.value)}
             disabled={loading}
-            className="mt-1.5 w-full rounded-md border border-white/10 bg-[#0d1420] px-3 py-2 text-sm text-white focus:border-[#4f9cf9] focus:outline-none disabled:opacity-50"
+            className="mt-1.5 w-full rounded-md border border-white/10 bg-[#0d1420] px-3 py-2 text-sm text-white [color-scheme:dark] focus:border-[#4f9cf9] focus:outline-none disabled:opacity-50"
           />
         </div>
 

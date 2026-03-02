@@ -18,8 +18,8 @@ export function getPostActionRedirect(
       // Coach just created a team — guide them to invite athletes
       return '/team'
     case 'invite_accepted':
-      // Athlete just joined — guide them to their sessions
-      return '/sessions'
+      // Athlete just joined — guide them to the home dashboard
+      return '/home'
     case 'template_created_ai':
       // Stay on the template detail page; banner guides the next step
       return null

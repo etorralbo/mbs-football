@@ -273,3 +273,30 @@ class TestAcceptInvite:
         assert resp.status_code == 201
         body = resp.json()
         assert body["membership_id"] == str(m.id)
+
+    def test_display_name_stored_in_user_profile(
+        self,
+        client: TestClient,
+        db_session: Session,
+        mock_jwt,
+        invite_team_a: Invite,
+    ) -> None:
+        """POST /v1/invites/accept with display_name persists it as UserProfile.name."""
+        from app.models import UserProfile
+        from sqlalchemy import select
+
+        athlete_id = uuid.uuid4()
+        mock_jwt(str(athlete_id))
+        resp = client.post(
+            "/v1/invites/accept",
+            json={"code": invite_team_a.code, "display_name": "Bob Smith"},
+            headers=AUTH,
+        )
+        assert resp.status_code == 201
+
+        db_session.expire_all()
+        profile = db_session.execute(
+            select(UserProfile).where(UserProfile.supabase_user_id == athlete_id)
+        ).scalar_one_or_none()
+        assert profile is not None
+        assert profile.name == "Bob Smith"

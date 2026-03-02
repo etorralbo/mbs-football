@@ -1,5 +1,7 @@
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, within, fireEvent, waitFor } from '@testing-library/react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
+import type { WorkoutSessionSummary } from '@/app/_shared/api/types'
+import { useActivationState } from '@/src/features/activation/useActivationState'
 import SessionsPage from './page'
 
 // ---------------------------------------------------------------------------
@@ -22,14 +24,54 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/src/features/activation/useActivationState', () => ({
-  useActivationState: vi.fn(() => ({
-    isLoading: false,
-    error: null,
-    role: null,
-    steps: [],
-    nextAction: null,
-  })),
+  useActivationState: vi.fn(),
 }))
+
+const mockActivation = vi.mocked(useActivationState)
+
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
+
+const ANON_STATE = { isLoading: false, error: null, role: null, steps: [], nextAction: null }
+const COACH_STATE = { isLoading: false, error: null, role: 'COACH' as const, steps: [], nextAction: null }
+const ATHLETE_STATE = { isLoading: false, error: null, role: 'ATHLETE' as const, steps: [], nextAction: null }
+
+const ALICE_SESSION: WorkoutSessionSummary = {
+  id: 'sess-a',
+  assignment_id: 'a-1',
+  athlete_id: 'ath-alice',
+  athlete_name: 'Alice Johnson',
+  workout_template_id: 'tpl-1',
+  template_title: 'Strength Block A',
+  scheduled_for: '2025-03-01',
+  completed_at: null,
+}
+
+const BOB_SESSION: WorkoutSessionSummary = {
+  id: 'sess-b',
+  assignment_id: 'a-2',
+  athlete_id: 'ath-bob',
+  athlete_name: 'Bob Smith',
+  workout_template_id: 'tpl-2',
+  template_title: 'Cardio Day',
+  scheduled_for: '2025-03-02',
+  completed_at: null,
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function setupCoach(sessions: WorkoutSessionSummary[]) {
+  mockActivation.mockReturnValue(COACH_STATE)
+  mockRequest.mockResolvedValue(sessions)
+}
+
+function setupAthlete(sessions: WorkoutSessionSummary[]) {
+  mockActivation.mockReturnValue(ATHLETE_STATE)
+  mockRequest.mockResolvedValue(sessions)
+}
 
 // ---------------------------------------------------------------------------
 
@@ -38,16 +80,23 @@ afterEach(() => {
   mockRequest.mockReset()
   mockPush.mockReset()
   mockReplace.mockReset()
+  mockActivation.mockReset()
 })
+
+// ---------------------------------------------------------------------------
+// Existing tests (role-agnostic / ATHLETE defaults)
+// ---------------------------------------------------------------------------
 
 describe('SessionsPage', () => {
   it('renders a loading state initially', () => {
+    mockActivation.mockReturnValue(ANON_STATE)
     mockRequest.mockReturnValue(new Promise(() => {})) // never resolves
     render(<SessionsPage />)
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
   })
 
   it('renders session items from the API response', async () => {
+    mockActivation.mockReturnValue(ATHLETE_STATE)
     mockRequest.mockResolvedValue([
       {
         id: 'aaaaaaaa-0000-0000-0000-000000000001',
@@ -80,6 +129,7 @@ describe('SessionsPage', () => {
   })
 
   it('shows Pending for sessions with no completed_at', async () => {
+    mockActivation.mockReturnValue(ATHLETE_STATE)
     mockRequest.mockResolvedValue([
       {
         id: 'cccccccc-0000-0000-0000-000000000003',
@@ -97,17 +147,90 @@ describe('SessionsPage', () => {
   })
 
   it('shows an empty state when there are no sessions', async () => {
+    mockActivation.mockReturnValue(ATHLETE_STATE)
     mockRequest.mockResolvedValue([])
     render(<SessionsPage />)
     expect(await screen.findByText(/no sessions assigned/i)).toBeInTheDocument()
   })
 
   it('redirects to /login on UnauthorizedError', async () => {
+    mockActivation.mockReturnValue(ANON_STATE)
     const { UnauthorizedError } = await import('@/app/_shared/api/httpClient')
     mockRequest.mockRejectedValue(new UnauthorizedError())
     render(<SessionsPage />)
 
     await screen.findByText(/workout sessions/i)
     expect(mockReplace).toHaveBeenCalledWith('/login')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// COACH grouped view
+// ---------------------------------------------------------------------------
+
+describe('SessionsPage — COACH grouped view', () => {
+  it('renders athlete name as a section heading', async () => {
+    setupCoach([ALICE_SESSION, BOB_SESSION])
+    render(<SessionsPage />)
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /alice johnson/i })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /bob smith/i })).toBeInTheDocument()
+    })
+  })
+
+  it('places each session under the correct athlete section', async () => {
+    setupCoach([ALICE_SESSION, BOB_SESSION])
+    render(<SessionsPage />)
+    await waitFor(() => {
+      const aliceSection = screen.getByRole('heading', { name: /alice johnson/i }).closest('section')!
+      expect(within(aliceSection).getByText(/strength block a/i)).toBeInTheDocument()
+      const bobSection = screen.getByRole('heading', { name: /bob smith/i }).closest('section')!
+      expect(within(bobSection).getByText(/cardio day/i)).toBeInTheDocument()
+    })
+  })
+
+  it('sorts groups alphabetically by athlete name', async () => {
+    setupCoach([BOB_SESSION, ALICE_SESSION])
+    render(<SessionsPage />)
+    await waitFor(() => {
+      const headings = screen.getAllByRole('heading').map((h) => h.textContent ?? '')
+      // h2 text is uppercase via CSS but textContent is the original case
+      const aliceIdx = headings.findIndex((t) => /alice johnson/i.test(t))
+      const bobIdx = headings.findIndex((t) => /bob smith/i.test(t))
+      expect(aliceIdx).toBeGreaterThanOrEqual(0)
+      expect(aliceIdx).toBeLessThan(bobIdx)
+    })
+  })
+
+  it('shows athlete filter dropdown with All athletes option', async () => {
+    setupCoach([ALICE_SESSION, BOB_SESSION])
+    render(<SessionsPage />)
+    await waitFor(() => {
+      const select = screen.getByRole('combobox', { name: /filter by athlete/i })
+      expect(select).toBeInTheDocument()
+      expect(within(select as HTMLElement).getByText('All athletes')).toBeInTheDocument()
+    })
+  })
+
+  it('filters to a single athlete when selected', async () => {
+    setupCoach([ALICE_SESSION, BOB_SESSION])
+    render(<SessionsPage />)
+    await waitFor(() => screen.getByRole('combobox', { name: /filter by athlete/i }))
+
+    fireEvent.change(screen.getByRole('combobox', { name: /filter by athlete/i }), {
+      target: { value: 'ath-alice' },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText(/strength block a/i)).toBeInTheDocument()
+      expect(screen.queryByText(/cardio day/i)).not.toBeInTheDocument()
+    })
+  })
+
+  it('does not show athlete filter for ATHLETE role', async () => {
+    setupAthlete([ALICE_SESSION])
+    render(<SessionsPage />)
+    await waitFor(() => screen.getByText(/strength block a/i))
+    expect(screen.queryByRole('combobox', { name: /filter by athlete/i })).not.toBeInTheDocument()
   })
 })

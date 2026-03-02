@@ -22,6 +22,7 @@ class CoachAlreadyHasTeamError(Exception):
 class CreateTeamCommand:
     supabase_user_id: uuid.UUID
     team_name: str
+    name: str = ""
 
 
 @dataclass
@@ -70,7 +71,7 @@ class CreateTeamUseCase:
             self._user_profile_repo.create(
                 supabase_user_id=command.supabase_user_id,
                 team_id=team.id,
-                name="",
+                name=command.name,
                 role=Role.COACH,
             )
 
