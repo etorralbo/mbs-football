@@ -71,10 +71,18 @@ export function CreateTeamForm() {
     }
   }
 
+  // Wait for the Supabase user fetch before rendering inputs. Without this
+  // guard, the team-name field appears immediately (with no autoFocus) and the
+  // user starts typing; then displayName resolves to '' and the "Your name"
+  // input appears with autoFocus, stealing focus mid-keystroke.
+  if (displayName === null) {
+    return <div className="mt-6 h-32 animate-pulse rounded-lg bg-white/5" aria-hidden />
+  }
+
   return (
     <form onSubmit={handleSubmit} className="mt-6 space-y-4">
       {/* Only shown when name is missing from the account (e.g. some OAuth providers) */}
-      {displayName !== null && !nameFromMetadata && (
+      {!nameFromMetadata && (
         <div>
           <label htmlFor="display-name" className="block text-sm font-medium text-slate-300">
             Your name
