@@ -6,6 +6,7 @@ import { request } from '@/app/_shared/api/httpClient'
 import { Button } from '@/app/_shared/components/Button'
 import type { CreateInviteResponse } from '@/app/_shared/api/types'
 import { FunnelStatsCard } from '@/src/features/analytics/FunnelStatsCard'
+import { TeamOverviewCards } from '@/src/features/dashboard/TeamOverviewCards'
 import { useAuth } from '@/src/shared/auth/AuthContext'
 
 export default function TeamPage() {
@@ -58,6 +59,8 @@ export default function TeamPage() {
     <>
       <h1 className="text-xl font-semibold text-zinc-900">{membership.team_name}</h1>
       <p className="mt-1 text-sm text-zinc-500 capitalize">{membership.role.toLowerCase()}</p>
+
+      {isCoach && <TeamOverviewCards />}
 
       {isCoach && <FunnelStatsCard />}
 
