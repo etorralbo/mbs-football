@@ -7,10 +7,11 @@ import { ExerciseSearch, type AddedItem } from './ExerciseSearch'
 
 // Prescription fields shown in the editor, matching what athletes see.
 const PRESCRIPTION_FIELDS = [
-  { key: 'sets', label: 'Sets' },
-  { key: 'reps', label: 'Reps' },
-  { key: 'load', label: 'Load' },
-  { key: 'rest', label: 'Rest' },
+  { key: 'sets',   label: 'Sets' },
+  { key: 'reps',   label: 'Reps' },
+  { key: 'weight', label: 'kg'   },
+  { key: 'rpe',    label: 'RPE'  },
+  { key: 'rest',   label: 'Rest' },
 ] as const
 
 type PrescriptionKey = (typeof PRESCRIPTION_FIELDS)[number]['key']
@@ -28,7 +29,6 @@ function ItemRow({ item, onDeleted }: ItemRowProps) {
   const [prescription, setPrescription] = useState<Record<string, unknown>>(
     item.prescription_json,
   )
-  const [savingFields, setSavingFields] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -36,8 +36,6 @@ function ItemRow({ item, onDeleted }: ItemRowProps) {
     const value = raw === '' ? undefined : Number(raw)
     const updated = { ...prescription, [key]: value }
     setPrescription(updated)
-    setSavingFields(true)
-    setError(null)
     try {
       await request(`/v1/block-items/${item.id}`, {
         method: 'PATCH',
@@ -45,8 +43,6 @@ function ItemRow({ item, onDeleted }: ItemRowProps) {
       })
     } catch {
       setError('Failed to save.')
-    } finally {
-      setSavingFields(false)
     }
   }
 
@@ -90,7 +86,6 @@ function ItemRow({ item, onDeleted }: ItemRowProps) {
         ))}
       </div>
 
-      {savingFields && <span className="text-xs text-slate-400">Saving…</span>}
       {error && <span className="text-xs text-red-400">{error}</span>}
 
       <button

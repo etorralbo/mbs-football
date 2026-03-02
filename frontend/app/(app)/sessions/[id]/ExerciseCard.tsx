@@ -20,7 +20,9 @@ function prescriptionText(p: Record<string, unknown>): string {
   const parts: string[] = []
   if (p.sets) parts.push(`${p.sets} sets`)
   if (p.reps) parts.push(`${p.reps} reps`)
-  if (p.load) parts.push(`@ ${p.load}`)
+  if (p.weight) parts.push(`@ ${p.weight} kg`)
+  else if (p.load) parts.push(`@ ${p.load}`)
+  if (p.rpe) parts.push(`RPE ${p.rpe}`)
   if (p.duration) parts.push(String(p.duration))
   if (p.rest) parts.push(`rest ${p.rest}`)
   return parts.join(' · ') || '—'

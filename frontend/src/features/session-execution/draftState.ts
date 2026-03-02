@@ -44,9 +44,20 @@ export function draftFromExecution(execution: SessionExecution): DraftState {
           ]),
         )
       } else {
-        draft[item.exercise_id] = {
-          1: { reps: '', weight: '', rpe: '', done: false },
-        }
+        const p = item.prescription
+        const n =
+          typeof p.sets === 'number' && p.sets >= 1 ? p.sets : 1
+        draft[item.exercise_id] = Object.fromEntries(
+          Array.from({ length: n }, (_, i) => [
+            i + 1,
+            {
+              reps:   p.reps   != null ? String(p.reps)   : '',
+              weight: p.weight != null ? String(p.weight) : '',
+              rpe:    p.rpe    != null ? String(p.rpe)    : '',
+              done: false,
+            },
+          ]),
+        )
       }
     }
   }
