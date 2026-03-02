@@ -7,6 +7,7 @@ import {
   ValidationError,
   ServerError,
   TeamNotSelectedError,
+  StaleTeamRequestError,
 } from './httpClient'
 import { clearToken, setToken } from '@/app/_shared/auth/tokenStorage'
 import { _setActiveTeamIdInternal } from '@/src/shared/auth/activeTeamStore'
@@ -198,5 +199,18 @@ describe('request — team scoping', () => {
     // The injected value must be replaced with the store value, not the caller's
     expect(options.headers['X-Team-Id']).toBe(VALID_TEAM_ID)
     expect(options.headers['X-Team-Id']).not.toBe('evil-injected-id')
+  })
+
+  it('throws StaleTeamRequestError when active team changes mid-flight', async () => {
+    const OTHER_TEAM_ID = '22222222-2222-2222-2222-222222222222'
+    _setActiveTeamIdInternal(VALID_TEAM_ID)
+
+    // Simulate team switch happening while the fetch is in progress.
+    mockFetch.mockImplementation(async () => {
+      _setActiveTeamIdInternal(OTHER_TEAM_ID)
+      return jsonResponse(200, { id: 1 })
+    })
+
+    await expect(request('/v1/templates')).rejects.toBeInstanceOf(StaleTeamRequestError)
   })
 })

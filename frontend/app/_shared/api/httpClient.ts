@@ -1,6 +1,7 @@
 import { supabase } from '@/app/_shared/auth/supabaseClient'
 import {
   getActiveTeamId,
+  getEpoch,
   isValidUuid,
 } from '@/src/shared/auth/activeTeamStore'
 
@@ -64,6 +65,19 @@ export class TeamNotSelectedError extends Error {
   constructor() {
     super('No team selected')
     this.name = 'TeamNotSelectedError'
+  }
+}
+
+/**
+ * Thrown when the active team changed while a request was in-flight.
+ * The response belongs to the old team context and must be discarded.
+ * handleApiError silently ignores this — the UI will re-render with fresh
+ * data once the new team's requests complete.
+ */
+export class StaleTeamRequestError extends Error {
+  constructor() {
+    super('Team changed while request was in-flight')
+    this.name = 'StaleTeamRequestError'
   }
 }
 
@@ -132,10 +146,13 @@ export async function request<T>(
   }
 
   // Team-scoped requests require an active team.
+  // Capture the epoch so we can detect mid-flight team switches after the fetch.
+  let requestEpoch = 0
   if (teamScoped) {
     const activeTeamId = getActiveTeamId()
     if (activeTeamId && isValidUuid(activeTeamId)) {
       headers['X-Team-Id'] = activeTeamId
+      requestEpoch = getEpoch()
     } else {
       throw new TeamNotSelectedError()
     }
@@ -145,6 +162,11 @@ export async function request<T>(
     ...fetchOptions,
     headers,
   })
+
+  // Discard stale response if the active team changed while the request was in-flight.
+  if (teamScoped && getEpoch() !== requestEpoch) {
+    throw new StaleTeamRequestError()
+  }
 
   const contentType = response.headers.get('content-type') ?? ''
   const isJson = contentType.includes('application/json')

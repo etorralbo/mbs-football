@@ -171,6 +171,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch {
         // localStorage unavailable (e.g. storage quota exceeded)
       }
+      // No global store reset needed. The Team Picker calls router.replace('/home')
+      // after this, which unmounts all team-scoped components and discards their
+      // local state automatically. There is no Zustand/Redux/Jotai to flush.
       setLocalTeamId(id)
     },
     [me],

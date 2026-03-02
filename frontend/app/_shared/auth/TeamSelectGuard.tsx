@@ -14,23 +14,33 @@ import { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/src/shared/auth/AuthContext'
 
-const TEAM_SELECT_PATH = '/team/select'
+// Paths where the Team Picker redirect must NOT fire.
+// - /team/select  : the picker itself (would cause an infinite loop)
+// - /create-team  : a coach without any selected team must still be able to
+//                   create a new team from the nav or after onboarding
+// - /join         : same rationale — joining a team is a bootstrap action
+const EXCLUDED_PATHS = ['/team/select', '/create-team', '/join']
 
 interface TeamSelectGuardProps {
   children: React.ReactNode
 }
 
 export function TeamSelectGuard({ children }: TeamSelectGuardProps) {
-  const { role, activeTeamId, loading, me } = useAuth()
+  const { activeTeamId, loading, me } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+
+  // Use memberships rather than the derived `role` so that a mixed-role user
+  // (COACH of team A, ATHLETE of team B) is correctly identified as a coach
+  // even when no team is selected yet (role would be null or wrong).
+  const isCoach = me !== null && me.memberships.some((m) => m.role === 'COACH')
 
   const needsPicker =
     !loading &&
     me !== null &&
-    role === 'COACH' &&
+    isCoach &&
     activeTeamId === null &&
-    pathname !== TEAM_SELECT_PATH
+    !EXCLUDED_PATHS.includes(pathname)
 
   useEffect(() => {
     if (needsPicker) {
