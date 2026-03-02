@@ -11,6 +11,7 @@ import {
 import type { AcceptInviteResponse } from '@/app/_shared/api/types'
 import { Button } from '@/app/_shared/components/Button'
 import { getPostActionRedirect } from '@/src/features/activation/postActionRedirect'
+import { supabase } from '@/app/_shared/auth/supabaseClient'
 
 export function JoinTeamForm() {
   const router = useRouter()
@@ -34,9 +35,12 @@ export function JoinTeamForm() {
     setLoading(true)
 
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const displayName = user?.user_metadata?.name ?? user?.user_metadata?.full_name ?? ''
+
       await request<AcceptInviteResponse>('/v1/invites/accept', {
         method: 'POST',
-        body: JSON.stringify({ code: trimmed }),
+        body: JSON.stringify({ code: trimmed, display_name: displayName }),
       })
       router.replace(getPostActionRedirect('invite_accepted', 'ATHLETE') ?? '/templates')
     } catch (err) {

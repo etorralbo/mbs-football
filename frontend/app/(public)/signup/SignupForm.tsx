@@ -7,6 +7,7 @@ import { supabase } from '@/app/_shared/auth/supabaseClient'
 import { Button } from '@/app/_shared/components/Button'
 
 export function SignupForm() {
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -33,7 +34,11 @@ export function SignupForm() {
     setError(null)
     setLoading(true)
     try {
-      const { error: authError } = await supabase.auth.signUp({ email, password })
+      const { error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { name: name.trim() } },
+      })
       if (authError) {
         setError(authError.message)
         return
@@ -65,6 +70,27 @@ export function SignupForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label htmlFor="display-name" className="block text-sm font-semibold text-slate-200">
+            Your name
+          </label>
+          <div className="relative mt-1.5">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+              <PersonIcon />
+            </div>
+            <input
+              id="display-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              autoComplete="name"
+              className="w-full rounded-lg border border-white/10 bg-[#1a212e] py-2.5 pl-10 pr-3 text-sm text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              placeholder="e.g. Alex García"
+            />
+          </div>
+        </div>
+
         <div>
           <label htmlFor="email" className="block text-sm font-semibold text-slate-200">
             Email Address
@@ -116,7 +142,7 @@ export function SignupForm() {
 
         <Button
           type="submit"
-          disabled={loading || googleLoading || !email || !password}
+          disabled={loading || googleLoading || !name.trim() || !email || !password}
           loading={loading}
           className="w-full justify-center rounded-lg py-2.5 text-sm font-bold"
         >
@@ -131,6 +157,14 @@ export function SignupForm() {
         </p>
       </form>
     </div>
+  )
+}
+
+function PersonIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+    </svg>
   )
 }
 

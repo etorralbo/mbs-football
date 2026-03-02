@@ -85,3 +85,29 @@ class TestCreateTeam:
         mock_jwt(str(user_id))
         resp = client.post("/v1/teams", json={"name": "New Coach Team"}, headers=AUTH)
         assert resp.status_code == 201
+
+
+class TestCreateTeamDisplayName:
+    def test_display_name_stored_in_user_profile(
+        self, client: TestClient, db_session: Session, mock_jwt
+    ) -> None:
+        """POST /v1/teams with display_name persists it as UserProfile.name."""
+        from app.models import UserProfile
+        from sqlalchemy import select
+
+        user_id = uuid.uuid4()
+        mock_jwt(str(user_id))
+
+        resp = client.post(
+            "/v1/teams",
+            json={"name": "FC Test", "display_name": "Alex García"},
+            headers=AUTH,
+        )
+        assert resp.status_code == 201
+
+        db_session.expire_all()
+        profile = db_session.execute(
+            select(UserProfile).where(UserProfile.supabase_user_id == user_id)
+        ).scalar_one_or_none()
+        assert profile is not None
+        assert profile.name == "Alex García"
