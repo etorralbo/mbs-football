@@ -58,7 +58,7 @@ export default function SessionsPage() {
     <>
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-zinc-900">Workout Sessions</h1>
-        {role === 'COACH' && (
+        {role && (
           <div className="flex rounded-lg border border-zinc-200 bg-white p-0.5">
             <button
               onClick={() => setViewMode('list')}

@@ -22,6 +22,7 @@ export function ExerciseSearch({ blockId, onItemAdded }: Props) {
   const [results, setResults] = useState<Exercise[]>([])
   const [searching, setSearching] = useState(false)
   const [adding, setAdding] = useState<string | null>(null) // exercise_id being added
+  const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -62,6 +63,32 @@ export function ExerciseSearch({ blockId, onItemAdded }: Props) {
       setError('Could not add exercise. Please try again.')
     } finally {
       setAdding(null)
+    }
+  }
+
+  async function handleCreate() {
+    const name = query.trim()
+    if (!name) return
+    setCreating(true)
+    setError(null)
+    try {
+      // Create the exercise in the team library
+      const exercise = await request<Exercise>('/v1/exercises', {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+      })
+      // Then immediately add it to the block
+      const item = await request<AddedItem>(`/v1/blocks/${blockId}/items`, {
+        method: 'POST',
+        body: JSON.stringify({ exercise_id: exercise.id, prescription_json: {} }),
+      })
+      onItemAdded(item)
+      setQuery('')
+      setResults([])
+    } catch {
+      setError('Could not create exercise. Please try again.')
+    } finally {
+      setCreating(false)
     }
   }
 
@@ -106,7 +133,18 @@ export function ExerciseSearch({ blockId, onItemAdded }: Props) {
       )}
 
       {query.trim() && !searching && results.length === 0 && (
-        <p className="mt-1 text-xs text-zinc-400">No exercises found for &ldquo;{query}&rdquo;.</p>
+        <div className="mt-1 flex items-center gap-2">
+          <p className="text-xs text-zinc-400">
+            No exercises found for &ldquo;{query}&rdquo;.
+          </p>
+          <button
+            onClick={handleCreate}
+            disabled={creating}
+            className="inline-flex items-center gap-1 rounded-md border border-dashed border-indigo-300 px-2 py-0.5 text-xs text-indigo-600 transition-colors hover:bg-indigo-50 disabled:opacity-50"
+          >
+            {creating ? 'Creating…' : `+ Create "${query.trim()}"`}
+          </button>
+        </div>
       )}
     </div>
   )
