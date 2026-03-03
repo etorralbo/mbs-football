@@ -62,6 +62,18 @@ const LOGGED_EXECUTION: SessionExecution = {
   }],
 }
 
+// Execution with a set not yet marked done (inputs remain editable)
+const UNDONE_EXECUTION: SessionExecution = {
+  ...EMPTY_EXECUTION,
+  blocks: [{
+    name: 'Primary Strength', key: 'PRIMARY_STRENGTH', order: 0,
+    items: [{
+      exercise_id: 'ex-1', exercise_name: 'Squat', prescription: {},
+      logs: [{ set_number: 1, reps: 5, weight: 100, rpe: 8, done: false }],
+    }],
+  }],
+}
+
 // ---------------------------------------------------------------------------
 // Setup / teardown
 // ---------------------------------------------------------------------------
@@ -141,10 +153,21 @@ describe('SessionDetailPage — Mark as completed', () => {
   })
 })
 
-describe('SessionDetailPage — COACH read-only', () => {
-  it('hides CompletionBar when viewer is COACH', async () => {
+describe('SessionDetailPage — COACH role', () => {
+  it('shows CompletionBar when viewer is COACH and session is pending', async () => {
     mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
     mockRequest.mockResolvedValueOnce(EMPTY_EXECUTION)
+
+    render(<SessionDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /mark as completed/i })).toBeInTheDocument()
+    })
+  })
+
+  it('hides CompletionBar when viewer is COACH and session is completed', async () => {
+    mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
+    mockRequest.mockResolvedValueOnce(COMPLETED_EXECUTION)
 
     render(<SessionDetailPage />)
 
@@ -152,9 +175,21 @@ describe('SessionDetailPage — COACH read-only', () => {
     expect(screen.queryByRole('button', { name: /mark as completed/i })).toBeNull()
   })
 
-  it('disables set inputs when viewer is COACH', async () => {
+  it('enables set inputs when viewer is COACH and session is pending', async () => {
     mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
-    mockRequest.mockResolvedValueOnce(LOGGED_EXECUTION)
+    mockRequest.mockResolvedValueOnce(UNDONE_EXECUTION)
+
+    render(<SessionDetailPage />)
+
+    await screen.findByText('Squat')
+    screen.getAllByRole('spinbutton').forEach((input) =>
+      expect(input).not.toBeDisabled(),
+    )
+  })
+
+  it('disables set inputs when viewer is COACH and session is completed', async () => {
+    mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
+    mockRequest.mockResolvedValueOnce({ ...LOGGED_EXECUTION, status: 'completed' })
 
     render(<SessionDetailPage />)
 
