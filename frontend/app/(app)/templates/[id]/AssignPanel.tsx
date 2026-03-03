@@ -25,7 +25,9 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
   const [athletes, setAthletes] = useState<Athlete[]>([])
   const [mode, setMode] = useState<Mode>('team')
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [scheduledFor, setScheduledFor] = useState('')
+  const [scheduledFor, setScheduledFor] = useState(() =>
+    new Date().toLocaleDateString('en-CA'),
+  )
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -73,7 +75,7 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
             scheduled_for: scheduledFor || null,
           }),
         })
-        setScheduledFor('')
+        setScheduledFor(new Date().toLocaleDateString('en-CA'))
         setSuccess(
           `Assigned to whole team — ${result.sessions_created} session${result.sessions_created !== 1 ? 's' : ''} created.`,
         )
@@ -101,7 +103,7 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
         const totalSessions = successes.reduce((sum, r) => sum + r.value.sessions_created, 0)
 
         if (successCount > 0) {
-          setScheduledFor('')
+          setScheduledFor(new Date().toLocaleDateString('en-CA'))
           setSelected(new Set())
           setSuccess(
             `Assigned to ${successCount} athlete${successCount !== 1 ? 's' : ''} — ${totalSessions} session${totalSessions !== 1 ? 's' : ''} created.${failCount > 0 ? ` (${failCount} failed)` : ''}`,
