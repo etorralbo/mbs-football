@@ -20,20 +20,55 @@ interface Props {
 }
 
 // ---------------------------------------------------------------------------
+// Normalization
+// ---------------------------------------------------------------------------
+
+/**
+ * Normalises a string for fuzzy search:
+ *  1. NFD-decompose then strip combining diacritical marks (é→e, ñ→n, ü→u…)
+ *  2. Lowercase
+ *  3. Replace every non-alphanumeric, non-space character with a space
+ *     (removes punctuation such as dots, hyphens, apostrophes, etc.)
+ *  4. Collapse runs of whitespace into a single space
+ *  5. Trim leading/trailing whitespace
+ *
+ * Result length equals the original for common Latin characters, so the
+ * index returned by indexOf() maps directly back to a slice position in the
+ * original string — which makes highlighting safe without a secondary pass.
+ */
+export function normalize(str: string): string {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // strip combining diacritical marks
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')    // remove punctuation
+    .replace(/\s+/g, ' ')            // collapse whitespace
+    .trim()
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Highlights the first occurrence of `query` inside `text`.
+ * Both sides are normalised before the position lookup so that
+ * accented / punctuated queries still produce a visible highlight.
+ */
 function highlight(text: string, query: string): ReactNode {
-  if (!query) return text
-  const idx = text.toLowerCase().indexOf(query.toLowerCase())
+  const nq = normalize(query)
+  if (!nq) return text
+  // Find match position in the normalised text so diacritics and punctuation
+  // in the query are stripped before comparison.
+  const idx = normalize(text).indexOf(nq)
   if (idx === -1) return text
   return (
     <>
       {text.slice(0, idx)}
       <mark className="rounded-sm bg-[#4f9cf9]/20 text-[#4f9cf9] not-italic">
-        {text.slice(idx, idx + query.length)}
+        {text.slice(idx, idx + nq.length)}
       </mark>
-      {text.slice(idx + query.length)}
+      {text.slice(idx + nq.length)}
     </>
   )
 }
@@ -113,16 +148,25 @@ export function ExerciseSelector({
     setActiveIndex(-1)
   }, [debouncedQuery])
 
-  // Client-side filter, split by owner_type, memoised
+  // Pre-normalise exercise names once when the fetched list changes.
+  // This avoids re-running normalize() on every keystroke for every exercise.
+  const normalizedNames = useMemo(
+    () => allExercises.map((ex) => normalize(ex.name)),
+    [allExercises],
+  )
+
+  // Client-side filter → split into sections → memoised.
+  // Filter first, split later: O(n) single pass over the full list.
   const { official, mine, flatList } = useMemo(() => {
-    const q = debouncedQuery.toLowerCase()
-    const filtered = q
-      ? allExercises.filter((ex) => ex.name.toLowerCase().includes(q))
+    const nq = normalize(debouncedQuery)
+    const filtered = nq
+      ? allExercises.filter((_, i) => normalizedNames[i].includes(nq))
       : allExercises
+    // Treat exercises without owner_type (pre-migration rows) as COACH
     const official = filtered.filter((ex) => ex.owner_type === 'COMPANY')
-    const mine = filtered.filter((ex) => ex.owner_type === 'COACH')
+    const mine = filtered.filter((ex) => ex.owner_type !== 'COMPANY')
     return { official, mine, flatList: [...official, ...mine] }
-  }, [allExercises, debouncedQuery])
+  }, [allExercises, normalizedNames, debouncedQuery])
 
   // Scroll active item into view
   useEffect(() => {

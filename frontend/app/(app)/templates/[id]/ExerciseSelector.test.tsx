@@ -1,7 +1,7 @@
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 import type { Exercise } from '@/app/_shared/api/types'
-import { ExerciseSelector } from './ExerciseSelector'
+import { ExerciseSelector, normalize } from './ExerciseSelector'
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -47,6 +47,11 @@ const COACH_EX: Exercise = {
   video_asset_id: null,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
+}
+
+/** Helper to build a minimal COACH exercise with a custom name. */
+function coachEx(id: string, name: string): Exercise {
+  return { ...COACH_EX, id, name }
 }
 
 // ---------------------------------------------------------------------------
@@ -259,5 +264,144 @@ describe('ExerciseSelector — onSelect callback', () => {
     fireEvent.click(screen.getByRole('button', { name: /create "new move"/i }))
 
     expect(onCreateRequest).toHaveBeenCalledWith('New Move')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// normalize() unit tests — pure function, no DOM needed
+// ---------------------------------------------------------------------------
+
+describe('normalize()', () => {
+  it('lowercases the input', () => {
+    expect(normalize('JUMP')).toBe('jump')
+  })
+
+  it('trims leading and trailing whitespace', () => {
+    expect(normalize('  jump  ')).toBe('jump')
+  })
+
+  it('collapses internal whitespace', () => {
+    expect(normalize('back  squat')).toBe('back squat')
+  })
+
+  it('removes punctuation', () => {
+    expect(normalize('jum..')).toBe('jum')
+    expect(normalize("farmer's walk")).toBe('farmers walk')
+    // Hyphen joins compound words — removing it merges them (not a space)
+    expect(normalize('hip-thrust')).toBe('hipthrust')
+  })
+
+  it('strips diacritical marks', () => {
+    expect(normalize('café')).toBe('cafe')
+    expect(normalize('Sqüat')).toBe('squat')
+    expect(normalize('Ñoño')).toBe('nono')
+  })
+
+  it('handles an empty string', () => {
+    expect(normalize('')).toBe('')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Search normalization integration tests
+// ---------------------------------------------------------------------------
+
+describe('ExerciseSelector — search normalization', () => {
+  it('"jum" partially matches "Jump"', async () => {
+    const { input } = await renderAndOpen([coachEx('ex-jump', 'Jump'), coachEx('ex-plank', 'Plank')])
+
+    fireEvent.change(input, { target: { value: 'jum' } })
+
+    await waitFor(
+      () => expect(screen.queryByRole('button', { name: 'Plank' })).not.toBeInTheDocument(),
+      { timeout: 500 },
+    )
+    expect(screen.getByRole('button', { name: 'Jump' })).toBeInTheDocument()
+  })
+
+  it('"jum.." matches "Jump" (punctuation tolerance — the original bug)', async () => {
+    const { input } = await renderAndOpen([coachEx('ex-jump', 'Jump'), coachEx('ex-plank', 'Plank')])
+
+    fireEvent.change(input, { target: { value: 'jum..' } })
+
+    await waitFor(
+      () => expect(screen.queryByRole('button', { name: 'Plank' })).not.toBeInTheDocument(),
+      { timeout: 500 },
+    )
+    expect(screen.getByRole('button', { name: 'Jump' })).toBeInTheDocument()
+  })
+
+  it('"JUMP" matches "Jump" (case-insensitive)', async () => {
+    const { input } = await renderAndOpen([coachEx('ex-jump', 'Jump'), coachEx('ex-plank', 'Plank')])
+
+    fireEvent.change(input, { target: { value: 'JUMP' } })
+
+    await waitFor(
+      () => expect(screen.queryByRole('button', { name: 'Plank' })).not.toBeInTheDocument(),
+      { timeout: 500 },
+    )
+    expect(screen.getByRole('button', { name: 'Jump' })).toBeInTheDocument()
+  })
+
+  it('"squat" matches accent-bearing name "Sqüat"', async () => {
+    const { input } = await renderAndOpen([coachEx('ex-squat', 'Sqüat'), coachEx('ex-plank', 'Plank')])
+
+    fireEvent.change(input, { target: { value: 'squat' } })
+
+    await waitFor(
+      () => expect(screen.queryByRole('button', { name: 'Plank' })).not.toBeInTheDocument(),
+      { timeout: 500 },
+    )
+    expect(screen.getByRole('button', { name: 'Sqüat' })).toBeInTheDocument()
+  })
+
+  it('accent-bearing query "sqüat" matches plain name "Squat"', async () => {
+    const { input } = await renderAndOpen([coachEx('ex-squat', 'Squat'), coachEx('ex-plank', 'Plank')])
+
+    fireEvent.change(input, { target: { value: 'sqüat' } })
+
+    await waitFor(
+      () => expect(screen.queryByRole('button', { name: 'Plank' })).not.toBeInTheDocument(),
+      { timeout: 500 },
+    )
+    expect(screen.getByRole('button', { name: 'Squat' })).toBeInTheDocument()
+  })
+
+  it('filtering works across Official and My Exercises sections', async () => {
+    const officialJump: Exercise = { ...COMPANY_EX, id: 'co-jump', name: 'Jump Official' }
+    const myJump = coachEx('my-jump', 'Jump My')
+    const { input } = await renderAndOpen([officialJump, myJump, coachEx('ex-plank', 'Plank')])
+
+    fireEvent.change(input, { target: { value: 'jum..' } })
+
+    await waitFor(
+      () => expect(screen.queryByRole('button', { name: 'Plank' })).not.toBeInTheDocument(),
+      { timeout: 500 },
+    )
+    expect(screen.getByRole('button', { name: 'Jump Official' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Jump My' })).toBeInTheDocument()
+    expect(screen.getByText('Official Exercises')).toBeInTheDocument()
+    expect(screen.getByText('My Exercises')).toBeInTheDocument()
+  })
+
+  it('keyboard navigation still works after a normalised search', async () => {
+    const onSelect = vi.fn()
+    mockRequest.mockResolvedValueOnce([coachEx('ex-jump', 'Jump')])
+    render(<ExerciseSelector onSelect={onSelect} />)
+    const input = screen.getByRole('combobox')
+    fireEvent.focus(input)
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
+
+    fireEvent.change(input, { target: { value: 'jum..' } })
+
+    await waitFor(
+      () => expect(screen.getByRole('button', { name: 'Jump' })).toBeInTheDocument(),
+      { timeout: 500 },
+    )
+
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(onSelect).toHaveBeenCalledWith(coachEx('ex-jump', 'Jump'))
   })
 })
