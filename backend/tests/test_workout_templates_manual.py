@@ -151,9 +151,16 @@ class TestTemplateCRUD:
     def test_publish_template(
         self, client: TestClient, mock_jwt, coach_a: UserProfile
     ):
+        """Happy path: template with ≥1 block and ≥1 exercise can be published."""
         mock_jwt(str(coach_a.supabase_user_id))
         t = _create_template(client)
-        assert t["status"] == "draft"
+        b = _create_block(client, t["id"])
+        ex = _create_exercise(client)
+        client.post(
+            f"{BLOCKS_URL}/{b['id']}/items",
+            headers=HEADERS,
+            json={"exercise_id": ex["id"], "prescription_json": {}},
+        )
 
         r = client.patch(
             f"{TEMPLATES_URL}/{t['id']}",
@@ -162,6 +169,99 @@ class TestTemplateCRUD:
         )
         assert r.status_code == 200
         assert r.json()["status"] == "published"
+
+    def test_cannot_publish_empty_template(
+        self, client: TestClient, mock_jwt, coach_a: UserProfile
+    ):
+        """Template with no blocks cannot be published → 422."""
+        mock_jwt(str(coach_a.supabase_user_id))
+        t = _create_template(client)
+
+        r = client.patch(
+            f"{TEMPLATES_URL}/{t['id']}",
+            headers=HEADERS,
+            json={"status": "published"},
+        )
+        assert r.status_code == 422
+        assert "block" in r.json()["detail"].lower()
+
+    def test_cannot_publish_template_with_empty_blocks(
+        self, client: TestClient, mock_jwt, coach_a: UserProfile
+    ):
+        """Template with blocks but no exercises cannot be published → 422."""
+        mock_jwt(str(coach_a.supabase_user_id))
+        t = _create_template(client)
+        _create_block(client, t["id"])  # block exists but has no items
+
+        r = client.patch(
+            f"{TEMPLATES_URL}/{t['id']}",
+            headers=HEADERS,
+            json={"status": "published"},
+        )
+        assert r.status_code == 422
+        assert "exercise" in r.json()["detail"].lower()
+
+    def test_publish_is_idempotent(
+        self, client: TestClient, mock_jwt, coach_a: UserProfile
+    ):
+        """Publishing an already-published template succeeds without error."""
+        mock_jwt(str(coach_a.supabase_user_id))
+        t = _create_template(client)
+        b = _create_block(client, t["id"])
+        ex = _create_exercise(client)
+        client.post(
+            f"{BLOCKS_URL}/{b['id']}/items",
+            headers=HEADERS,
+            json={"exercise_id": ex["id"], "prescription_json": {}},
+        )
+
+        # First publish
+        r1 = client.patch(
+            f"{TEMPLATES_URL}/{t['id']}",
+            headers=HEADERS,
+            json={"status": "published"},
+        )
+        assert r1.status_code == 200
+
+        # Second publish — idempotent
+        r2 = client.patch(
+            f"{TEMPLATES_URL}/{t['id']}",
+            headers=HEADERS,
+            json={"status": "published"},
+        )
+        assert r2.status_code == 200
+        assert r2.json()["status"] == "published"
+
+    def test_athlete_cannot_publish(
+        self, client: TestClient, mock_jwt, athlete_a: UserProfile
+    ):
+        """PATCH with status='published' requires COACH role → 403 for athletes."""
+        mock_jwt(str(athlete_a.supabase_user_id))
+        r = client.patch(
+            f"{TEMPLATES_URL}/{uuid.uuid4()}",
+            headers=HEADERS,
+            json={"status": "published"},
+        )
+        assert r.status_code == 403
+
+    def test_cannot_publish_other_teams_template(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+        coach_b: UserProfile,
+    ):
+        """PATCH on another team's template → 404 (no IDOR)."""
+        mock_jwt(str(coach_a.supabase_user_id))
+        t = _create_template(client)
+
+        mock_jwt(str(coach_b.supabase_user_id))
+        r = client.patch(
+            f"{TEMPLATES_URL}/{t['id']}",
+            headers=HEADERS,
+            json={"status": "published"},
+        )
+        assert r.status_code == 404
 
     def test_invalid_status_rejected(
         self, client: TestClient, mock_jwt, coach_a: UserProfile
@@ -218,8 +318,8 @@ class TestBlockCRUD:
         b1 = _create_block(client, t["id"], "Block A")
         b2 = _create_block(client, t["id"], "Block B")
 
-        assert b1["order_index"] == 0
-        assert b2["order_index"] == 1
+        assert b1["order"] == 0
+        assert b2["order"] == 1
 
     def test_rename_block(
         self, client: TestClient, mock_jwt, coach_a: UserProfile
