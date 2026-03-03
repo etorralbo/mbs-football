@@ -17,6 +17,7 @@ export function useFunnelStats(enabled: boolean): FunnelState {
 
     let cancelled = false
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setState(LOADING)
 
     request<FunnelResponse>('/v1/analytics/funnel')

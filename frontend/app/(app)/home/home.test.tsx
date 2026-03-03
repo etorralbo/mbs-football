@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, waitFor, cleanup } from '@testing-library/react'
-import type { WorkoutTemplate, WorkoutSessionSummary, Exercise } from '@/app/_shared/api/types'
+import type { WorkoutSessionSummary } from '@/app/_shared/api/types'
 import type { TeamOverviewState } from '@/src/features/dashboard/useTeamOverview'
 
 // ---------------------------------------------------------------------------
@@ -60,16 +60,6 @@ const mockUseTeamOverview = vi.mocked(useTeamOverview)
 // Test fixtures
 // ---------------------------------------------------------------------------
 
-const TEMPLATE: WorkoutTemplate = {
-  id: 'tpl-1',
-  team_id: 'team-1',
-  title: 'Strength Block A',
-  description: null,
-  status: 'draft',
-  created_at: '2025-01-01T00:00:00Z',
-  updated_at: '2025-01-01T00:00:00Z',
-}
-
 const PENDING_SESSION: WorkoutSessionSummary = {
   id: 'sess-1',
   assignment_id: 'assign-1',
@@ -90,20 +80,6 @@ const COMPLETED_SESSION: WorkoutSessionSummary = {
   athlete_name: 'Alice',
   scheduled_for: '2025-02-28',
   completed_at: '2025-02-28T10:00:00Z',
-}
-
-const EXERCISE: Exercise = {
-  id: 'ex-1',
-  coach_id: null,
-  owner_type: 'COMPANY',
-  is_editable: false,
-  is_favorite: false,
-  name: 'Back Squat',
-  description: '',
-  tags: [],
-  video_asset_id: null,
-  created_at: '2025-01-01T00:00:00Z',
-  updated_at: '2025-01-01T00:00:00Z',
 }
 
 const COACH_TEAM_STATE: TeamOverviewState = {

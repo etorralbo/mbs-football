@@ -36,7 +36,7 @@ export default function AthleteHomePage() {
   // without adding router to the dep-array (which could cause spurious re-fetches
   // if Next.js ever changes its router identity between renders).
   const routerRef = useRef(router)
-  routerRef.current = router
+  useEffect(() => { routerRef.current = router })
 
   useEffect(() => {
     document.title = "Today's Workout | Mettle Performance"
@@ -45,6 +45,7 @@ export default function AthleteHomePage() {
   useEffect(() => {
     const ac = new AbortController()
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadState('loading')
     setErrorMessage(null)
     setCanRetry(true)
@@ -80,7 +81,7 @@ export default function AthleteHomePage() {
 
   return (
     <>
-      <h1 className="text-xl font-semibold text-white">Today's Workout</h1>
+      <h1 className="text-xl font-semibold text-white">Today&apos;s Workout</h1>
 
       {/*
         aria-live="polite": screen readers announce content changes when

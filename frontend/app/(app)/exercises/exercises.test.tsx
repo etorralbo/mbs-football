@@ -189,7 +189,6 @@ describe('ExercisesPage — favourites', () => {
   })
 
   it('toggles favourite optimistically', async () => {
-    const updatedEx = { ...COACH_EX, is_favorite: true }
     mockRequest
       .mockResolvedValueOnce([COACH_EX])                      // initial list fetch
       .mockResolvedValueOnce({ is_favorite: true })           // POST /favorite

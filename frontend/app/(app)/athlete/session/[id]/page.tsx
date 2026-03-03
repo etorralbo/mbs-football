@@ -110,6 +110,7 @@ export default function AthleteSessionPage() {
   //   2. `execution.session_id === id` → prevents applying data from a previous
   //      session if state updates arrive out of order.
   //   3. `hydratedSessionRef` → prevents re-hydrating on every re-render after success.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (
       execution &&
@@ -203,6 +204,7 @@ export default function AthleteSessionPage() {
         persistTimerRef.current = null
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.draft, state.currentBlockIdx, state.phase, id, execution])
 
   // ── Discard draft: clear storage and re-hydrate from server data.
