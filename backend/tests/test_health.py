@@ -14,6 +14,7 @@ from app.main import create_app
 _REQUIRED = dict(
     DATABASE_URL="postgresql+psycopg://fake:fake@localhost:5432/fake",
     SUPABASE_URL="https://fake.supabase.co",
+    FRONTEND_URL="https://app.example.com",
 )
 
 

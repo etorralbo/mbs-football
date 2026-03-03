@@ -59,7 +59,6 @@ export function ProgressSection() {
   if (state.status === 'error' || state.status === 'empty') return null
 
   const { series } = state
-  const selected = series[selectedIdx] ?? series[0]
 
   // Only show exercises that have at least 2 data points (otherwise a line makes no sense).
   const plottable = series.filter((s) => s.points.length >= 2)

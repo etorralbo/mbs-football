@@ -1,0 +1,65 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+
+jobs:
+  test:
+    name: Alembic migrations + pytest
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: app        # admin DB; conftest creates app_test on top of this
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write .env.test
+        run: |
+          cat > .env.test <<EOF
+          DATABASE_URL=postgresql+psycopg://app:app@localhost:5432/app_test
+          TEST_ADMIN_DB=app
+          SUPABASE_URL=https://example.supabase.co
+          SUPABASE_JWT_AUD=authenticated
+          FRONTEND_URL=http://localhost:3000
+          AI_ENABLED=true
+          AI_STUB=true
+          ENV=test
+          EOF
+
+      - name: Run pytest (includes alembic upgrade head via conftest)
+        run: python -m pytest -q --tb=short

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, waitFor, cleanup } from '@testing-library/react'
-import type { WorkoutTemplate, WorkoutSessionSummary, Exercise } from '@/app/_shared/api/types'
+import type { WorkoutSessionSummary } from '@/app/_shared/api/types'
 import type { TeamOverviewState } from '@/src/features/dashboard/useTeamOverview'
 
 // ---------------------------------------------------------------------------
@@ -23,8 +23,10 @@ vi.mock('@/src/features/athlete/components/ProgressSection', () => ({
   ProgressSection: () => <div data-testid="progress-section" />,
 }))
 
+const mockReplace = vi.hoisted(() => vi.fn())
+
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+  useRouter: () => ({ replace: mockReplace, push: vi.fn() }),
   usePathname: () => '/home',
   useSearchParams: () => ({ get: () => null }),
 }))
@@ -58,16 +60,6 @@ const mockUseTeamOverview = vi.mocked(useTeamOverview)
 // Test fixtures
 // ---------------------------------------------------------------------------
 
-const TEMPLATE: WorkoutTemplate = {
-  id: 'tpl-1',
-  team_id: 'team-1',
-  title: 'Strength Block A',
-  description: null,
-  status: 'draft',
-  created_at: '2025-01-01T00:00:00Z',
-  updated_at: '2025-01-01T00:00:00Z',
-}
-
 const PENDING_SESSION: WorkoutSessionSummary = {
   id: 'sess-1',
   assignment_id: 'assign-1',
@@ -88,20 +80,6 @@ const COMPLETED_SESSION: WorkoutSessionSummary = {
   athlete_name: 'Alice',
   scheduled_for: '2025-02-28',
   completed_at: '2025-02-28T10:00:00Z',
-}
-
-const EXERCISE: Exercise = {
-  id: 'ex-1',
-  coach_id: null,
-  owner_type: 'COMPANY',
-  is_editable: false,
-  is_favorite: false,
-  name: 'Back Squat',
-  description: '',
-  tags: [],
-  video_asset_id: null,
-  created_at: '2025-01-01T00:00:00Z',
-  updated_at: '2025-01-01T00:00:00Z',
 }
 
 const COACH_TEAM_STATE: TeamOverviewState = {
@@ -150,6 +128,7 @@ function setupAthlete() {
 
 afterEach(() => {
   vi.clearAllMocks()
+  mockReplace.mockReset()
   cleanup()
 })
 
@@ -157,98 +136,32 @@ afterEach(() => {
 // COACH tests
 // ---------------------------------------------------------------------------
 
+// COACH home page: redirects to /templates and shows skeleton while doing so.
 describe('HomePage — COACH role', () => {
-  it('renders all 4 section headings', async () => {
+  it('redirects to /templates', async () => {
     setupCoach()
-    mockRequest.mockResolvedValue([])
 
     render(<HomePage />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Workout Templates')).toBeInTheDocument()
-      expect(screen.getByText('Sessions')).toBeInTheDocument()
-      expect(screen.getByText('Exercise Library')).toBeInTheDocument()
-      expect(screen.getByText('Team')).toBeInTheDocument()
-    })
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/templates'))
   })
 
-  it('"View all" links point to correct pages', async () => {
+  it('shows skeleton while redirecting', () => {
     setupCoach()
-    mockRequest.mockResolvedValue([])
 
     render(<HomePage />)
 
-    await waitFor(() => {
-      const links = screen.getAllByRole('link', { name: /view all/i })
-      const hrefs = links.map((l) => l.getAttribute('href'))
-      expect(hrefs).toContain('/templates')
-      expect(hrefs).toContain('/sessions')
-      expect(hrefs).toContain('/exercises')
-      expect(hrefs).toContain('/team')
-    })
+    // The skeleton renders before the redirect effect fires
+    expect(document.querySelector('.animate-pulse')).toBeInTheDocument()
   })
 
-  it('shows template title when data loads', async () => {
+  it('does not render athlete-specific sections', () => {
     setupCoach()
-    mockRequest.mockImplementation((path: string) => {
-      if (path === '/v1/workout-templates') return Promise.resolve([TEMPLATE])
-      return Promise.resolve([])
-    })
 
     render(<HomePage />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Strength Block A')).toBeInTheDocument()
-    })
-  })
-
-  it('shows empty state when no templates', async () => {
-    setupCoach()
-    mockRequest.mockResolvedValue([])
-
-    render(<HomePage />)
-
-    await waitFor(() => {
-      expect(screen.getByText(/no templates yet/i)).toBeInTheDocument()
-    })
-  })
-
-  it('shows exercise name when exercises load', async () => {
-    setupCoach()
-    mockRequest.mockImplementation((path: string) => {
-      if (path === '/v1/exercises') return Promise.resolve([EXERCISE])
-      return Promise.resolve([])
-    })
-
-    render(<HomePage />)
-
-    await waitFor(() => {
-      expect(screen.getByText('Back Squat')).toBeInTheDocument()
-    })
-  })
-
-  it('shows athletes from team overview', async () => {
-    setupCoach()
-    mockRequest.mockResolvedValue([])
-
-    render(<HomePage />)
-
-    await waitFor(() => {
-      // COACH_TEAM_STATE has 1 athlete: Alice
-      expect(screen.getByText('Alice')).toBeInTheDocument()
-    })
-  })
-
-  it('does not render athlete-specific sections', async () => {
-    setupCoach()
-    mockRequest.mockResolvedValue([])
-
-    render(<HomePage />)
-
-    await waitFor(() => {
-      expect(screen.queryByText("Today's Training")).not.toBeInTheDocument()
-      expect(screen.queryByTestId('progress-section')).not.toBeInTheDocument()
-    })
+    expect(screen.queryByText("Today's Training")).not.toBeInTheDocument()
+    expect(screen.queryByTestId('progress-section')).not.toBeInTheDocument()
   })
 })
 

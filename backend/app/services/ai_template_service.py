@@ -174,7 +174,7 @@ def generate_stub_draft(
         ).scalars()
     )
 
-    title = f"[STUB] {prompt[:60].strip()}"
+    title = prompt[:60].strip().title() or "Workout Draft"
 
     blocks = [
         AiBlockDraft(

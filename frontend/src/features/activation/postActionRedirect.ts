@@ -11,7 +11,8 @@ export type Role = 'COACH' | 'ATHLETE'
  */
 export function getPostActionRedirect(
   event: PostActionEvent,
-  _role: Role,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _: Role,
 ): string | null {
   switch (event) {
     case 'team_created':

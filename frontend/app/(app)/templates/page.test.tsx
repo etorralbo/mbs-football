@@ -12,11 +12,17 @@ import TemplatesPage from './page'
 // Module mocks
 // ---------------------------------------------------------------------------
 
-const { mockUseAuth, mockPush, mockRequest } = vi.hoisted(() => ({
-  mockUseAuth: vi.fn(),
-  mockPush: vi.fn(),
-  mockRequest: vi.fn(),
-}))
+const { mockUseAuth, mockPush, mockRequest, stableRouter } = vi.hoisted(() => {
+  const push = vi.fn()
+  return {
+    mockUseAuth: vi.fn(),
+    mockPush: push,
+    mockRequest: vi.fn(),
+    // Stable object reference — prevents useEffect([router]) from re-running
+    // on every render (new object each render would consume Once mocks early).
+    stableRouter: { replace: push, push },
+  }
+})
 
 vi.mock('@/src/shared/auth/AuthContext', () => ({ useAuth: mockUseAuth }))
 
@@ -26,7 +32,7 @@ vi.mock('@/app/_shared/api/httpClient', async (importOriginal) => {
 })
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ replace: mockPush, push: mockPush }),
+  useRouter: () => stableRouter,
 }))
 
 vi.mock('next/link', () => ({
@@ -108,14 +114,15 @@ describe('TemplatesPage — New Template form', () => {
   it('shows "+ New Template" button for COACH', async () => {
     renderAsCoach()
     await screen.findByText(/workout templates/i)
-    expect(screen.getByRole('button', { name: /\+ new template/i })).toBeInTheDocument()
+    // EmptyState also renders a "+ New Template" button — target the header one (first)
+    expect(screen.getAllByRole('button', { name: /\+ new template/i })[0]).toBeInTheDocument()
   })
 
   it('toggles inline form when "+ New Template" is clicked', async () => {
     renderAsCoach()
     await screen.findByText(/workout templates/i)
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ new template/i }))
+    fireEvent.click(screen.getAllByRole('button', { name: /\+ new template/i })[0])
 
     expect(screen.getByLabelText(/template title/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^create$/i })).toBeInTheDocument()
@@ -125,7 +132,7 @@ describe('TemplatesPage — New Template form', () => {
     renderAsCoach()
     await screen.findByText(/workout templates/i)
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ new template/i }))
+    fireEvent.click(screen.getAllByRole('button', { name: /\+ new template/i })[0])
     const input = screen.getByLabelText(/template title/i)
     fireEvent.change(input, { target: { value: 'AB' } })
     fireEvent.submit(input.closest('form')!)
@@ -148,7 +155,7 @@ describe('TemplatesPage — New Template form', () => {
     render(<TemplatesPage />)
 
     await screen.findByText(/workout templates/i)
-    fireEvent.click(screen.getByRole('button', { name: /\+ new template/i }))
+    fireEvent.click(screen.getAllByRole('button', { name: /\+ new template/i })[0])
 
     const input = screen.getByLabelText(/template title/i)
     fireEvent.change(input, { target: { value: 'Leg Day' } })

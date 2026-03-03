@@ -196,8 +196,10 @@ describe('SessionExecutionPage — CompletionBar gating', () => {
     )!
     fireEvent.change(stretchRepsInput, { target: { value: '10' } })
 
-    // Click "Save sets" for Stretch — PUT /logs never resolves
-    fireEvent.click(screen.getByRole('button', { name: /save sets/i }))
+    // Click the per-set done toggle for Stretch's set 1 — PUT /logs never resolves,
+    // so savingExercises stays non-empty and the complete button stays disabled.
+    // (Squat set 1 is already done, so its button is "Undo set 1" — not a match here.)
+    fireEvent.click(screen.getByRole('button', { name: /mark set 1 done/i }))
 
     // Complete button must be disabled while save is in-flight
     await waitFor(() => expect(completeBtn).toBeDisabled())

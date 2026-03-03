@@ -21,7 +21,7 @@ export function TodaySessionCard({ session }: Props) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-[#4f9cf9]">
-            Today's session
+            Today&apos;s session
           </p>
           <h2 className="mt-1.5 text-xl font-bold text-white">
             {session.template_title}

@@ -152,6 +152,7 @@ export function ExerciseSelector({
 
   // Reset keyboard cursor when filtered results change
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveIndex(-1)
   }, [debouncedQuery])
 
