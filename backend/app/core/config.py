@@ -85,6 +85,12 @@ class Settings(BaseSettings):
                 "CORS_ALLOW_ORIGIN_REGEX (regex for dynamic origins such as Vercel previews)"
             )
 
+        if self.FRONTEND_URL.startswith("http://localhost"):
+            errors.append(
+                "FRONTEND_URL must be set to the production frontend URL "
+                "(current value points to localhost)"
+            )
+
         if errors:
             raise ValueError(
                 "Application startup failed — missing or invalid configuration:\n"
