@@ -300,6 +300,41 @@ describe('normalize()', () => {
   it('handles an empty string', () => {
     expect(normalize('')).toBe('')
   })
+
+  it('strips characters that have no ASCII equivalent (length may change)', () => {
+    // "ß" has no base letter — our regex removes it entirely.
+    // normalize() must still return a string without throwing.
+    const result = normalize('Straßenball')
+    expect(typeof result).toBe('string')
+    expect(result).not.toContain('ß')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// highlight() — guard for length-changing normalisation
+// ---------------------------------------------------------------------------
+
+// We test the exported normalize() function to confirm the length guard fires.
+describe('highlight() — safe fallback for length-changing names', () => {
+  it('exercises whose name normalises to a different length are still shown without crashing', async () => {
+    // "Straßenball" — "ß" is stripped, so normalize("Straßenball").length < "Straßenball".length
+    // The selector must render the item without throwing or mis-highlighting.
+    const strassEx = coachEx('ex-strass', 'Straßenball')
+    mockRequest.mockResolvedValueOnce([strassEx])
+    render(<ExerciseSelector onSelect={vi.fn()} />)
+    const input = screen.getByRole('combobox')
+    fireEvent.focus(input)
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
+
+    // Searching "strassenball" will normalise to "strassenball" while the name
+    // normalises to "straenball" — no match, so it disappears from the list.
+    // The component must not throw during the render.
+    fireEvent.change(input, { target: { value: 'strassenball' } })
+    await waitFor(
+      () => expect(screen.queryByRole('button', { name: 'Straßenball' })).not.toBeInTheDocument(),
+      { timeout: 500 },
+    )
+  })
 })
 
 // ---------------------------------------------------------------------------

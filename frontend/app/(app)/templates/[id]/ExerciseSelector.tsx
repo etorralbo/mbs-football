@@ -58,9 +58,16 @@ export function normalize(str: string): string {
 function highlight(text: string, query: string): ReactNode {
   const nq = normalize(query)
   if (!nq) return text
-  // Find match position in the normalised text so diacritics and punctuation
-  // in the query are stripped before comparison.
-  const idx = normalize(text).indexOf(nq)
+
+  const nt = normalize(text)
+
+  // Safety: if normalization changes the text's character count (e.g. exotic
+  // Unicode like "ß" which our regex strips entirely), the slice indices
+  // from nt would be wrong positions in the original text — return plain text
+  // to avoid a mis-highlight rather than showing garbled output.
+  if (nt.length !== text.length) return text
+
+  const idx = nt.indexOf(nq)
   if (idx === -1) return text
   return (
     <>
@@ -149,9 +156,10 @@ export function ExerciseSelector({
   }, [debouncedQuery])
 
   // Pre-normalise exercise names once when the fetched list changes.
-  // This avoids re-running normalize() on every keystroke for every exercise.
+  // Keyed by exercise ID so the lookup is correct even if allExercises is
+  // ever reordered — avoids the index-alignment fragility of a parallel array.
   const normalizedNames = useMemo(
-    () => allExercises.map((ex) => normalize(ex.name)),
+    () => new Map(allExercises.map((ex) => [ex.id, normalize(ex.name)])),
     [allExercises],
   )
 
@@ -160,7 +168,7 @@ export function ExerciseSelector({
   const { official, mine, flatList } = useMemo(() => {
     const nq = normalize(debouncedQuery)
     const filtered = nq
-      ? allExercises.filter((_, i) => normalizedNames[i].includes(nq))
+      ? allExercises.filter((ex) => normalizedNames.get(ex.id)?.includes(nq) ?? false)
       : allExercises
     // Treat exercises without owner_type (pre-migration rows) as COACH
     const official = filtered.filter((ex) => ex.owner_type === 'COMPANY')
