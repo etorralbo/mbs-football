@@ -119,6 +119,8 @@ describe('SessionsPage', () => {
     ])
 
     render(<SessionsPage />)
+    // Page defaults to calendar view; switch to list to see session rows
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
 
     // First session: template title + formatted scheduled date
     expect(await screen.findByText('Sprint Workout · Feb 25, 2026')).toBeInTheDocument()
@@ -142,6 +144,7 @@ describe('SessionsPage', () => {
     ])
 
     render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
 
     expect(await screen.findByText('Pending')).toBeInTheDocument()
   })
@@ -172,6 +175,7 @@ describe('SessionsPage — COACH grouped view', () => {
   it('renders athlete name as a section heading', async () => {
     setupCoach([ALICE_SESSION, BOB_SESSION])
     render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /alice johnson/i })).toBeInTheDocument()
       expect(screen.getByRole('heading', { name: /bob smith/i })).toBeInTheDocument()
@@ -181,6 +185,7 @@ describe('SessionsPage — COACH grouped view', () => {
   it('places each session under the correct athlete section', async () => {
     setupCoach([ALICE_SESSION, BOB_SESSION])
     render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
     await waitFor(() => {
       const aliceSection = screen.getByRole('heading', { name: /alice johnson/i }).closest('section')!
       expect(within(aliceSection).getByText(/strength block a/i)).toBeInTheDocument()
@@ -192,6 +197,7 @@ describe('SessionsPage — COACH grouped view', () => {
   it('sorts groups alphabetically by athlete name', async () => {
     setupCoach([BOB_SESSION, ALICE_SESSION])
     render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
     await waitFor(() => {
       const headings = screen.getAllByRole('heading').map((h) => h.textContent ?? '')
       // h2 text is uppercase via CSS but textContent is the original case
@@ -215,6 +221,7 @@ describe('SessionsPage — COACH grouped view', () => {
   it('filters to a single athlete when selected', async () => {
     setupCoach([ALICE_SESSION, BOB_SESSION])
     render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
     await waitFor(() => screen.getByRole('combobox', { name: /filter by athlete/i }))
 
     fireEvent.change(screen.getByRole('combobox', { name: /filter by athlete/i }), {
@@ -230,6 +237,7 @@ describe('SessionsPage — COACH grouped view', () => {
   it('does not show athlete filter for ATHLETE role', async () => {
     setupAthlete([ALICE_SESSION])
     render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
     await waitFor(() => screen.getByText(/strength block a/i))
     expect(screen.queryByRole('combobox', { name: /filter by athlete/i })).not.toBeInTheDocument()
   })

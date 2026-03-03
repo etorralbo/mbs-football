@@ -124,14 +124,17 @@ describe('TemplateDetailPage — status badge and publish', () => {
     })
   })
 
-  it('shows "Published" badge and hides Publish button when status is published', async () => {
+  it('hides Draft badge and Publish button when status is published', async () => {
     mockRequest.mockResolvedValueOnce({ ...MOCK_TEMPLATE, status: 'published' })
 
     render(<TemplateDetailPage />)
 
+    // Wait for the template to load
     await waitFor(() => {
-      expect(screen.getByText('Published')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Power Session' })).toBeInTheDocument()
     })
+    // No Draft badge, no Publish button when already published
+    expect(screen.queryByText('Draft')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Publish' })).toBeNull()
   })
 
@@ -148,11 +151,11 @@ describe('TemplateDetailPage — status badge and publish', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Publish' }))
 
-    // Badge updates optimistically before PATCH resolves
+    // Optimistic update: Draft badge and Publish button disappear immediately
     await waitFor(() => {
-      expect(screen.getByText('Published')).toBeInTheDocument()
+      expect(screen.queryByText('Draft')).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Publish' })).toBeNull()
     })
-    expect(screen.queryByRole('button', { name: 'Publish' })).toBeNull()
   })
 })
 

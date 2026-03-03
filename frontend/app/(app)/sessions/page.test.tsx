@@ -1,4 +1,4 @@
-import { render, screen, cleanup, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('next/navigation', () => ({
@@ -76,6 +76,8 @@ describe('SessionsPage — session list CTAs', () => {
     mockRequest.mockResolvedValue([PENDING_SESSION])
 
     render(<SessionsPage />)
+    // Page defaults to calendar view; switch to list to see session CTAs
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
 
     await waitFor(() => {
       expect(screen.getByRole('link', { name: /start session/i })).toBeInTheDocument()
@@ -91,6 +93,7 @@ describe('SessionsPage — session list CTAs', () => {
     mockRequest.mockResolvedValue([COMPLETED_SESSION])
 
     render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
 
     await waitFor(() => expect(screen.queryByRole('link', { name: /start session/i })).toBeNull())
   })
@@ -100,6 +103,7 @@ describe('SessionsPage — session list CTAs', () => {
     mockRequest.mockResolvedValue([COMPLETED_SESSION])
 
     render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
 
     await waitFor(() => {
       expect(screen.getByRole('link', { name: /view/i })).toHaveAttribute(
@@ -114,6 +118,7 @@ describe('SessionsPage — session list CTAs', () => {
     mockRequest.mockResolvedValue([PENDING_SESSION, COMPLETED_SESSION])
 
     render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
 
     await waitFor(() => {
       expect(screen.getByRole('link', { name: /start session/i })).toBeInTheDocument()
@@ -126,6 +131,7 @@ describe('SessionsPage — session list CTAs', () => {
     mockRequest.mockResolvedValue([PENDING_SESSION])
 
     render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
 
     await waitFor(() => {
       expect(screen.queryByRole('link', { name: /start session/i })).toBeNull()
@@ -138,6 +144,7 @@ describe('SessionsPage — session list CTAs', () => {
     mockRequest.mockResolvedValue([PENDING_SESSION, COMPLETED_SESSION])
 
     render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /alice athlete/i })).toBeInTheDocument()

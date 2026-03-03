@@ -79,13 +79,14 @@ describe('NavBar — COACH', () => {
     expect(screen.getByRole('link', { name: /templates/i })).toHaveAttribute('href', '/templates')
   })
 
-  it('renders active team switcher before Home', () => {
+  it('renders active team switcher before nav links', () => {
     const { container } = render(<NavBar />)
     const nav = container.querySelector('nav')
     const switcher = screen.getByRole('button', { name: /active team: mettle fc/i })
-    const home = screen.getByRole('link', { name: /home/i })
+    // COACH has no Home link; first nav link is Templates
+    const templates = screen.getByRole('link', { name: /templates/i })
     expect(nav?.children[1]).toContainElement(switcher)
-    expect(nav?.children[2]).toBe(home)
+    expect(nav?.children[2]).toBe(templates)
   })
 
   it('renders the Sessions link', () => {
