@@ -62,14 +62,15 @@ const LOGGED_EXECUTION: SessionExecution = {
   }],
 }
 
-// Execution with a set not yet marked done (inputs remain editable)
+// Execution with an exercise that has no logs yet — draft.done stays false,
+// so inputs are not disabled by the done-state guard in SetRow.
 const UNDONE_EXECUTION: SessionExecution = {
   ...EMPTY_EXECUTION,
   blocks: [{
     name: 'Primary Strength', key: 'PRIMARY_STRENGTH', order: 0,
     items: [{
       exercise_id: 'ex-1', exercise_name: 'Squat', prescription: {},
-      logs: [{ set_number: 1, reps: 5, weight: 100, rpe: 8, done: false }],
+      logs: [],
     }],
   }],
 }
@@ -154,15 +155,14 @@ describe('SessionDetailPage — Mark as completed', () => {
 })
 
 describe('SessionDetailPage — COACH role', () => {
-  it('shows CompletionBar when viewer is COACH and session is pending', async () => {
+  it('hides CompletionBar when viewer is COACH and session is pending', async () => {
     mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
     mockRequest.mockResolvedValueOnce(EMPTY_EXECUTION)
 
     render(<SessionDetailPage />)
 
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /mark as completed/i })).toBeInTheDocument()
-    })
+    await screen.findByRole('heading', { name: 'Power Session' })
+    expect(screen.queryByRole('button', { name: /mark as completed/i })).toBeNull()
   })
 
   it('hides CompletionBar when viewer is COACH and session is completed', async () => {
@@ -197,5 +197,15 @@ describe('SessionDetailPage — COACH role', () => {
     screen.getAllByRole('spinbutton').forEach((input) =>
       expect(input).toBeDisabled(),
     )
+  })
+
+  it('hides Undo button when viewer is COACH and exercise is done', async () => {
+    mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
+    mockRequest.mockResolvedValueOnce(LOGGED_EXECUTION) // sets done: true
+
+    render(<SessionDetailPage />)
+
+    await screen.findByText('Squat')
+    expect(screen.queryByRole('button', { name: /undo squat/i })).toBeNull()
   })
 })

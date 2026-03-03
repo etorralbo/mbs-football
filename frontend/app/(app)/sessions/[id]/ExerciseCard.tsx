@@ -12,6 +12,9 @@ interface Props {
   item: ExecutionItem
   exerciseSets: DraftState[string]
   isCompleted: boolean
+  /** When false (coach view): saving does not mark the exercise done and
+   *  the Undo button is hidden. Defaults to true (athlete behaviour). */
+  completionEnabled?: boolean
   dispatch: (action: DraftAction) => void
   onSavingChange?: (exerciseId: string, isSaving: boolean) => void
 }
@@ -38,6 +41,7 @@ export function ExerciseCard({
   item,
   exerciseSets,
   isCompleted,
+  completionEnabled = true,
   dispatch,
   onSavingChange,
 }: Props) {
@@ -74,11 +78,11 @@ export function ExerciseCard({
           entries: validEntries,
         }),
       })
-      dispatch({ type: 'MARK_DONE', exerciseId: item.exercise_id })
+      if (completionEnabled) dispatch({ type: 'MARK_DONE', exerciseId: item.exercise_id })
     } catch (err) {
       if (err instanceof ConflictError) {
         // Duplicate log — treat as success (idempotent)
-        dispatch({ type: 'MARK_DONE', exerciseId: item.exercise_id })
+        if (completionEnabled) dispatch({ type: 'MARK_DONE', exerciseId: item.exercise_id })
       } else if (err instanceof ValidationError) {
         setError('Some entries are invalid. Check your values and try again.')
       } else {
@@ -107,7 +111,7 @@ export function ExerciseCard({
             <span className="rounded-full bg-[#c8f135]/15 px-2 py-0.5 text-xs font-semibold text-[#c8f135] ring-1 ring-[#c8f135]/30">
               Done
             </span>
-            {!isCompleted && (
+            {!isCompleted && completionEnabled && (
               <button
                 type="button"
                 onClick={() => dispatch({ type: 'UNDO_DONE', exerciseId: item.exercise_id })}

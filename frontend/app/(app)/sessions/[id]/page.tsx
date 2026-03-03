@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { request } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
 import { SkeletonList } from '@/app/_shared/components/Skeleton'
+import { useAuth } from '@/src/shared/auth/AuthContext'
 import { useSessionExecution } from '@/src/features/session-execution/useSessionExecution'
 import {
   draftReducer,
@@ -88,6 +89,8 @@ export default function SessionDetailPage() {
 
   const execution = execState.data
   const isCompleted = execution.status === 'completed'
+  const { role } = useAuth()
+  const isCoach = role === 'COACH'
   const isReadOnly = isCompleted
   const progress = progressFromDraft(execution, draft)
   const canComplete = canMarkCompleted(draft) && savingExercises.size === 0
@@ -126,6 +129,7 @@ export default function SessionDetailPage() {
                 item={item}
                 exerciseSets={draft[item.exercise_id] ?? { 1: { reps: '', weight: '', rpe: '', done: false } }}
                 isCompleted={isReadOnly}
+                completionEnabled={!isCoach}
                 dispatch={dispatch}
                 onSavingChange={handleSavingChange}
               />
@@ -135,7 +139,7 @@ export default function SessionDetailPage() {
       </div>
 
       {/* Sticky completion bar — only for pending sessions viewed by an athlete */}
-      {!isReadOnly && (
+      {!isReadOnly && !isCoach && (
         <CompletionBar
           completedExercises={progress.completedExercises}
           totalExercises={progress.totalExercises}
