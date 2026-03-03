@@ -24,6 +24,9 @@ class WorkoutTemplate(Base, TimestampMixin):
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="draft", server_default="draft"
+    )
 
     # Relationship to blocks ordered by order_index
     blocks: Mapped[list["WorkoutBlock"]] = relationship(

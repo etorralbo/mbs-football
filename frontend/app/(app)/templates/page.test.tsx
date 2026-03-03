@@ -4,7 +4,7 @@
  * 1. ATHLETE is redirected to /sessions (UX guard — backend RBAC is the real authority).
  * 2. COACH can access the page (no redirect).
  */
-import { render, screen, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 import TemplatesPage from './page'
 
@@ -93,5 +93,69 @@ describe('TemplatesPage — COACH access', () => {
     // Wait for loading to settle, then assert no redirect
     await screen.findByText(/workout templates/i)
     expect(mockPush).not.toHaveBeenCalledWith('/sessions')
+  })
+})
+
+describe('TemplatesPage — New Template form', () => {
+  function renderAsCoach() {
+    mockUseAuth.mockReturnValue({
+      role: 'COACH', loading: false, me: null, activeTeamId: null, error: null, refreshMe: vi.fn(),
+    })
+    mockRequest.mockResolvedValue([])
+    return render(<TemplatesPage />)
+  }
+
+  it('shows "+ New Template" button for COACH', async () => {
+    renderAsCoach()
+    await screen.findByText(/workout templates/i)
+    expect(screen.getByRole('button', { name: /\+ new template/i })).toBeInTheDocument()
+  })
+
+  it('toggles inline form when "+ New Template" is clicked', async () => {
+    renderAsCoach()
+    await screen.findByText(/workout templates/i)
+
+    fireEvent.click(screen.getByRole('button', { name: /\+ new template/i }))
+
+    expect(screen.getByLabelText(/template title/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^create$/i })).toBeInTheDocument()
+  })
+
+  it('shows validation error when title is fewer than 3 chars', async () => {
+    renderAsCoach()
+    await screen.findByText(/workout templates/i)
+
+    fireEvent.click(screen.getByRole('button', { name: /\+ new template/i }))
+    const input = screen.getByLabelText(/template title/i)
+    fireEvent.change(input, { target: { value: 'AB' } })
+    fireEvent.submit(input.closest('form')!)
+
+    await screen.findByText(/at least 3 characters/i)
+    expect(mockRequest).not.toHaveBeenCalledWith(
+      '/v1/workout-templates',
+      expect.anything(),
+    )
+  })
+
+  it('navigates to template detail after creation', async () => {
+    mockUseAuth.mockReturnValue({
+      role: 'COACH', loading: false, me: null, activeTeamId: null, error: null, refreshMe: vi.fn(),
+    })
+    mockRequest
+      .mockResolvedValueOnce([])  // list fetch
+      .mockResolvedValueOnce({ id: 'new-tpl', title: 'Leg Day', status: 'draft', team_id: 't1', description: null, created_at: '', updated_at: '' })  // POST
+
+    render(<TemplatesPage />)
+
+    await screen.findByText(/workout templates/i)
+    fireEvent.click(screen.getByRole('button', { name: /\+ new template/i }))
+
+    const input = screen.getByLabelText(/template title/i)
+    fireEvent.change(input, { target: { value: 'Leg Day' } })
+    fireEvent.submit(input.closest('form')!)
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith('/templates/new-tpl')
+    })
   })
 })
