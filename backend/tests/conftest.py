@@ -323,8 +323,8 @@ def exercise_team_a(db_session: Session, coach_a: UserProfile) -> Exercise:
         id=uuid.uuid4(),
         coach_id=coach_a.id,
         name="Squats",
-        description="Basic squats",
-        tags="strength, legs",
+        description="Standard squat movement with proper form and full range of motion.",
+        tags=["strength", "lower-body"],
     )
     db_session.add(exercise)
     db_session.commit()
@@ -377,7 +377,8 @@ def coach_team_exercise_id(db_session: Session, onboarded_coach: UserProfile) ->
         id=uuid.uuid4(),
         coach_id=onboarded_coach.id,
         name="Coach Team Exercise",
-        description="Owned by the coach",
+        description="Personal exercise owned by the onboarded coach.",
+        tags=["strength"],
     )
     db_session.add(exercise)
     db_session.commit()
@@ -413,7 +414,8 @@ def foreign_team_exercise_id(db_session: Session) -> uuid.UUID:
         id=uuid.uuid4(),
         coach_id=foreign_coach.id,
         name="Foreign Exercise",
-        description="Belongs to another coach",
+        description="Exercise belonging to a completely different coach.",
+        tags=["strength"],
     )
     db_session.add(exercise)
     db_session.commit()

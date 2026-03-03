@@ -37,7 +37,8 @@ def company_exercise(db_session: Session) -> Exercise:
         owner_type=OwnerType.COMPANY,
         is_editable=False,
         name="Zercher Squat",
-        tags="strength, legs",
+        description="Barbell squat variation where the bar is held in the crook of the elbows.",
+        tags=["strength", "lower-body"],
     )
     db_session.add(ex)
     db_session.commit()
@@ -54,6 +55,8 @@ def another_company_exercise(db_session: Session) -> Exercise:
         owner_type=OwnerType.COMPANY,
         is_editable=False,
         name="Svend Press",
+        description="Chest press variation holding two plates together for constant tension.",
+        tags=["strength", "upper-body"],
     )
     db_session.add(ex)
     db_session.commit()
@@ -73,8 +76,12 @@ class TestCompanyExerciseVisibility:
         company_exercise: Exercise,
     ):
         """List returns both COMPANY exercises and the coach's own exercises."""
-        own = Exercise(coach_id=coach_a.id, name="My Custom Move",
-                       owner_type=OwnerType.COACH, is_editable=True)
+        own = Exercise(
+            coach_id=coach_a.id, name="My Custom Move",
+            owner_type=OwnerType.COACH, is_editable=True,
+            description="Custom movement created by the coach for personal use.",
+            tags=["strength"],
+        )
         db_session.add(own)
         db_session.commit()
 
@@ -95,8 +102,12 @@ class TestCompanyExerciseVisibility:
         company_exercise: Exercise,
     ):
         """COMPANY exercises are returned before COACH exercises in the list."""
-        own = Exercise(coach_id=coach_a.id, name="AAA First Alphabetically",
-                       owner_type=OwnerType.COACH, is_editable=True)
+        own = Exercise(
+            coach_id=coach_a.id, name="AAA First Alphabetically",
+            owner_type=OwnerType.COACH, is_editable=True,
+            description="Coach exercise that comes first alphabetically to test sort order.",
+            tags=["strength"],
+        )
         db_session.add(own)
         db_session.commit()
 
@@ -125,6 +136,8 @@ class TestCompanyExerciseVisibility:
             name="Coach B Secret Move",
             owner_type=OwnerType.COACH,
             is_editable=True,
+            description="Exercise belonging exclusively to coach B personal library.",
+            tags=["strength"],
         )
         db_session.add(exercise_b)
         db_session.commit()
@@ -184,10 +197,18 @@ class TestCompanyExerciseVisibility:
 
         "Back Squat" is already present via the seed migration — no fixture needed.
         """
-        own_squat = Exercise(coach_id=coach_a.id, name="Front Squat",
-                             owner_type=OwnerType.COACH, is_editable=True)
-        other = Exercise(coach_id=coach_a.id, name="Bench Press",
-                         owner_type=OwnerType.COACH, is_editable=True)
+        own_squat = Exercise(
+            coach_id=coach_a.id, name="Front Squat",
+            owner_type=OwnerType.COACH, is_editable=True,
+            description="Barbell squat with bar in front rack position targeting quads.",
+            tags=["strength", "lower-body"],
+        )
+        other = Exercise(
+            coach_id=coach_a.id, name="Bench Press",
+            owner_type=OwnerType.COACH, is_editable=True,
+            description="Horizontal pressing movement targeting pectorals and triceps.",
+            tags=["strength", "upper-body"],
+        )
         db_session.add_all([own_squat, other])
         db_session.commit()
 
@@ -269,8 +290,12 @@ class TestCoachExerciseMutationAllowed:
         coach_a: UserProfile,
     ):
         """PATCH on the coach's own exercise succeeds."""
-        own = Exercise(coach_id=coach_a.id, name="My Lunge",
-                       owner_type=OwnerType.COACH, is_editable=True)
+        own = Exercise(
+            coach_id=coach_a.id, name="My Lunge",
+            owner_type=OwnerType.COACH, is_editable=True,
+            description="Forward lunge targeting quads, glutes, and hip flexors.",
+            tags=["strength", "lower-body"],
+        )
         db_session.add(own)
         db_session.commit()
         db_session.refresh(own)
@@ -294,8 +319,12 @@ class TestCoachExerciseMutationAllowed:
         coach_a: UserProfile,
     ):
         """DELETE on the coach's own exercise succeeds."""
-        own = Exercise(coach_id=coach_a.id, name="Temp Exercise",
-                       owner_type=OwnerType.COACH, is_editable=True)
+        own = Exercise(
+            coach_id=coach_a.id, name="Temp Exercise",
+            owner_type=OwnerType.COACH, is_editable=True,
+            description="Temporary exercise created to test the delete endpoint.",
+            tags=["strength"],
+        )
         db_session.add(own)
         db_session.commit()
         db_session.refresh(own)
@@ -318,7 +347,11 @@ class TestCoachExerciseMutationAllowed:
         resp = client.post(
             "/v1/exercises",
             headers=HEADERS,
-            json={"name": "New Personal Move"},
+            json={
+                "name": "New Personal Move",
+                "description": "Custom movement created by the coach for personal use.",
+                "tags": ["strength"],
+            },
         )
 
         assert resp.status_code == 201
@@ -397,6 +430,8 @@ class TestSeededCompanyExercises:
             name="AAA Always First Alphabetically",
             owner_type=OwnerType.COACH,
             is_editable=True,
+            description="Coach exercise that comes first alphabetically to test sort order.",
+            tags=["strength"],
         )
         db_session.add(own)
         db_session.commit()
@@ -430,9 +465,12 @@ class TestSeededCompanyExercises:
         db_session.execute(
             text("""
                 INSERT INTO exercises
-                    (id, owner_type, is_editable, coach_id, name, created_at, updated_at)
+                    (id, owner_type, is_editable, coach_id, name,
+                     description, tags, created_at, updated_at)
                 VALUES
-                    (gen_random_uuid(), 'COMPANY', FALSE, NULL, 'Back Squat', NOW(), NOW())
+                    (gen_random_uuid(), 'COMPANY', FALSE, NULL, 'Back Squat',
+                     'Compound lower body exercise targeting quads and glutes.',
+                     '["strength","lower-body"]'::jsonb, NOW(), NOW())
                 ON CONFLICT (name) WHERE owner_type = 'COMPANY'
                 DO NOTHING
             """)
@@ -528,6 +566,8 @@ class TestAddCompanyExerciseToBlock:
             owner_type=OwnerType.COACH,
             is_editable=True,
             name="My Custom Exercise",
+            description="Custom exercise owned by the coach for personal library use.",
+            tags=["strength"],
         )
         db_session.add(own)
         db_session.commit()
@@ -558,6 +598,8 @@ class TestAddCompanyExerciseToBlock:
             owner_type=OwnerType.COACH,
             is_editable=True,
             name="Coach B Only",
+            description="Exercise belonging exclusively to coach B personal library.",
+            tags=["strength"],
         )
         db_session.add(other)
         db_session.commit()

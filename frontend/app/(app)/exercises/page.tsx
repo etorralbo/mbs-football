@@ -1,12 +1,115 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+/**
+ * Exercise Library page — redesigned for Mettle Performance SaaS.
+ *
+ * Architecture:
+ *  - useExerciseFilters: filter state (query + tags) ↔ URL params
+ *  - Client-side filtering: full list fetched once, filtered in memory
+ *    (avoids debounce round-trips for a typical library of ~200 exercises)
+ *  - Filter chip counts: computed from the full list, memoised
+ *  - Favourites: section at the top (server-persisted, optimistic UI)
+ *  - Unified list: no OFFICIAL/MY sections — "Official" badge inline
+ *  - ExerciseForm: multi-field form (name + description + tags)
+ *  - ExerciseCard: hover quick-actions (favourite, edit, duplicate, delete)
+ *  - Delete confirmation: inline modal (no window.confirm)
+ *  - No dangerouslySetInnerHTML — XSS safe by default
+ */
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+
 import { request } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
 import { SkeletonList } from '@/app/_shared/components/Skeleton'
 import { useAuth } from '@/src/shared/auth/AuthContext'
 import type { Exercise } from '@/app/_shared/api/types'
+
+import ExerciseForm, { type ExerciseFormValues } from './ExerciseForm'
+import ExerciseCard from './ExerciseCard'
+import { FILTER_CHIPS, useExerciseFilters } from './useExerciseFilters'
+
+// ---------------------------------------------------------------------------
+// Normalise helper (mirrors ExerciseSelector normalisation for search)
+// ---------------------------------------------------------------------------
+function normalise(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[.\-']/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// ---------------------------------------------------------------------------
+// Delete confirmation modal
+// ---------------------------------------------------------------------------
+function ConfirmDeleteModal({
+  exercise,
+  onConfirm,
+  onCancel,
+}: {
+  exercise: Exercise
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-modal-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+    >
+      <div className="w-full max-w-sm rounded-xl border border-white/10 bg-[#131922] p-6 shadow-2xl">
+        <h2 id="delete-modal-title" className="text-sm font-semibold text-white">
+          Delete exercise?
+        </h2>
+        <p className="mt-2 text-xs text-slate-400">
+          <strong className="text-white">{exercise.name}</strong> will be permanently deleted.
+          This cannot be undone.
+        </p>
+        <div className="mt-4 flex gap-2">
+          <button
+            onClick={onConfirm}
+            className="flex-1 rounded-md bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-400 hover:bg-red-500/30 transition-colors"
+          >
+            Delete
+          </button>
+          <button
+            onClick={onCancel}
+            className="flex-1 rounded-md border border-white/10 px-3 py-2 text-xs text-slate-400 hover:bg-white/5 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Toast
+// ---------------------------------------------------------------------------
+function Toast({ message, type }: { message: string; type: 'success' | 'error' }) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={`fixed bottom-6 right-6 z-50 rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg transition-all ${
+        type === 'success'
+          ? 'bg-[#c8f135] text-[#0a0d14]'
+          : 'bg-red-500/20 text-red-300 border border-red-500/30'
+      }`}
+    >
+      {message}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
 
 export default function ExercisesPage() {
   const router = useRouter()
@@ -15,12 +118,22 @@ export default function ExercisesPage() {
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [query, setQuery] = useState('')
-  const [creating, setCreating] = useState(false)
-  const [newName, setNewName] = useState('')
-  const [createError, setCreateError] = useState<string | null>(null)
-  const [showCreateForm, setShowCreateForm] = useState(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Create / edit form
+  const [showForm, setShowForm] = useState(false)
+  const [editingExercise, setEditingExercise] = useState<Exercise | null>(null)
+  const [formSubmitting, setFormSubmitting] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+
+  // Delete modal
+  const [deletingExercise, setDeletingExercise] = useState<Exercise | null>(null)
+
+  // Toast
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Filters (URL-synced)
+  const { filters, setQuery, toggleTag, clearFilters, hasActiveFilters } = useExerciseFilters()
 
   // UX guard: athletes should not access this page
   useEffect(() => {
@@ -31,11 +144,13 @@ export default function ExercisesPage() {
     document.title = 'Exercise Library | Mettle Performance'
   }, [])
 
-  function fetchExercises(search?: string) {
+  // ---------------------------------------------------------------------------
+  // Data fetching — load full list once; filtering is client-side
+  // ---------------------------------------------------------------------------
+  function fetchExercises() {
     setLoading(true)
     setError(null)
-    const url = search ? `/v1/exercises?search=${encodeURIComponent(search)}` : '/v1/exercises'
-    request<Exercise[]>(url)
+    request<Exercise[]>('/v1/exercises')
       .then(setExercises)
       .catch((err: unknown) => {
         try {
@@ -52,58 +167,157 @@ export default function ExercisesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function handleQueryChange(value: string) {
-    setQuery(value)
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => fetchExercises(value.trim() || undefined), 300)
+  // ---------------------------------------------------------------------------
+  // Toast helper
+  // ---------------------------------------------------------------------------
+  function showToast(message: string, type: 'success' | 'error') {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    setToast({ message, type })
+    toastTimer.current = setTimeout(() => setToast(null), 3000)
   }
 
-  async function handleCreate() {
-    const name = newName.trim()
-    if (!name) {
-      setCreateError('Name is required.')
-      return
+  // ---------------------------------------------------------------------------
+  // Client-side filtering (memoised)
+  // ---------------------------------------------------------------------------
+  const filtered = useMemo(() => {
+    let list = exercises
+
+    if (filters.query) {
+      const q = normalise(filters.query)
+      list = list.filter((e) => normalise(e.name).includes(q))
     }
-    setCreating(true)
-    setCreateError(null)
+
+    if (filters.tags.length > 0) {
+      list = list.filter((e) =>
+        filters.tags.every((tag) => e.tags.includes(tag))
+      )
+    }
+
+    return list
+  }, [exercises, filters])
+
+  // Favourites section (from filtered list, sorted by name)
+  const favorites = useMemo(
+    () => filtered.filter((e) => e.is_favorite),
+    [filtered],
+  )
+
+  // All exercises (filtered, regardless of favorite)
+  const allFiltered = filtered
+
+  // Tag counts from full list (not filtered — so chips show total availability)
+  const tagCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const ex of exercises) {
+      for (const tag of ex.tags) {
+        counts[tag] = (counts[tag] ?? 0) + 1
+      }
+    }
+    return counts
+  }, [exercises])
+
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
+
+  async function handleFormSubmit(values: ExerciseFormValues) {
+    setFormSubmitting(true)
+    setFormError(null)
     try {
-      const created = await request<Exercise>('/v1/exercises', {
-        method: 'POST',
-        body: JSON.stringify({ name }),
-      })
-      setExercises((prev) => [created, ...prev])
-      setNewName('')
-      setShowCreateForm(false)
+      if (editingExercise) {
+        // Edit
+        const updated = await request<Exercise>(`/v1/exercises/${editingExercise.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(values),
+        })
+        setExercises((prev) => prev.map((e) => e.id === updated.id ? updated : e))
+        showToast('Exercise updated', 'success')
+      } else {
+        // Create
+        const created = await request<Exercise>('/v1/exercises', {
+          method: 'POST',
+          body: JSON.stringify(values),
+        })
+        setExercises((prev) => [created, ...prev])
+        showToast('Exercise created', 'success')
+      }
+      setShowForm(false)
+      setEditingExercise(null)
     } catch {
-      setCreateError('Could not create exercise. The name may already exist.')
+      setFormError('Could not save exercise. The name may already exist.')
     } finally {
-      setCreating(false)
+      setFormSubmitting(false)
     }
   }
 
-  async function handleDelete(id: string, name: string) {
-    if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return
+  const handleFavoriteToggle = useCallback(async (id: string) => {
+    // Optimistic UI — flip immediately, revert on error
+    setExercises((prev) =>
+      prev.map((e) => e.id === id ? { ...e, is_favorite: !e.is_favorite } : e)
+    )
+    try {
+      await request<{ is_favorite: boolean }>(`/v1/exercises/${id}/favorite`, { method: 'POST' })
+    } catch {
+      // Revert on error
+      setExercises((prev) =>
+        prev.map((e) => e.id === id ? { ...e, is_favorite: !e.is_favorite } : e)
+      )
+      showToast('Could not update favourite', 'error')
+    }
+  }, [])
+
+  function handleEdit(exercise: Exercise) {
+    setEditingExercise(exercise)
+    setShowForm(true)
+    setFormError(null)
+  }
+
+  async function handleDuplicate(exercise: Exercise) {
+    try {
+      const copy = await request<Exercise>('/v1/exercises', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: `${exercise.name} (copy)`.slice(0, 80),
+          description: exercise.description,
+          tags: exercise.tags,
+        }),
+      })
+      setExercises((prev) => [copy, ...prev])
+      showToast('Exercise duplicated', 'success')
+    } catch {
+      showToast('Could not duplicate exercise', 'error')
+    }
+  }
+
+  async function handleDeleteConfirm() {
+    if (!deletingExercise) return
+    const id = deletingExercise.id
+    setDeletingExercise(null)
     try {
       await request(`/v1/exercises/${id}`, { method: 'DELETE' })
       setExercises((prev) => prev.filter((e) => e.id !== id))
+      showToast('Exercise deleted', 'success')
     } catch {
-      setError('Could not delete exercise. It may be in use by a template.')
+      showToast('Could not delete exercise. It may be in use.', 'error')
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
   if (authLoading) return null
 
-  // owner_type may be absent on databases that haven't run the migration yet —
-  // treat any non-COMPANY exercise (including undefined) as a COACH exercise.
-  const companyExercises = exercises.filter((e) => e.owner_type === 'COMPANY')
-  const coachExercises = exercises.filter((e) => e.owner_type !== 'COMPANY')
+  const formInitial = editingExercise
+    ? { name: editingExercise.name, description: editingExercise.description, tags: editingExercise.tags }
+    : undefined
 
   return (
     <>
+      {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-white">Exercise Library</h1>
         <button
-          onClick={() => { setShowCreateForm((v) => !v); setCreateError(null); setNewName('') }}
+          onClick={() => { setShowForm((v) => !v); setEditingExercise(null); setFormError(null) }}
           className="inline-flex items-center gap-1.5 rounded-md bg-[#c8f135] px-3 py-1.5 text-xs font-bold text-[#0a0d14] transition-colors hover:bg-[#d4f755]"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -113,144 +327,163 @@ export default function ExercisesPage() {
         </button>
       </div>
 
-      {/* Create form */}
-      {showCreateForm && (
+      {/* Create / Edit form */}
+      {showForm && (
         <div className="mt-4 rounded-lg border border-white/8 bg-[#131922] p-4">
-          <p className="text-sm font-medium text-white">New exercise</p>
-          <div className="mt-3 flex gap-2">
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-              maxLength={255}
-              placeholder="Exercise name"
-              className="flex-1 rounded-md border border-white/10 bg-[#0d1420] px-3 py-1.5 text-sm text-white placeholder:text-slate-600 focus:border-[#4f9cf9] focus:outline-none"
-              autoFocus
-            />
-            <button
-              onClick={handleCreate}
-              disabled={creating}
-              className="rounded-md bg-[#c8f135] px-3 py-1.5 text-xs font-bold text-[#0a0d14] hover:bg-[#d4f755] disabled:opacity-50"
-            >
-              {creating ? 'Creating…' : 'Create'}
-            </button>
-            <button
-              onClick={() => setShowCreateForm(false)}
-              className="rounded-md px-3 py-1.5 text-xs text-slate-400 hover:bg-white/5"
-            >
-              Cancel
-            </button>
-          </div>
-          {createError && (
-            <p role="alert" className="mt-2 text-xs text-red-400">{createError}</p>
-          )}
+          <p className="mb-3 text-sm font-medium text-white">
+            {editingExercise ? `Edit: ${editingExercise.name}` : 'New exercise'}
+          </p>
+          <ExerciseForm
+            initial={formInitial}
+            onSubmit={handleFormSubmit}
+            onCancel={() => { setShowForm(false); setEditingExercise(null) }}
+            submitting={formSubmitting}
+            submitError={formError}
+          />
         </div>
       )}
 
       {/* Search */}
       <div className="mt-4">
         <input
-          type="text"
-          value={query}
-          onChange={(e) => handleQueryChange(e.target.value)}
+          type="search"
+          value={filters.query}
+          onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by name…"
           className="w-full rounded-md border border-white/10 bg-[#131922] px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:border-[#4f9cf9] focus:outline-none"
         />
       </div>
 
+      {/* Filter chips */}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {FILTER_CHIPS.map(({ label, value }) => {
+          const active = filters.tags.includes(value)
+          const count = tagCounts[value] ?? 0
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => toggleTag(value)}
+              aria-pressed={active}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-all duration-150 ${
+                active
+                  ? 'border-[#c8f135] bg-[#c8f135]/10 text-[#c8f135]'
+                  : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-slate-300'
+              }`}
+            >
+              {label}
+              {count > 0 && (
+                <span className={`ml-1.5 ${active ? 'text-[#c8f135]/70' : 'text-slate-600'}`}>
+                  ({count})
+                </span>
+              )}
+            </button>
+          )
+        })}
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-500 hover:border-white/20 hover:text-slate-400 transition-colors"
+          >
+            Clear filters
+          </button>
+        )}
+      </div>
+
+      {/* Load error */}
       {error && (
         <p role="alert" className="mt-4 text-sm text-red-400">{error}</p>
       )}
 
+      {/* Loading skeleton */}
       {loading && (
-        <div className="mt-4">
+        <div className="mt-4" aria-busy="true">
           <span className="sr-only">Loading…</span>
-          <SkeletonList rows={5} />
+          <SkeletonList rows={6} />
         </div>
       )}
 
-      {!loading && exercises.length === 0 && (
-        <div className="mt-6 rounded-lg border border-dashed border-white/10 p-8 text-center">
-          <p className="text-sm text-slate-500">
-            {query ? `No exercises match "${query}".` : 'No exercises yet. Create the first one.'}
-          </p>
+      {/* Empty state — no exercises at all */}
+      {!loading && exercises.length === 0 && !error && (
+        <div className="mt-6 rounded-lg border border-dashed border-white/10 p-10 text-center">
+          <p className="text-sm text-slate-500">Your library is empty. Create the first exercise.</p>
         </div>
       )}
 
-      {!loading && exercises.length > 0 && (
+      {/* Empty state — filters active, no results */}
+      {!loading && exercises.length > 0 && allFiltered.length === 0 && (
+        <div className="mt-6 rounded-lg border border-dashed border-white/10 p-10 text-center">
+          <p className="text-sm text-slate-500">No exercises match your filters.</p>
+          <button
+            onClick={clearFilters}
+            className="mt-2 text-xs text-[#4f9cf9] hover:underline"
+          >
+            Clear filters
+          </button>
+        </div>
+      )}
+
+      {/* Exercise list */}
+      {!loading && allFiltered.length > 0 && (
         <div className="mt-4 space-y-6">
-          {/* Official Exercises (COMPANY) */}
-          {companyExercises.length > 0 && (
-            <section aria-label="Official Exercises">
-              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Official Exercises
+          {/* Favourites section */}
+          {favorites.length > 0 && (
+            <section aria-label="Favourites">
+              <h2 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                </svg>
+                Favourites
               </h2>
               <ul className="space-y-1.5">
-                {companyExercises.map((ex) => (
-                  <ExerciseRow key={ex.id} exercise={ex} onDelete={handleDelete} />
+                {favorites.map((ex) => (
+                  <ExerciseCard
+                    key={ex.id}
+                    exercise={ex}
+                    onFavoriteToggle={handleFavoriteToggle}
+                    onEdit={handleEdit}
+                    onDuplicate={handleDuplicate}
+                    onDelete={setDeletingExercise}
+                  />
                 ))}
               </ul>
             </section>
           )}
 
-          {/* My Exercises (COACH) */}
-          {coachExercises.length > 0 && (
-            <section aria-label="My Exercises">
-              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                My Exercises
-              </h2>
-              <ul className="space-y-1.5">
-                {coachExercises.map((ex) => (
-                  <ExerciseRow key={ex.id} exercise={ex} onDelete={handleDelete} />
-                ))}
-              </ul>
-            </section>
-          )}
+          {/* All exercises */}
+          <section aria-label="All exercises">
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+              All Exercises
+              <span className="ml-2 font-normal text-slate-600">({allFiltered.length})</span>
+            </h2>
+            <ul className="space-y-1.5">
+              {allFiltered.map((ex) => (
+                <ExerciseCard
+                  key={ex.id}
+                  exercise={ex}
+                  onFavoriteToggle={handleFavoriteToggle}
+                  onEdit={handleEdit}
+                  onDuplicate={handleDuplicate}
+                  onDelete={setDeletingExercise}
+                />
+              ))}
+            </ul>
+          </section>
         </div>
       )}
+
+      {/* Delete confirmation modal */}
+      {deletingExercise && (
+        <ConfirmDeleteModal
+          exercise={deletingExercise}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeletingExercise(null)}
+        />
+      )}
+
+      {/* Toast notification */}
+      {toast && <Toast message={toast.message} type={toast.type} />}
     </>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Sub-component — isolated to keep the page component readable
-// ---------------------------------------------------------------------------
-
-function ExerciseRow({
-  exercise,
-  onDelete,
-}: {
-  exercise: Exercise
-  onDelete: (id: string, name: string) => void
-}) {
-  return (
-    <li className="flex items-center justify-between rounded-lg border border-white/8 bg-[#131922] px-4 py-3">
-      <div className="min-w-0 flex items-center gap-2">
-        {exercise.is_editable === false && (
-          <span className="shrink-0 rounded-full bg-[#4f9cf9]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#4f9cf9] ring-1 ring-[#4f9cf9]/30">
-            Official
-          </span>
-        )}
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-white">{exercise.name}</p>
-          {exercise.tags && (
-            <p className="mt-0.5 text-xs text-slate-500">{exercise.tags}</p>
-          )}
-        </div>
-      </div>
-
-      {exercise.is_editable !== false && (
-        <button
-          onClick={() => onDelete(exercise.id, exercise.name)}
-          aria-label={`Delete ${exercise.name}`}
-          className="ml-4 shrink-0 rounded p-1.5 text-slate-600 transition-colors hover:bg-red-900/30 hover:text-red-400"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
-      )}
-    </li>
   )
 }

@@ -6,6 +6,10 @@ Tests:
 - User onboarding requirements (403)
 - Role-based access control (Coach only for all operations)
 - Coach-scoped data isolation (exercises belong to the coach, not the team)
+- Input validation (name, description, tags)
+- Tag filtering (GET /exercises?tags=...)
+- Tags autocomplete (GET /exercises/tags)
+- Favourites toggle (POST /exercises/{id}/favorite)
 """
 import uuid
 
@@ -16,6 +20,13 @@ from sqlalchemy.orm import Session
 from app.models import UserProfile, Team, Exercise
 
 HEADERS = {"Authorization": "Bearer test-token"}
+
+# Reusable valid payloads — satisfy all validation constraints.
+_VALID_CREATE = {
+    "name": "Lunges",
+    "description": "Forward lunges targeting quads, glutes, and hip flexors.",
+    "tags": ["strength", "lower-body"],
+}
 
 
 class TestExercisesAuthentication:
@@ -29,10 +40,7 @@ class TestExercisesAuthentication:
 
     def test_create_exercise_requires_auth(self, client: TestClient):
         """Create exercise without auth token should return 401."""
-        response = client.post(
-            "/v1/exercises",
-            json={"name": "Test Exercise", "description": "Test"},
-        )
+        response = client.post("/v1/exercises", json=_VALID_CREATE)
         assert response.status_code == 401
         assert "Missing authentication token" in response.json()["detail"]
 
@@ -81,10 +89,26 @@ class TestExercisesCoachOnly:
         exercises = response.json()
         assert isinstance(exercises, list)
         assert len(exercises) >= 1
-        # COMPANY exercises now appear first (seeded by migration); assert the
-        # coach's exercise is present somewhere in the list.
         names = [e["name"] for e in exercises]
         assert "Squats" in names
+
+    def test_list_exercises_response_has_required_fields(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+        exercise_team_a: Exercise,
+    ):
+        """Exercise list items must include description, tags, and is_favorite."""
+        mock_jwt(str(coach_a.supabase_user_id))
+
+        response = client.get("/v1/exercises", headers=HEADERS)
+
+        assert response.status_code == 200
+        ex = next(e for e in response.json() if e["name"] == "Squats")
+        assert isinstance(ex["description"], str)
+        assert isinstance(ex["tags"], list)
+        assert isinstance(ex["is_favorite"], bool)
 
     def test_list_exercises_athlete_forbidden(
         self,
@@ -141,8 +165,18 @@ class TestExercisesCoachOnly:
     ):
         """Search functionality filters exercises by name."""
         db_session.add_all([
-            Exercise(coach_id=coach_a.id, name="Squats", description="Basic squats"),
-            Exercise(coach_id=coach_a.id, name="Push-ups", description="Basic push-ups"),
+            Exercise(
+                coach_id=coach_a.id,
+                name="Squats",
+                description="Standard squat movement with proper form and full range of motion.",
+                tags=["strength", "lower-body"],
+            ),
+            Exercise(
+                coach_id=coach_a.id,
+                name="Push-ups",
+                description="Bodyweight push-up targeting chest, triceps, and anterior deltoids.",
+                tags=["strength", "upper-body"],
+            ),
         ])
         db_session.commit()
 
@@ -153,11 +187,371 @@ class TestExercisesCoachOnly:
         assert response.status_code == 200
         exercises = response.json()
         names = [e["name"] for e in exercises]
-        # The seeded COMPANY dataset also contains "Back Squat", "Front Squat",
-        # "Bulgarian Split Squat" — so the result set is > 1.  Assert the coach's
-        # own exercise is present and an unrelated exercise is absent.
         assert "Squats" in names
         assert "Push-ups" not in names
+
+
+class TestExerciseValidation:
+    """Test input validation for exercise creation and update."""
+
+    @pytest.mark.parametrize("name", ["", "ab"])
+    def test_create_exercise_name_too_short(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+        name: str,
+    ):
+        """Name shorter than 3 chars should return 422."""
+        mock_jwt(str(coach_a.supabase_user_id))
+
+        response = client.post(
+            "/v1/exercises",
+            headers=HEADERS,
+            json={**_VALID_CREATE, "name": name},
+        )
+
+        assert response.status_code == 422
+
+    def test_create_exercise_name_too_long(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+    ):
+        """Name longer than 80 chars should return 422."""
+        mock_jwt(str(coach_a.supabase_user_id))
+
+        response = client.post(
+            "/v1/exercises",
+            headers=HEADERS,
+            json={**_VALID_CREATE, "name": "A" * 81},
+        )
+
+        assert response.status_code == 422
+
+    def test_create_exercise_description_too_short(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+    ):
+        """Description shorter than 20 chars should return 422."""
+        mock_jwt(str(coach_a.supabase_user_id))
+
+        response = client.post(
+            "/v1/exercises",
+            headers=HEADERS,
+            json={**_VALID_CREATE, "description": "Too short."},
+        )
+
+        assert response.status_code == 422
+
+    def test_create_exercise_description_missing(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+    ):
+        """Omitting description should return 422 (required field)."""
+        mock_jwt(str(coach_a.supabase_user_id))
+
+        response = client.post(
+            "/v1/exercises",
+            headers=HEADERS,
+            json={"name": "Lunges", "tags": ["strength"]},
+        )
+
+        assert response.status_code == 422
+
+    def test_create_exercise_tags_empty_list(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+    ):
+        """Empty tags list should return 422."""
+        mock_jwt(str(coach_a.supabase_user_id))
+
+        response = client.post(
+            "/v1/exercises",
+            headers=HEADERS,
+            json={**_VALID_CREATE, "tags": []},
+        )
+
+        assert response.status_code == 422
+
+    def test_create_exercise_tags_missing(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+    ):
+        """Omitting tags should return 422 (required field)."""
+        mock_jwt(str(coach_a.supabase_user_id))
+
+        response = client.post(
+            "/v1/exercises",
+            headers=HEADERS,
+            json={"name": "Lunges", "description": "Forward lunges targeting quads and glutes."},
+        )
+
+        assert response.status_code == 422
+
+    def test_create_exercise_tag_too_long(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+    ):
+        """A tag exceeding 30 chars should return 422."""
+        mock_jwt(str(coach_a.supabase_user_id))
+
+        response = client.post(
+            "/v1/exercises",
+            headers=HEADERS,
+            json={**_VALID_CREATE, "tags": ["a" * 31]},
+        )
+
+        assert response.status_code == 422
+
+    def test_create_exercise_tags_are_normalised(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+    ):
+        """Tags are stored lowercase, trimmed, and deduplicated."""
+        mock_jwt(str(coach_a.supabase_user_id))
+
+        response = client.post(
+            "/v1/exercises",
+            headers=HEADERS,
+            json={
+                **_VALID_CREATE,
+                "name": "Tag Normalisation Test",
+                "tags": ["  Strength  ", "STRENGTH", "lower-body"],
+            },
+        )
+
+        assert response.status_code == 201
+        tags = response.json()["tags"]
+        assert tags == ["strength", "lower-body"]
+
+
+class TestTagFiltering:
+    """Test tag-based exercise filtering."""
+
+    def test_filter_by_single_tag(
+        self,
+        client: TestClient,
+        mock_jwt,
+        db_session: Session,
+        coach_a: UserProfile,
+    ):
+        """Filtering by tag returns only matching exercises."""
+        db_session.add_all([
+            Exercise(
+                coach_id=coach_a.id,
+                name="Strength Move",
+                description="A strength-focused exercise for the lower body.",
+                tags=["strength", "lower-body"],
+            ),
+            Exercise(
+                coach_id=coach_a.id,
+                name="Mobility Move",
+                description="A mobility drill targeting the hips and ankles.",
+                tags=["mobility"],
+            ),
+        ])
+        db_session.commit()
+        mock_jwt(str(coach_a.supabase_user_id))
+
+        response = client.get("/v1/exercises?tags=strength", headers=HEADERS)
+
+        assert response.status_code == 200
+        names = [e["name"] for e in response.json()]
+        assert "Strength Move" in names
+        assert "Mobility Move" not in names
+
+    def test_filter_by_multiple_tags_is_AND(
+        self,
+        client: TestClient,
+        mock_jwt,
+        db_session: Session,
+        coach_a: UserProfile,
+    ):
+        """Filtering by multiple tags is an AND operation."""
+        db_session.add_all([
+            Exercise(
+                coach_id=coach_a.id,
+                name="Both Tags",
+                description="Exercise matching both strength and lower-body tags.",
+                tags=["strength", "lower-body"],
+            ),
+            Exercise(
+                coach_id=coach_a.id,
+                name="Only Strength",
+                description="Strength exercise that targets the upper body primarily.",
+                tags=["strength", "upper-body"],
+            ),
+        ])
+        db_session.commit()
+        mock_jwt(str(coach_a.supabase_user_id))
+
+        response = client.get(
+            "/v1/exercises?tags=strength&tags=lower-body", headers=HEADERS
+        )
+
+        assert response.status_code == 200
+        names = [e["name"] for e in response.json()]
+        assert "Both Tags" in names
+        assert "Only Strength" not in names
+
+
+class TestTagsAutocomplete:
+    """Test GET /exercises/tags endpoint."""
+
+    def test_get_tags_returns_sorted_distinct_list(
+        self,
+        client: TestClient,
+        mock_jwt,
+        db_session: Session,
+        coach_a: UserProfile,
+    ):
+        """GET /exercises/tags returns distinct sorted tags from accessible exercises."""
+        db_session.add_all([
+            Exercise(
+                coach_id=coach_a.id,
+                name="Alpha Exercise",
+                description="First exercise to test tag aggregation endpoint.",
+                tags=["strength", "lower-body"],
+            ),
+            Exercise(
+                coach_id=coach_a.id,
+                name="Beta Exercise",
+                description="Second exercise to test tag aggregation endpoint.",
+                tags=["strength", "core"],
+            ),
+        ])
+        db_session.commit()
+        mock_jwt(str(coach_a.supabase_user_id))
+
+        response = client.get("/v1/exercises/tags", headers=HEADERS)
+
+        assert response.status_code == 200
+        tags = response.json()
+        assert isinstance(tags, list)
+        assert len(tags) == len(set(tags))
+        assert tags == sorted(tags)
+        assert "strength" in tags
+        assert "lower-body" in tags
+        assert "core" in tags
+
+    def test_get_tags_requires_coach(
+        self,
+        client: TestClient,
+        mock_jwt,
+        athlete_a: UserProfile,
+    ):
+        """Athlete cannot access the tags endpoint."""
+        mock_jwt(str(athlete_a.supabase_user_id))
+
+        response = client.get("/v1/exercises/tags", headers=HEADERS)
+
+        assert response.status_code == 403
+
+
+class TestFavourites:
+    """Test POST /exercises/{id}/favorite — toggle bookmark."""
+
+    def test_toggle_favorite_on(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+        exercise_team_a: Exercise,
+    ):
+        """Toggling a non-favourite exercise marks it as favourite."""
+        mock_jwt(str(coach_a.supabase_user_id))
+
+        response = client.post(
+            f"/v1/exercises/{exercise_team_a.id}/favorite",
+            headers=HEADERS,
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["is_favorite"] is True
+        assert body["exercise_id"] == str(exercise_team_a.id)
+
+    def test_toggle_favorite_off(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+        exercise_team_a: Exercise,
+    ):
+        """Toggling a favourite exercise removes the bookmark."""
+        mock_jwt(str(coach_a.supabase_user_id))
+
+        client.post(f"/v1/exercises/{exercise_team_a.id}/favorite", headers=HEADERS)
+        response = client.post(
+            f"/v1/exercises/{exercise_team_a.id}/favorite",
+            headers=HEADERS,
+        )
+
+        assert response.status_code == 200
+        assert response.json()["is_favorite"] is False
+
+    def test_is_favorite_reflected_in_list(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+        exercise_team_a: Exercise,
+    ):
+        """After toggling favourite, is_favorite=True appears in the exercise list."""
+        mock_jwt(str(coach_a.supabase_user_id))
+
+        client.post(f"/v1/exercises/{exercise_team_a.id}/favorite", headers=HEADERS)
+
+        list_response = client.get("/v1/exercises", headers=HEADERS)
+        ex = next(e for e in list_response.json() if e["id"] == str(exercise_team_a.id))
+        assert ex["is_favorite"] is True
+
+    def test_toggle_favorite_not_found(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+    ):
+        """Toggling favourite on a non-existent exercise returns 404."""
+        mock_jwt(str(coach_a.supabase_user_id))
+
+        response = client.post(
+            f"/v1/exercises/{uuid.uuid4()}/favorite",
+            headers=HEADERS,
+        )
+
+        assert response.status_code == 404
+
+    def test_favorite_isolation_between_coaches(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+        coach_b: UserProfile,
+        exercise_team_a: Exercise,
+    ):
+        """Coach B cannot favourite an exercise that belongs to Coach A (IDOR)."""
+        # exercise_team_a is a COACH exercise owned by coach_a — invisible to coach_b
+        mock_jwt(str(coach_b.supabase_user_id))
+        response = client.post(
+            f"/v1/exercises/{exercise_team_a.id}/favorite",
+            headers=HEADERS,
+        )
+        assert response.status_code == 404
 
 
 class TestRoleBasedAccessControl:
@@ -169,19 +563,17 @@ class TestRoleBasedAccessControl:
         mock_jwt,
         coach_a: UserProfile,
     ):
-        """Coach can create exercises."""
+        """Coach can create exercises with valid payload."""
         mock_jwt(str(coach_a.supabase_user_id))
 
-        response = client.post(
-            "/v1/exercises",
-            headers=HEADERS,
-            json={"name": "Lunges", "description": "Forward lunges", "tags": "strength, legs"},
-        )
+        response = client.post("/v1/exercises", headers=HEADERS, json=_VALID_CREATE)
 
         assert response.status_code == 201
         exercise = response.json()
         assert exercise["name"] == "Lunges"
         assert exercise["coach_id"] == str(coach_a.id)
+        assert exercise["tags"] == ["strength", "lower-body"]
+        assert exercise["is_favorite"] is False
 
     def test_create_exercise_athlete_forbidden(
         self,
@@ -192,11 +584,7 @@ class TestRoleBasedAccessControl:
         """Athlete cannot create exercises (403)."""
         mock_jwt(str(athlete_a.supabase_user_id))
 
-        response = client.post(
-            "/v1/exercises",
-            headers=HEADERS,
-            json={"name": "Lunges", "description": "Forward lunges"},
-        )
+        response = client.post("/v1/exercises", headers=HEADERS, json=_VALID_CREATE)
 
         assert response.status_code == 403
         assert "Access denied" in response.json()["detail"]
@@ -247,7 +635,12 @@ class TestRoleBasedAccessControl:
         coach_a: UserProfile,
     ):
         """Coach can delete exercises."""
-        exercise = Exercise(coach_id=coach_a.id, name="Temp Exercise", description="To be deleted")
+        exercise = Exercise(
+            coach_id=coach_a.id,
+            name="Temp Exercise",
+            description="Temporary exercise created to test the delete endpoint.",
+            tags=["strength"],
+        )
         db_session.add(exercise)
         db_session.commit()
         db_session.refresh(exercise)
@@ -286,12 +679,21 @@ class TestCoachIsolation:
     ):
         """Exercises from coach A are not visible to coach B."""
         db_session.add_all([
-            Exercise(coach_id=coach_a.id, name="Coach A Exercise", description="Exclusive to Coach A"),
-            Exercise(coach_id=coach_b.id, name="Coach B Exercise", description="Exclusive to Coach B"),
+            Exercise(
+                coach_id=coach_a.id,
+                name="Coach A Exercise",
+                description="Private exercise exclusive to coach A personal library.",
+                tags=["strength"],
+            ),
+            Exercise(
+                coach_id=coach_b.id,
+                name="Coach B Exercise",
+                description="Private exercise exclusive to coach B personal library.",
+                tags=["strength"],
+            ),
         ])
         db_session.commit()
 
-        # Coach A sees only their exercises
         mock_jwt(str(coach_a.supabase_user_id))
         response_a = client.get("/v1/exercises", headers=HEADERS)
 
@@ -300,7 +702,6 @@ class TestCoachIsolation:
         assert "Coach A Exercise" in names_a
         assert "Coach B Exercise" not in names_a
 
-        # Coach B sees only their exercises
         mock_jwt(str(coach_b.supabase_user_id))
         response_b = client.get("/v1/exercises", headers=HEADERS)
 
@@ -318,7 +719,12 @@ class TestCoachIsolation:
         coach_b: UserProfile,
     ):
         """Coach B cannot access an exercise belonging to coach A by ID (IDOR prevention)."""
-        exercise_a = Exercise(coach_id=coach_a.id, name="Coach A Secret Exercise")
+        exercise_a = Exercise(
+            coach_id=coach_a.id,
+            name="Coach A Secret Exercise",
+            description="Secret exercise belonging exclusively to coach A.",
+            tags=["strength"],
+        )
         db_session.add(exercise_a)
         db_session.commit()
         db_session.refresh(exercise_a)
@@ -339,7 +745,12 @@ class TestCoachIsolation:
         coach_b: UserProfile,
     ):
         """Coach B cannot update an exercise belonging to coach A (IDOR prevention)."""
-        exercise_a = Exercise(coach_id=coach_a.id, name="Coach A Exercise")
+        exercise_a = Exercise(
+            coach_id=coach_a.id,
+            name="Coach A Exercise",
+            description="Exercise exclusively owned by coach A in their library.",
+            tags=["strength"],
+        )
         db_session.add(exercise_a)
         db_session.commit()
         db_session.refresh(exercise_a)
@@ -363,7 +774,12 @@ class TestCoachIsolation:
         coach_b: UserProfile,
     ):
         """Coach B cannot delete an exercise belonging to coach A (IDOR prevention)."""
-        exercise_a = Exercise(coach_id=coach_a.id, name="Coach A Exercise")
+        exercise_a = Exercise(
+            coach_id=coach_a.id,
+            name="Coach A Exercise",
+            description="Exercise exclusively owned by coach A in their library.",
+            tags=["strength"],
+        )
         db_session.add(exercise_a)
         db_session.commit()
         db_session.refresh(exercise_a)
@@ -374,6 +790,5 @@ class TestCoachIsolation:
 
         assert response.status_code == 404
 
-        # Verify exercise still exists in the database
         db_session.expire_all()
         assert db_session.get(Exercise, exercise_a.id) is not None

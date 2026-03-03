@@ -12,6 +12,11 @@ Mutation (PATCH/DELETE):
   - 403 if exercise.is_editable == False  (company exercises are read-only).
   - 404 if exercise is not visible to this coach.
   - Only the coach's own COACH exercises can be modified.
+
+New in this revision:
+  - GET  /exercises?tags=strength&tags=lower-body  — tag-based filtering
+  - GET  /exercises/tags                           — autocomplete list
+  - POST /exercises/{id}/favorite                  — toggle bookmark
 """
 import uuid
 from typing import Annotated, List, Optional
@@ -25,12 +30,34 @@ from app.core.dependencies import (
     require_coach,
 )
 from app.db.session import get_db
-from app.schemas.exercise import ExerciseCreate, ExerciseOut, ExerciseUpdate
+from app.schemas.exercise import ExerciseCreate, ExerciseFavoriteToggleOut, ExerciseOut, ExerciseUpdate
 from app.services import exercises_service
 
 router = APIRouter(prefix="/exercises", tags=["exercises"])
 
 _COMPANY_EXERCISE_DETAIL = "Company exercises cannot be modified"
+
+
+# ---------------------------------------------------------------------------
+# NOTE: /exercises/tags must be declared BEFORE /exercises/{exercise_id}
+# so FastAPI does not interpret "tags" as a UUID path parameter.
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/tags",
+    response_model=List[str],
+    summary="List all distinct exercise tags visible to this coach",
+)
+def list_tags(
+    current_user: Annotated[CurrentUser, Depends(require_coach)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """
+    Return a sorted list of all distinct tags from exercises visible to this
+    coach (COMPANY + own COACH exercises).  Used by the frontend tag
+    autocomplete in the exercise creation / edit form.
+    """
+    return exercises_service.get_tags(db=db, coach_id=current_user.user_id)
 
 
 @router.post(
@@ -48,13 +75,16 @@ def create_exercise(
     Create a new exercise in the coach's library.
 
     Always creates owner_type=COACH — clients cannot inject owner_type.
+    Requires name (3–80 chars), description (min 20 chars), and at least
+    one tag.
     """
     try:
-        return exercises_service.create_exercise(
+        result = exercises_service.create_exercise(
             db=db,
             coach_id=current_user.user_id,
             exercise_data=exercise_data,
         )
+        return ExerciseOut.model_validate(result)
     except IntegrityError:
         db.rollback()
         raise HTTPException(
@@ -72,18 +102,26 @@ def list_exercises(
     current_user: Annotated[CurrentUser, Depends(require_coach)],
     db: Annotated[Session, Depends(get_db)],
     search: Optional[str] = Query(None, description="Search by name (case-insensitive)"),
+    tags: Optional[List[str]] = Query(None, description="Filter by tags (AND containment)"),
 ):
     """
     List all exercises visible to this coach.
 
-    Returns company exercises first (alphabetically), then the coach's own
-    exercises (alphabetically). Optional search filters both groups.
+    Returns COMPANY exercises first (alphabetically), then the coach's own
+    exercises (alphabetically).
+
+    Supports:
+      - ?search=squat           — case-insensitive name search
+      - ?tags=strength          — single-tag filter
+      - ?tags=strength&tags=lower-body — multi-tag AND filter
     """
-    return exercises_service.list_exercises(
+    results = exercises_service.list_exercises(
         db=db,
         coach_id=current_user.user_id,
         search=search,
+        tags=tags,
     )
+    return [ExerciseOut.model_validate(r) for r in results]
 
 
 @router.get(
@@ -99,17 +137,17 @@ def get_exercise(
     """
     Get a single exercise by ID.
 
-    Returns company exercises and the coach's own exercises.
+    Returns COMPANY exercises and the coach's own exercises.
     404 for other coaches' exercises (IDOR prevention).
     """
-    exercise = exercises_service.get_exercise_by_id(
+    result = exercises_service.get_exercise_by_id(
         db=db,
         coach_id=current_user.user_id,
         exercise_id=exercise_id,
     )
-    if not exercise:
+    if not result:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found")
-    return exercise
+    return ExerciseOut.model_validate(result)
 
 
 @router.patch(
@@ -126,17 +164,17 @@ def update_exercise(
     """
     Update an existing exercise.
 
-    403 if exercise is a company exercise (is_editable=False).
+    403 if exercise is a COMPANY exercise (is_editable=False).
     404 if not found or belongs to another coach.
     """
-    exercise = exercises_service.get_exercise_by_id(
+    existing = exercises_service.get_exercise_by_id(
         db=db,
         coach_id=current_user.user_id,
         exercise_id=exercise_id,
     )
-    if not exercise:
+    if not existing:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found")
-    if not exercise.is_editable:
+    if not existing["is_editable"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=_COMPANY_EXERCISE_DETAIL,
@@ -150,7 +188,7 @@ def update_exercise(
         )
         if not updated:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found")
-        return updated
+        return ExerciseOut.model_validate(updated)
     except IntegrityError:
         db.rollback()
         raise HTTPException(
@@ -172,17 +210,17 @@ def delete_exercise(
     """
     Delete an exercise.
 
-    403 if exercise is a company exercise (is_editable=False).
+    403 if exercise is a COMPANY exercise (is_editable=False).
     404 if not found or belongs to another coach.
     """
-    exercise = exercises_service.get_exercise_by_id(
+    existing = exercises_service.get_exercise_by_id(
         db=db,
         coach_id=current_user.user_id,
         exercise_id=exercise_id,
     )
-    if not exercise:
+    if not existing:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found")
-    if not exercise.is_editable:
+    if not existing["is_editable"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=_COMPANY_EXERCISE_DETAIL,
@@ -195,3 +233,39 @@ def delete_exercise(
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found")
     return None
+
+
+@router.post(
+    "/{exercise_id}/favorite",
+    response_model=ExerciseFavoriteToggleOut,
+    summary="Toggle exercise favourite (Coach only)",
+)
+def toggle_favorite(
+    exercise_id: uuid.UUID,
+    current_user: Annotated[CurrentUser, Depends(require_coach)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """
+    Toggle a favourite bookmark on an exercise.
+
+    The exercise must be visible to the coach (COMPANY or own COACH).
+    Returns the new is_favorite state.
+
+    Idempotent in both directions:
+      - POST when already favourited → removes bookmark, returns is_favorite=false
+      - POST when not favourited     → adds bookmark, returns is_favorite=true
+    """
+    existing = exercises_service.get_exercise_by_id(
+        db=db,
+        coach_id=current_user.user_id,
+        exercise_id=exercise_id,
+    )
+    if not existing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found")
+
+    is_favorite = exercises_service.toggle_favorite(
+        db=db,
+        coach_id=current_user.user_id,
+        exercise_id=exercise_id,
+    )
+    return ExerciseFavoriteToggleOut(exercise_id=exercise_id, is_favorite=is_favorite)
