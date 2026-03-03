@@ -112,7 +112,7 @@ function SetTable({ item, onDeleted }: SetTableProps) {
                 <td key={field} className="px-1 py-0.5">
                   <input
                     type="number"
-                    min="0"
+                    min={field === 'reps' ? '1' : '0'}
                     defaultValue={s[field] != null ? String(s[field]) : ''}
                     onBlur={(e) => handleCellBlur(idx, field, e.target.value)}
                     aria-label={`Set ${idx + 1} ${field} for ${item.exercise.name}`}
@@ -124,7 +124,7 @@ function SetTable({ item, onDeleted }: SetTableProps) {
               <td className="py-0.5 text-center">
                 <button
                   onClick={() => deleteSet(idx)}
-                  disabled={sets.length <= 1}
+                  disabled={saving || sets.length <= 1}
                   aria-label={`Delete set ${idx + 1}`}
                   className="rounded p-0.5 text-slate-600 transition-colors hover:text-red-400 disabled:opacity-20"
                 >
@@ -138,7 +138,8 @@ function SetTable({ item, onDeleted }: SetTableProps) {
 
       <button
         onClick={addSet}
-        className="mt-1.5 flex items-center gap-1 text-xs text-slate-500 transition-colors hover:text-slate-300"
+        disabled={saving}
+        className="mt-1.5 flex items-center gap-1 text-xs text-slate-500 transition-colors hover:text-slate-300 disabled:opacity-40"
         aria-label={`Add set to ${item.exercise.name}`}
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

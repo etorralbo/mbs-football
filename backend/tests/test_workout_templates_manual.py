@@ -497,6 +497,50 @@ class TestBlockItems:
         )
         assert r.status_code == 422
 
+    def test_delete_item(
+        self, client: TestClient, mock_jwt, coach_a: UserProfile
+    ):
+        """DELETE /v1/block-items/{id} removes the item and returns 204."""
+        mock_jwt(str(coach_a.supabase_user_id))
+        ex = _create_exercise(client)
+        t = _create_template(client)
+        b = _create_block(client, t["id"])
+        item = client.post(
+            f"{BLOCKS_URL}/{b['id']}/items",
+            headers=HEADERS,
+            json={"exercise_id": ex["id"]},
+        ).json()
+
+        r = client.delete(f"{BLOCK_ITEMS_URL}/{item['id']}", headers=HEADERS)
+        assert r.status_code == 204
+
+        # Item must no longer appear in the template detail
+        detail = client.get(f"{TEMPLATES_URL}/{t['id']}", headers=HEADERS).json()
+        item_ids = [i["id"] for bl in detail["blocks"] for i in bl["items"]]
+        assert item["id"] not in item_ids
+
+    def test_delete_item_other_team_returns_404(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+        coach_b: UserProfile,
+    ):
+        """A coach cannot delete an item belonging to another team."""
+        mock_jwt(str(coach_a.supabase_user_id))
+        ex = _create_exercise(client)
+        t = _create_template(client)
+        b = _create_block(client, t["id"])
+        item = client.post(
+            f"{BLOCKS_URL}/{b['id']}/items",
+            headers=HEADERS,
+            json={"exercise_id": ex["id"]},
+        ).json()
+
+        mock_jwt(str(coach_b.supabase_user_id))
+        r = client.delete(f"{BLOCK_ITEMS_URL}/{item['id']}", headers=HEADERS)
+        assert r.status_code == 404
+
     def test_cannot_add_other_coaches_exercise(
         self,
         client: TestClient,
