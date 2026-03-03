@@ -1,40 +1,51 @@
 """
 Exercise service layer.
 
-Contains business logic for exercise CRUD operations.
+Visibility rules:
+  - list / get_by_id: returns COMPANY exercises (visible to every coach)
+    UNION the calling coach's own COACH exercises.
+  - create: always inserts with owner_type=COACH, coach_id=caller.
+  - update / delete: only operates on the caller's own COACH exercises.
+    The router is responsible for returning 403 when a coach attempts to
+    mutate a COMPANY exercise (is_editable=False).
+
 All operations are coach-scoped to prevent IDOR vulnerabilities.
 """
 import uuid
 from typing import List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import case, or_, select
 from sqlalchemy.orm import Session
 
-from app.models.exercise import Exercise
+from app.models.exercise import Exercise, OwnerType
 from app.schemas.exercise import ExerciseCreate, ExerciseUpdate
+
+
+def _company_or_own(coach_id: uuid.UUID):
+    """SQLAlchemy WHERE clause: COMPANY exercises OR this coach's exercises."""
+    return or_(
+        Exercise.owner_type == OwnerType.COMPANY,
+        Exercise.coach_id == coach_id,
+    )
 
 
 def create_exercise(
     db: Session,
     coach_id: uuid.UUID,
-    exercise_data: ExerciseCreate
+    exercise_data: ExerciseCreate,
 ) -> Exercise:
     """
-    Create a new exercise for a coach.
+    Create a new exercise in the coach's personal library.
 
-    Args:
-        db: Database session
-        coach_id: Coach's UserProfile ID (from authenticated user)
-        exercise_data: Exercise creation data
-
-    Returns:
-        Exercise: The created exercise
+    Always creates owner_type=COACH. Clients cannot inject owner_type.
 
     Raises:
-        IntegrityError: If exercise name already exists for this coach
+        IntegrityError: if name already exists for this coach.
     """
     exercise = Exercise(
         coach_id=coach_id,
+        owner_type=OwnerType.COACH,
+        is_editable=True,
         name=exercise_data.name,
         description=exercise_data.description,
         tags=exercise_data.tags,
@@ -48,88 +59,74 @@ def create_exercise(
 def list_exercises(
     db: Session,
     coach_id: uuid.UUID,
-    search: Optional[str] = None
+    search: Optional[str] = None,
 ) -> List[Exercise]:
     """
-    List all exercises for a coach with optional search.
+    Return exercises visible to this coach:
+      - All COMPANY exercises (sorted first, alphabetically).
+      - All COACH exercises owned by this coach (sorted after, alphabetically).
 
-    Security: Only returns exercises belonging to the specified coach.
-
-    Args:
-        db: Database session
-        coach_id: Coach's UserProfile ID (from authenticated user)
-        search: Optional search term (case-insensitive, matches exercise name)
-
-    Returns:
-        List[Exercise]: List of exercises matching criteria
+    Optional case-insensitive search filters both groups by name.
     """
-    stmt = select(Exercise).where(Exercise.coach_id == coach_id)
+    stmt = (
+        select(Exercise)
+        .where(_company_or_own(coach_id))
+        .order_by(
+            # COMPANY → 0, COACH → 1 keeps company exercises at the top.
+            case((Exercise.owner_type == OwnerType.COMPANY, 0), else_=1),
+            Exercise.name,
+        )
+    )
 
-    # Apply search filter if provided
     if search:
         stmt = stmt.where(Exercise.name.ilike(f"%{search}%"))
 
-    # Order by name for consistent results
-    stmt = stmt.order_by(Exercise.name)
-
-    exercises = db.execute(stmt).scalars().all()
-    return list(exercises)
+    return list(db.execute(stmt).scalars().all())
 
 
 def get_exercise_by_id(
     db: Session,
     coach_id: uuid.UUID,
-    exercise_id: uuid.UUID
+    exercise_id: uuid.UUID,
 ) -> Optional[Exercise]:
     """
-    Get a single exercise by ID, scoped to coach.
+    Return an exercise if visible to this coach (COMPANY or own COACH).
 
-    Security: Only returns exercise if it belongs to the specified coach.
-
-    Args:
-        db: Database session
-        coach_id: Coach's UserProfile ID (from authenticated user)
-        exercise_id: Exercise ID to retrieve
-
-    Returns:
-        Exercise if found and belongs to coach, None otherwise
+    Returns None for exercises belonging to other coaches (IDOR prevention).
     """
     stmt = select(Exercise).where(
         Exercise.id == exercise_id,
-        Exercise.coach_id == coach_id
+        _company_or_own(coach_id),
     )
-    exercise = db.execute(stmt).scalar_one_or_none()
-    return exercise
+    return db.execute(stmt).scalar_one_or_none()
 
 
 def update_exercise(
     db: Session,
     coach_id: uuid.UUID,
     exercise_id: uuid.UUID,
-    exercise_data: ExerciseUpdate
+    exercise_data: ExerciseUpdate,
 ) -> Optional[Exercise]:
     """
-    Update an exercise.
+    Update an exercise — only if it belongs to this coach.
 
-    Security: Only updates exercise if it belongs to the specified coach.
-
-    Args:
-        db: Database session
-        coach_id: Coach's UserProfile ID (from authenticated user)
-        exercise_id: Exercise ID to update
-        exercise_data: Exercise update data (only provided fields are updated)
+    COMPANY exercises are intentionally excluded (coach_id != NULL check).
+    The router checks is_editable and raises 403 before calling this.
 
     Returns:
-        Exercise: Updated exercise if found, None if not found or wrong coach
-
+        Updated Exercise, or None if not found / wrong coach.
     Raises:
-        IntegrityError: If updated name conflicts with existing exercise
+        IntegrityError: if the new name conflicts with an existing exercise.
     """
-    exercise = get_exercise_by_id(db, coach_id, exercise_id)
+    stmt = select(Exercise).where(
+        Exercise.id == exercise_id,
+        Exercise.owner_type == OwnerType.COACH,
+        Exercise.coach_id == coach_id,
+    )
+    exercise = db.execute(stmt).scalar_one_or_none()
     if not exercise:
         return None
 
-    # Update only provided fields
     update_data = exercise_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(exercise, field, value)
@@ -142,22 +139,23 @@ def update_exercise(
 def delete_exercise(
     db: Session,
     coach_id: uuid.UUID,
-    exercise_id: uuid.UUID
+    exercise_id: uuid.UUID,
 ) -> bool:
     """
-    Delete an exercise (hard delete).
+    Hard-delete an exercise — only if it belongs to this coach.
 
-    Security: Only deletes exercise if it belongs to the specified coach.
-
-    Args:
-        db: Database session
-        coach_id: Coach's UserProfile ID (from authenticated user)
-        exercise_id: Exercise ID to delete
+    COMPANY exercises are intentionally excluded.
+    The router checks is_editable and raises 403 before calling this.
 
     Returns:
-        bool: True if exercise was deleted, False if not found or wrong coach
+        True if deleted, False if not found / wrong coach.
     """
-    exercise = get_exercise_by_id(db, coach_id, exercise_id)
+    stmt = select(Exercise).where(
+        Exercise.id == exercise_id,
+        Exercise.owner_type == OwnerType.COACH,
+        Exercise.coach_id == coach_id,
+    )
+    exercise = db.execute(stmt).scalar_one_or_none()
     if not exercise:
         return False
 

@@ -10,7 +10,7 @@ from app.models.user_profile import Role, UserProfile
 
 # Sprint 2: Workout models
 from app.models.media_asset import MediaAsset, MediaAssetType
-from app.models.exercise import Exercise
+from app.models.exercise import Exercise, OwnerType
 from app.models.workout_template import WorkoutTemplate
 from app.models.workout_block import WorkoutBlock
 from app.models.block_exercise import BlockExercise
@@ -42,6 +42,7 @@ __all__ = [
     "MediaAsset",
     "MediaAssetType",
     "Exercise",
+    "OwnerType",
     "WorkoutTemplate",
     "WorkoutBlock",
     "BlockExercise",

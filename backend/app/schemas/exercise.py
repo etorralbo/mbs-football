@@ -9,6 +9,8 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.models.exercise import OwnerType
+
 
 class ExerciseCreate(BaseModel):
     """Schema for creating a new exercise."""
@@ -32,7 +34,8 @@ class ExerciseUpdate(BaseModel):
     """
     Schema for updating an existing exercise.
 
-    All fields are optional - only provided fields will be updated.
+    All fields are optional — only provided fields will be updated.
+    Client cannot modify owner_type or is_editable.
     """
 
     name: Optional[str] = Field(None, min_length=1, max_length=255, description="Exercise name")
@@ -52,14 +55,13 @@ class ExerciseUpdate(BaseModel):
 
 
 class ExerciseOut(BaseModel):
-    """
-    Schema for exercise responses.
-
-    Returns complete exercise data including system fields.
-    """
+    """Schema for exercise responses."""
 
     id: uuid.UUID = Field(..., description="Exercise unique identifier")
-    coach_id: uuid.UUID = Field(..., description="Coach (UserProfile) who owns this exercise")
+    # Null for COMPANY exercises.
+    coach_id: Optional[uuid.UUID] = Field(None, description="Owning coach's UserProfile ID (null for company exercises)")
+    owner_type: OwnerType = Field(..., description="COMPANY (official) or COACH (custom)")
+    is_editable: bool = Field(..., description="False for company exercises — they cannot be modified")
     name: str = Field(..., description="Exercise name")
     description: Optional[str] = Field(None, description="Exercise description")
     tags: Optional[str] = Field(None, description="Exercise tags")
@@ -67,18 +69,4 @@ class ExerciseOut(BaseModel):
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
 
-    model_config = ConfigDict(
-        from_attributes=True,  # Pydantic v2 way to enable ORM mode
-        json_schema_extra={
-            "example": {
-                "id": "123e4567-e89b-12d3-a456-426614174000",
-                "coach_id": "123e4567-e89b-12d3-a456-426614174001",
-                "name": "Squats",
-                "description": "Standard bodyweight squats",
-                "tags": "strength, legs, bodyweight",
-                "video_asset_id": "123e4567-e89b-12d3-a456-426614174002",
-                "created_at": "2024-01-15T10:30:00Z",
-                "updated_at": "2024-01-15T10:30:00Z"
-            }
-        }
-    )
+    model_config = ConfigDict(from_attributes=True)

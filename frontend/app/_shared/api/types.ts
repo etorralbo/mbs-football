@@ -47,7 +47,11 @@ export interface WorkoutTemplate {
 
 export interface Exercise {
   id: string
-  team_id: string
+  /** Null for company (official) exercises. */
+  coach_id: string | null
+  owner_type: 'COMPANY' | 'COACH'
+  /** False for company exercises — they cannot be edited or deleted. */
+  is_editable: boolean
   name: string
   description: string | null
   tags: string | null
