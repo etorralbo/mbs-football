@@ -3,16 +3,19 @@
 /**
  * useExerciseFilters
  *
- * Manages filter state for the exercise library and persists it in the URL
- * via Next.js useSearchParams + useRouter.  This means:
- *   - Filters survive page refresh.
- *   - Shareable/bookmarkable filter state.
- *   - Back-button restores previous filter.
+ * Manages filter state for the exercise library.
+ *
+ * Architecture:
+ *  - Local React state is the source of truth (immediate reactivity).
+ *  - URL params are kept in sync as a side-effect so filters are shareable,
+ *    bookmarkable, and survive page refresh.
+ *  - On mount the hook initialises from URL (e.g. after a hard-refresh or
+ *    navigating to a bookmarked filtered URL).
  *
  * URL format: /exercises?q=squat&tags=strength,lower-body
  */
 
-import { useCallback, useMemo } from 'react'
+import { useCallback, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 
 // Predefined filter chips shown in the UI.
@@ -46,57 +49,64 @@ export function useExerciseFilters(): UseExerciseFiltersReturn {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  const filters: ExerciseFilters = useMemo(() => ({
-    query: searchParams.get('q') ?? '',
-    tags: searchParams.get('tags')
-      ? searchParams.get('tags')!.split(',').filter(Boolean)
-      : [],
-  }), [searchParams])
+  // Local React state initialised from URL params (so hard-refresh restores filters).
+  const [query, setQueryState] = useState<string>(
+    () => searchParams.get('q') ?? '',
+  )
+  const [tags, setTagsState] = useState<string[]>(() => {
+    const raw = searchParams.get('tags')
+    return raw ? raw.split(',').filter(Boolean) : []
+  })
 
-  const updateParams = useCallback(
-    (updates: Partial<ExerciseFilters>) => {
-      const params = new URLSearchParams(searchParams.toString())
-      const next = { ...filters, ...updates }
-
-      if (next.query) {
-        params.set('q', next.query)
-      } else {
-        params.delete('q')
-      }
-
-      if (next.tags.length > 0) {
-        params.set('tags', next.tags.join(','))
-      } else {
-        params.delete('tags')
-      }
-
-      router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  // ---------------------------------------------------------------------------
+  // URL sync helper (side-effect only — does not update local state)
+  // ---------------------------------------------------------------------------
+  const syncUrl = useCallback(
+    (nextQuery: string, nextTags: string[]) => {
+      const params = new URLSearchParams()
+      if (nextQuery) params.set('q', nextQuery)
+      if (nextTags.length > 0) params.set('tags', nextTags.join(','))
+      const search = params.toString()
+      router.replace(`${pathname}${search ? `?${search}` : ''}`, { scroll: false })
     },
-    [router, pathname, searchParams, filters],
+    [router, pathname],
   )
 
+  // ---------------------------------------------------------------------------
+  // Public API
+  // ---------------------------------------------------------------------------
   const setQuery = useCallback(
-    (q: string) => updateParams({ query: q }),
-    [updateParams],
+    (q: string) => {
+      setQueryState(q)
+      syncUrl(q, tags)
+    },
+    [tags, syncUrl],
   )
 
   const toggleTag = useCallback(
     (tag: string) => {
-      const current = filters.tags
-      const next = current.includes(tag)
-        ? current.filter((t) => t !== tag)
-        : [...current, tag]
-      updateParams({ tags: next })
+      const next = tags.includes(tag)
+        ? tags.filter((t) => t !== tag)
+        : [...tags, tag]
+      setTagsState(next)
+      syncUrl(query, next)
     },
-    [filters.tags, updateParams],
+    [query, tags, syncUrl],
   )
 
-  const clearFilters = useCallback(
-    () => updateParams({ query: '', tags: [] }),
-    [updateParams],
-  )
+  const clearFilters = useCallback(() => {
+    setQueryState('')
+    setTagsState([])
+    syncUrl('', [])
+  }, [syncUrl])
 
-  const hasActiveFilters = filters.query.length > 0 || filters.tags.length > 0
+  const hasActiveFilters = query.length > 0 || tags.length > 0
 
-  return { filters, setQuery, toggleTag, clearFilters, hasActiveFilters }
+  return {
+    filters: { query, tags },
+    setQuery,
+    toggleTag,
+    clearFilters,
+    hasActiveFilters,
+  }
 }

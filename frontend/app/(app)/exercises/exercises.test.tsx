@@ -10,7 +10,7 @@
  *  - ExerciseForm requires description + tags
  *  - Favourite toggle is optimistic
  */
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, within, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Exercise } from '@/app/_shared/api/types'
 import ExercisesPage from './page'
@@ -124,7 +124,10 @@ describe('ExercisesPage — exercise list', () => {
     render(<ExercisesPage />)
 
     await screen.findByText('Back Squat')
-    expect(screen.getByText('(2)')).toBeInTheDocument()
+    // The section header shows "(2)"; there may be other "(2)" elements (chip counts)
+    // so we scope the query to the section to be precise.
+    const allSection = screen.getByRole('region', { name: 'All exercises' })
+    expect(within(allSection).getByText('(2)')).toBeInTheDocument()
   })
 })
 

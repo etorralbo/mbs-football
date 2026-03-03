@@ -146,9 +146,7 @@ def list_exercises(
         stmt = stmt.where(Exercise.name.ilike(f"%{search}%"))
 
     if tags:
-        import json
-        tags_json = cast(json.dumps(tags), JSONB)
-        stmt = stmt.where(Exercise.tags.op("@>")(tags_json))
+        stmt = stmt.where(Exercise.tags.op("@>")(cast(tags, JSONB)))
 
     exercises = list(db.execute(stmt).scalars().all())
     return _attach_is_favorite(exercises, coach_id, db)

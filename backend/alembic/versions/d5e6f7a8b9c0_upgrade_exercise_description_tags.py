@@ -236,27 +236,29 @@ def _tags_literal(tags: list[str]) -> str:
 
 def upgrade() -> None:
     # ------------------------------------------------------------------
-    # 1. Backfill COMPANY exercise descriptions and normalised JSONB tags
+    # 1. Backfill COMPANY exercise descriptions before making NOT NULL.
+    #    Tags are NOT updated here — they must be updated AFTER the column
+    #    type is changed to JSONB (see step 6).  Updating a TEXT column with
+    #    a JSONB literal causes PostgreSQL to store the JSON text
+    #    representation (e.g. '["strength","lower-body"]'), which is then
+    #    mis-split by regexp_split_to_array in step 3.
     # ------------------------------------------------------------------
     for ex in _COMPANY_DATA:
         op.execute(f"""
             UPDATE exercises
-               SET description = '{_sql_str(ex["description"])}',
-                   tags        = {_tags_literal(ex["tags"])}
+               SET description = '{_sql_str(ex["description"])}'
              WHERE owner_type = 'COMPANY'
                AND name       = '{_sql_str(ex["name"])}'
         """)
 
     # ------------------------------------------------------------------
-    # 2. Backfill any remaining COMPANY exercises not listed above
-    #    (manually added after seed; give them a safe default).
+    # 2. Backfill any remaining COMPANY exercises not listed above.
     # ------------------------------------------------------------------
     op.execute("""
         UPDATE exercises
-           SET description = 'Official exercise from the Mettle Performance library.',
-               tags        = '["general"]'::jsonb
+           SET description = 'Official exercise from the Mettle Performance library.'
          WHERE owner_type = 'COMPANY'
-           AND (description IS NULL OR tags IS NULL)
+           AND description IS NULL
     """)
 
     # ------------------------------------------------------------------
@@ -287,16 +289,16 @@ def upgrade() -> None:
 
     # ------------------------------------------------------------------
     # 5. Migrate tags column: TEXT → JSONB
-    #    COACH exercises may still have the old comma-separated TEXT format
-    #    or NULL. We convert them to trimmed JSONB arrays here.
+    #    At this point COMPANY exercises still have the old comma-separated
+    #    TEXT tags from the seed migration (e.g. "strength, legs").
+    #    COACH exercises may have NULL, empty string, or comma-separated text.
     #
     #    PostgreSQL does NOT allow subqueries in the USING clause of
-    #    ALTER COLUMN TYPE. We use regexp_split_to_array + to_jsonb which
-    #    are pure expressions and work correctly in USING.
+    #    ALTER COLUMN TYPE.  regexp_split_to_array + to_jsonb are pure scalar
+    #    expressions and work correctly here.
     #
-    #    regexp_split_to_array(trim(tags), '\s*,\s*') splits on commas with
-    #    optional surrounding whitespace, e.g.:
-    #      "strength, legs" → '{"strength","legs"}'
+    #    "strength, legs" → regexp_split_to_array → {strength,legs}
+    #                     → to_jsonb              → ["strength","legs"]
     # ------------------------------------------------------------------
     op.execute(r"""
         ALTER TABLE exercises
@@ -323,6 +325,27 @@ def upgrade() -> None:
         CREATE INDEX ix_exercises_tags_gin
         ON exercises
         USING GIN (tags)
+    """)
+
+    # ------------------------------------------------------------------
+    # 8. NOW update COMPANY exercise tags with canonical filter-chip values.
+    #    The column is JSONB at this point so the JSONB literals are stored
+    #    correctly as JSON arrays (not as text).
+    # ------------------------------------------------------------------
+    for ex in _COMPANY_DATA:
+        op.execute(f"""
+            UPDATE exercises
+               SET tags = {_tags_literal(ex["tags"])}
+             WHERE owner_type = 'COMPANY'
+               AND name       = '{_sql_str(ex["name"])}'
+        """)
+
+    # Any remaining COMPANY exercises not in the curated list get a default.
+    op.execute("""
+        UPDATE exercises
+           SET tags = '["general"]'::jsonb
+         WHERE owner_type = 'COMPANY'
+           AND tags = '[]'::jsonb
     """)
 
 
