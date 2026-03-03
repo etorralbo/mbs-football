@@ -2,51 +2,67 @@
 
 import { useRef, useState } from 'react'
 import { request } from '@/app/_shared/api/httpClient'
-import type { BlockItem, Exercise, WorkoutBlock } from '@/app/_shared/api/types'
+import type { BlockItem, Exercise, SetPrescription, WorkoutBlock } from '@/app/_shared/api/types'
 import { ExercisePicker } from './ExercisePicker'
 
-// Prescription fields shown in the editor, matching what athletes see.
-const PRESCRIPTION_FIELDS = [
-  { key: 'sets',   label: 'Sets' },
-  { key: 'reps',   label: 'Reps' },
-  { key: 'weight', label: 'kg'   },
-  { key: 'rpe',    label: 'RPE'  },
-  { key: 'rest',   label: 'Rest' },
-] as const
-
-type PrescriptionKey = (typeof PRESCRIPTION_FIELDS)[number]['key']
-
 // ---------------------------------------------------------------------------
-// ItemRow — one exercise with prescription inputs
+// SetTable — per-set row editor for one exercise item
 // ---------------------------------------------------------------------------
 
-interface ItemRowProps {
+interface SetTableProps {
   item: BlockItem
   onDeleted: (itemId: string) => void
 }
 
-function ItemRow({ item, onDeleted }: ItemRowProps) {
-  const [prescription, setPrescription] = useState<Record<string, unknown>>(
-    item.prescription_json,
-  )
+function SetTable({ item, onDeleted }: SetTableProps) {
+  const [sets, setSets] = useState<SetPrescription[]>(item.sets)
+  const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function handlePrescriptionBlur(key: PrescriptionKey, raw: string) {
-    const value = raw === '' ? undefined : Number(raw)
-    const updated = { ...prescription, [key]: value }
-    setPrescription(updated)
+  async function saveSets(newSets: SetPrescription[]) {
+    setSaving(true)
+    setError(null)
+    const prev = sets
+    setSets(newSets)
     try {
       await request(`/v1/block-items/${item.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ prescription_json: updated }),
+        body: JSON.stringify({ sets: newSets }),
       })
     } catch {
+      setSets(prev)
       setError('Failed to save.')
+    } finally {
+      setSaving(false)
     }
   }
 
-  async function handleDelete() {
+  function handleCellBlur(
+    setIdx: number,
+    field: 'reps' | 'weight' | 'rpe',
+    raw: string,
+  ) {
+    const value = raw === '' ? null : Number(raw)
+    const newSets = sets.map((s, i) =>
+      i === setIdx ? { ...s, [field]: value } : s,
+    )
+    saveSets(newSets)
+  }
+
+  function addSet() {
+    saveSets([...sets, { order: sets.length, reps: null, weight: null, rpe: null }])
+  }
+
+  function deleteSet(setIdx: number) {
+    saveSets(
+      sets
+        .filter((_, i) => i !== setIdx)
+        .map((s, i) => ({ ...s, order: i })),
+    )
+  }
+
+  async function handleDeleteItem() {
     setDeleting(true)
     setError(null)
     try {
@@ -59,43 +75,79 @@ function ItemRow({ item, onDeleted }: ItemRowProps) {
   }
 
   return (
-    <li className="flex items-center gap-3 border-b border-white/8 py-2 last:border-0">
-      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#4f9cf9]" aria-hidden="true" />
-
-      <span className="min-w-0 flex-1 truncate text-sm text-white">
-        {item.exercise.name}
-      </span>
-
-      {/* Prescription mini-inputs */}
-      <div className="flex shrink-0 items-end gap-2">
-        {PRESCRIPTION_FIELDS.map(({ key, label }) => (
-          <div key={key} className="flex flex-col items-center gap-0.5">
-            <input
-              type="number"
-              min="0"
-              defaultValue={
-                prescription[key] != null ? String(prescription[key]) : ''
-              }
-              onBlur={(e) => handlePrescriptionBlur(key, e.target.value)}
-              aria-label={`${item.exercise.name} ${label}`}
-              className="w-12 rounded border border-white/10 bg-[#0d1420] px-1 py-0.5 text-center text-xs text-white focus:border-[#4f9cf9] focus:outline-none"
-              placeholder="—"
-            />
-            <span className="text-xs text-slate-500">{label}</span>
-          </div>
-        ))}
+    <li className="border-b border-white/8 py-3 last:border-0">
+      {/* Exercise name row */}
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#4f9cf9]" aria-hidden="true" />
+          <span className="text-sm font-medium text-white">{item.exercise.name}</span>
+          {saving && <span className="text-xs text-slate-500">Saving…</span>}
+        </div>
+        <button
+          onClick={handleDeleteItem}
+          disabled={deleting}
+          aria-label={`Remove ${item.exercise.name}`}
+          className="shrink-0 rounded p-1 text-slate-600 transition-colors hover:bg-red-900/30 hover:text-red-400 disabled:opacity-40"
+        >
+          {deleting ? '…' : '×'}
+        </button>
       </div>
 
-      {error && <span className="text-xs text-red-400">{error}</span>}
+      {/* Sets table */}
+      <table className="w-full table-fixed text-xs" aria-label={`Sets for ${item.exercise.name}`}>
+        <thead>
+          <tr className="text-slate-500">
+            <th className="w-8 pb-1 text-center font-normal">#</th>
+            <th className="pb-1 text-center font-normal">Reps</th>
+            <th className="pb-1 text-center font-normal">kg</th>
+            <th className="pb-1 text-center font-normal">RPE</th>
+            <th className="w-6" />
+          </tr>
+        </thead>
+        <tbody>
+          {sets.map((s, idx) => (
+            <tr key={idx}>
+              <td className="py-0.5 text-center text-slate-500">{idx + 1}</td>
+              {(['reps', 'weight', 'rpe'] as const).map((field) => (
+                <td key={field} className="px-1 py-0.5">
+                  <input
+                    type="number"
+                    min="0"
+                    defaultValue={s[field] != null ? String(s[field]) : ''}
+                    onBlur={(e) => handleCellBlur(idx, field, e.target.value)}
+                    aria-label={`Set ${idx + 1} ${field} for ${item.exercise.name}`}
+                    className="w-full rounded border border-white/10 bg-[#0d1420] px-1 py-0.5 text-center text-xs text-white focus:border-[#4f9cf9] focus:outline-none"
+                    placeholder="—"
+                  />
+                </td>
+              ))}
+              <td className="py-0.5 text-center">
+                <button
+                  onClick={() => deleteSet(idx)}
+                  disabled={sets.length <= 1}
+                  aria-label={`Delete set ${idx + 1}`}
+                  className="rounded p-0.5 text-slate-600 transition-colors hover:text-red-400 disabled:opacity-20"
+                >
+                  ×
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
       <button
-        onClick={handleDelete}
-        disabled={deleting}
-        aria-label={`Remove ${item.exercise.name}`}
-        className="shrink-0 rounded p-1 text-slate-600 transition-colors hover:bg-red-900/30 hover:text-red-400 disabled:opacity-40"
+        onClick={addSet}
+        className="mt-1.5 flex items-center gap-1 text-xs text-slate-500 transition-colors hover:text-slate-300"
+        aria-label={`Add set to ${item.exercise.name}`}
       >
-        {deleting ? '…' : '×'}
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+        Add set
       </button>
+
+      {error && <p role="alert" className="mt-1 text-xs text-red-400">{error}</p>}
     </li>
   )
 }
@@ -214,11 +266,11 @@ export function BlockEditor({ block, onDeleted, onItemAdded }: BlockEditorProps)
           <p role="alert" className="mt-1 text-xs text-red-400">{deleteError}</p>
         )}
 
-        {/* Exercise items */}
+        {/* Exercise items with per-set table */}
         {items.length > 0 ? (
           <ul className="mt-3">
             {items.map((item) => (
-              <ItemRow
+              <SetTable
                 key={item.id}
                 item={item}
                 onDeleted={handleItemDeleted}

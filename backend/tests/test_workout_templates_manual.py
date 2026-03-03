@@ -15,6 +15,7 @@ from app.models import Exercise, UserProfile, WorkoutBlock, WorkoutTemplate
 HEADERS = {"Authorization": "Bearer test-token"}
 TEMPLATES_URL = "/v1/workout-templates"
 BLOCKS_URL = "/v1/blocks"
+BLOCK_ITEMS_URL = "/v1/block-items"
 
 
 # ---------------------------------------------------------------------------
@@ -159,7 +160,7 @@ class TestTemplateCRUD:
         client.post(
             f"{BLOCKS_URL}/{b['id']}/items",
             headers=HEADERS,
-            json={"exercise_id": ex["id"], "prescription_json": {}},
+            json={"exercise_id": ex["id"]},
         )
 
         r = client.patch(
@@ -212,7 +213,7 @@ class TestTemplateCRUD:
         client.post(
             f"{BLOCKS_URL}/{b['id']}/items",
             headers=HEADERS,
-            json={"exercise_id": ex["id"], "prescription_json": {}},
+            json={"exercise_id": ex["id"]},
         )
 
         # First publish
@@ -420,12 +421,81 @@ class TestBlockItems:
         r = client.post(
             f"{BLOCKS_URL}/{b['id']}/items",
             headers=HEADERS,
-            json={"exercise_id": ex["id"], "prescription_json": {"sets": 3}},
+            json={"exercise_id": ex["id"]},
         )
         assert r.status_code == 201
         body = r.json()
         assert body["exercise"]["id"] == ex["id"]
         assert body["exercise"]["name"] == ex["name"]
+
+    def test_new_item_has_one_default_set(
+        self, client: TestClient, mock_jwt, coach_a: UserProfile
+    ):
+        """Items created without explicit sets get one default set."""
+        mock_jwt(str(coach_a.supabase_user_id))
+        ex = _create_exercise(client)
+        t = _create_template(client)
+        b = _create_block(client, t["id"])
+
+        r = client.post(
+            f"{BLOCKS_URL}/{b['id']}/items",
+            headers=HEADERS,
+            json={"exercise_id": ex["id"]},
+        )
+        assert r.status_code == 201
+        sets = r.json()["sets"]
+        assert len(sets) == 1
+        assert sets[0]["order"] == 0
+
+    def test_update_item_sets(
+        self, client: TestClient, mock_jwt, coach_a: UserProfile
+    ):
+        """PATCH /v1/block-items/{id} replaces sets and returns updated item."""
+        mock_jwt(str(coach_a.supabase_user_id))
+        ex = _create_exercise(client)
+        t = _create_template(client)
+        b = _create_block(client, t["id"])
+        item = client.post(
+            f"{BLOCKS_URL}/{b['id']}/items",
+            headers=HEADERS,
+            json={"exercise_id": ex["id"]},
+        ).json()
+
+        r = client.patch(
+            f"{BLOCK_ITEMS_URL}/{item['id']}",
+            headers=HEADERS,
+            json={"sets": [
+                {"order": 0, "reps": 5, "weight": 100.0, "rpe": 8.0},
+                {"order": 1, "reps": 4, "weight": 105.0, "rpe": None},
+            ]},
+        )
+        assert r.status_code == 200
+        sets = r.json()["sets"]
+        assert len(sets) == 2
+        assert sets[0]["reps"] == 5
+        assert sets[0]["weight"] == 100.0
+        assert sets[1]["reps"] == 4
+
+    def test_update_item_empty_sets_rejected(
+        self, client: TestClient, mock_jwt, coach_a: UserProfile
+    ):
+        """Sending an empty sets list is rejected with 422."""
+        mock_jwt(str(coach_a.supabase_user_id))
+        ex = _create_exercise(client)
+        t = _create_template(client)
+        b = _create_block(client, t["id"])
+        item = client.post(
+            f"{BLOCKS_URL}/{b['id']}/items",
+            headers=HEADERS,
+            json={"exercise_id": ex["id"]},
+        ).json()
+
+        r = client.patch(
+            f"{BLOCK_ITEMS_URL}/{item['id']}",
+            headers=HEADERS,
+            json={"sets": []},
+        )
+        assert r.status_code == 422
 
     def test_cannot_add_other_coaches_exercise(
         self,
@@ -442,7 +512,7 @@ class TestBlockItems:
         r = client.post(
             f"{BLOCKS_URL}/{b['id']}/items",
             headers=HEADERS,
-            json={"exercise_id": str(foreign_team_exercise_id), "prescription_json": {}},
+            json={"exercise_id": str(foreign_team_exercise_id)},
         )
         assert r.status_code == 404
 
@@ -475,9 +545,42 @@ class TestBlockItems:
         r = client.post(
             f"{BLOCKS_URL}/{b['id']}/items",
             headers=HEADERS,
-            json={"exercise_id": str(company_ex.id), "prescription_json": {}},
+            json={"exercise_id": str(company_ex.id)},
         )
         assert r.status_code == 201
+
+    def test_cannot_publish_item_with_no_sets(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+        db_session: Session,
+    ):
+        """If an item's sets list is emptied directly in the DB, publish must fail."""
+        from app.models.block_exercise import BlockExercise as _BE
+
+        mock_jwt(str(coach_a.supabase_user_id))
+        ex = _create_exercise(client)
+        t = _create_template(client)
+        b = _create_block(client, t["id"])
+        item_body = client.post(
+            f"{BLOCKS_URL}/{b['id']}/items",
+            headers=HEADERS,
+            json={"exercise_id": ex["id"]},
+        ).json()
+
+        # Directly zero-out sets in DB to simulate a corrupt/legacy row
+        be = db_session.get(_BE, uuid.UUID(item_body["id"]))
+        be.prescription_json = {"sets": []}
+        db_session.commit()
+
+        r = client.patch(
+            f"{TEMPLATES_URL}/{t['id']}",
+            headers=HEADERS,
+            json={"status": "published"},
+        )
+        assert r.status_code == 422
+        assert "set" in r.json()["detail"].lower()
 
     def test_add_item_to_other_teams_block_returns_404(
         self,
@@ -495,6 +598,6 @@ class TestBlockItems:
         r = client.post(
             f"{BLOCKS_URL}/{b['id']}/items",
             headers=HEADERS,
-            json={"exercise_id": ex["id"], "prescription_json": {}},
+            json={"exercise_id": ex["id"]},
         )
         assert r.status_code == 404

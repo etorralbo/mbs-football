@@ -213,7 +213,7 @@ def add_item(
         workout_block_id=block_id,
         exercise_id=data.exercise_id,
         order_index=(max_order + 1) if max_order is not None else 0,
-        prescription_json=data.prescription_json,
+        prescription_json={"sets": [s.model_dump() for s in data.sets]},
     )
     db.add(item)
     db.commit()
@@ -231,8 +231,7 @@ def update_item(
     if not item:
         return None
 
-    if data.prescription_json is not None:
-        item.prescription_json = data.prescription_json
+    item.prescription_json = {"sets": [s.model_dump() for s in data.sets]}
 
     db.commit()
 

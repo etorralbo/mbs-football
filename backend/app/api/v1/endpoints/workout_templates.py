@@ -109,6 +109,13 @@ def update_template(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Template must have at least one exercise before publishing",
             )
+        for block in detail.blocks:
+            for item in block.items:
+                if not item.prescription_json.get("sets"):
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail="Each exercise must have at least one set before publishing",
+                    )
 
     template = workout_templates_service.update_template(
         db, current_user.team_id, template_id, data

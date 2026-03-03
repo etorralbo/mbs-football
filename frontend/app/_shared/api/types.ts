@@ -64,11 +64,18 @@ export interface Exercise {
   updated_at: string
 }
 
+export interface SetPrescription {
+  order:  number
+  reps:   number | null
+  weight: number | null
+  rpe:    number | null
+}
+
 export interface BlockItem {
   id: string
   workout_block_id: string
   order: number
-  prescription_json: Record<string, unknown>
+  sets: SetPrescription[]
   exercise: Exercise
 }
 
