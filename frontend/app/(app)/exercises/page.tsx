@@ -93,8 +93,10 @@ export default function ExercisesPage() {
 
   if (authLoading) return null
 
+  // owner_type may be absent on databases that haven't run the migration yet —
+  // treat any non-COMPANY exercise (including undefined) as a COACH exercise.
   const companyExercises = exercises.filter((e) => e.owner_type === 'COMPANY')
-  const coachExercises = exercises.filter((e) => e.owner_type === 'COACH')
+  const coachExercises = exercises.filter((e) => e.owner_type !== 'COMPANY')
 
   return (
     <>
@@ -225,7 +227,7 @@ function ExerciseRow({
   return (
     <li className="flex items-center justify-between rounded-lg border border-white/8 bg-[#131922] px-4 py-3">
       <div className="min-w-0 flex items-center gap-2">
-        {!exercise.is_editable && (
+        {exercise.is_editable === false && (
           <span className="shrink-0 rounded-full bg-[#4f9cf9]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#4f9cf9] ring-1 ring-[#4f9cf9]/30">
             Official
           </span>
@@ -238,7 +240,7 @@ function ExerciseRow({
         </div>
       </div>
 
-      {exercise.is_editable && (
+      {exercise.is_editable !== false && (
         <button
           onClick={() => onDelete(exercise.id, exercise.name)}
           aria-label={`Delete ${exercise.name}`}

@@ -2,8 +2,16 @@
 
 import { useRef, useState } from 'react'
 import { request } from '@/app/_shared/api/httpClient'
-import type { BlockItem, WorkoutBlock } from '@/app/_shared/api/types'
-import { ExerciseSearch, type AddedItem } from './ExerciseSearch'
+import type { BlockItem, Exercise, WorkoutBlock } from '@/app/_shared/api/types'
+import { ExerciseSelector } from './ExerciseSelector'
+
+interface AddedItem {
+  id: string
+  workout_block_id: string
+  order: number
+  prescription_json: Record<string, unknown>
+  exercise: Exercise
+}
 
 // Prescription fields shown in the editor, matching what athletes see.
 const PRESCRIPTION_FIELDS = [
@@ -114,6 +122,9 @@ export function BlockEditor({ block, onDeleted, onItemsChange }: BlockEditorProp
   const [items, setItems] = useState<BlockItem[]>(block.items)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [addingExercise, setAddingExercise] = useState(false)
+  const [creatingExercise, setCreatingExercise] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
   const nameRef = useRef<HTMLInputElement>(null)
   const notesRef = useRef<HTMLTextAreaElement>(null)
 
@@ -180,6 +191,42 @@ export function BlockEditor({ block, onDeleted, onItemsChange }: BlockEditorProp
     onItemsChange(block.id, updated)
   }
 
+  async function handleSelectExercise(exercise: Exercise) {
+    setAddingExercise(true)
+    setAddError(null)
+    try {
+      const item = await request<AddedItem>(`/v1/blocks/${block.id}/items`, {
+        method: 'POST',
+        body: JSON.stringify({ exercise_id: exercise.id, prescription_json: {} }),
+      })
+      handleItemAdded(item)
+    } catch {
+      setAddError('Could not add exercise. Please try again.')
+    } finally {
+      setAddingExercise(false)
+    }
+  }
+
+  async function handleCreateExercise(name: string) {
+    setCreatingExercise(true)
+    setAddError(null)
+    try {
+      const exercise = await request<Exercise>('/v1/exercises', {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+      })
+      const item = await request<AddedItem>(`/v1/blocks/${block.id}/items`, {
+        method: 'POST',
+        body: JSON.stringify({ exercise_id: exercise.id, prescription_json: {} }),
+      })
+      handleItemAdded(item)
+    } catch {
+      setAddError('Could not create exercise. Please try again.')
+    } finally {
+      setCreatingExercise(false)
+    }
+  }
+
   return (
     <section
       aria-label={`Edit block: ${block.name}`}
@@ -239,8 +286,16 @@ export function BlockEditor({ block, onDeleted, onItemsChange }: BlockEditorProp
         <p className="mt-2 text-xs text-slate-500">No exercises yet. Add one below.</p>
       )}
 
-      {/* Add exercise search */}
-      <ExerciseSearch blockId={block.id} onItemAdded={handleItemAdded} />
+      {/* Add exercise selector */}
+      <ExerciseSelector
+        onSelect={handleSelectExercise}
+        onCreateRequest={handleCreateExercise}
+        adding={addingExercise}
+        creating={creatingExercise}
+      />
+      {addError && (
+        <p role="alert" className="mt-1 text-xs text-red-400">{addError}</p>
+      )}
     </section>
   )
 }
