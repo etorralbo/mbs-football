@@ -5,6 +5,8 @@ import {
   ForbiddenError,
   NotFoundError,
   ValidationError,
+  ConflictError,
+  GoneError,
   ServerError,
   TeamNotSelectedError,
   StaleTeamRequestError,
@@ -135,6 +137,23 @@ describe('request', () => {
   it('throws ValidationError on 400', async () => {
     mockFetch.mockReturnValue(jsonResponse(400, { detail: 'bad input' }))
     await expect(request('/test')).rejects.toBeInstanceOf(ValidationError)
+  })
+
+  it('throws ConflictError on 409', async () => {
+    mockFetch.mockReturnValue(jsonResponse(409, { detail: 'Already used' }))
+    await expect(request('/test')).rejects.toBeInstanceOf(ConflictError)
+  })
+
+  it('throws GoneError on 410', async () => {
+    mockFetch.mockReturnValue(jsonResponse(410, { detail: 'Invite has expired' }))
+    await expect(request('/test')).rejects.toBeInstanceOf(GoneError)
+  })
+
+  it('GoneError preserves the detail message', async () => {
+    mockFetch.mockReturnValue(jsonResponse(410, { detail: 'Invite has expired' }))
+    const err = await request('/test').catch((e) => e)
+    expect(err).toBeInstanceOf(GoneError)
+    expect(err.message).toBe('Invite has expired')
   })
 
   it('throws ServerError on 500', async () => {

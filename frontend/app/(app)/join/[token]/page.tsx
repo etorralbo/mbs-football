@@ -6,6 +6,8 @@ import {
   request,
   UnauthorizedError,
   NotFoundError,
+  GoneError,
+  ConflictError,
 } from '@/app/_shared/api/httpClient'
 import { Button } from '@/app/_shared/components/Button'
 import type { AcceptInviteResponse } from '@/app/_shared/api/types'
@@ -67,17 +69,19 @@ export default function JoinTokenPage() {
         return
       }
       if (err instanceof NotFoundError) {
-        setState({ phase: 'error', message: 'This invite link is invalid or has expired. Ask your coach for a new one.' })
+        setState({ phase: 'error', message: 'This invite link is invalid. Ask your coach for a new one.' })
+        return
+      }
+      if (err instanceof GoneError) {
+        setState({ phase: 'error', message: 'This invite link has expired. Ask your coach for a new one.' })
+        return
+      }
+      if (err instanceof ConflictError) {
+        setState({ phase: 'error', message: 'This invite link has already been used.' })
         return
       }
       if (err instanceof Error) {
-        if (err.message.toLowerCase().includes('used')) {
-          setState({ phase: 'error', message: 'This invite link has already been used.' })
-        } else if (err.message.toLowerCase().includes('expired')) {
-          setState({ phase: 'error', message: 'This invite link has expired. Ask your coach for a new one.' })
-        } else {
-          setState({ phase: 'error', message: err.message || 'Something went wrong. Please try again.' })
-        }
+        setState({ phase: 'error', message: err.message || 'Something went wrong. Please try again.' })
         return
       }
       setState({ phase: 'error', message: 'Something went wrong. Please try again.' })

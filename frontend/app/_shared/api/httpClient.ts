@@ -48,6 +48,13 @@ export class ConflictError extends Error {
   }
 }
 
+export class GoneError extends Error {
+  constructor(message = 'Gone') {
+    super(message)
+    this.name = 'GoneError'
+  }
+}
+
 export class ServerError extends Error {
   readonly status: number
   constructor(message: string, status = 500) {
@@ -189,6 +196,8 @@ export async function request<T>(
       throw new ValidationError(extractDetail(body))
     case 409:
       throw new ConflictError(extractMessage(body))
+    case 410:
+      throw new GoneError(extractMessage(body))
     default:
       throw new ServerError(
         extractMessage(body) || `Server error ${response.status}`,
