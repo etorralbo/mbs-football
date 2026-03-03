@@ -82,7 +82,7 @@ export function ExercisePicker({ blockId, onSelect, onClose }: ExercisePickerPro
     try {
       const item = await request<BlockItem>(`/v1/blocks/${blockId}/items`, {
         method: 'POST',
-        body: JSON.stringify({ exercise_id: exercise.id, prescription_json: {} }),
+        body: JSON.stringify({ exercise_id: exercise.id }),
       })
       onSelect(exercise, item)
       onClose()

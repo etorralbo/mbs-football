@@ -63,6 +63,7 @@ const TEMPLATE: WorkoutTemplate = {
   team_id: 'team-1',
   title: 'Strength Block A',
   description: null,
+  status: 'draft',
   created_at: '2025-01-01T00:00:00Z',
   updated_at: '2025-01-01T00:00:00Z',
 }
@@ -91,10 +92,13 @@ const COMPLETED_SESSION: WorkoutSessionSummary = {
 
 const EXERCISE: Exercise = {
   id: 'ex-1',
-  team_id: 'team-1',
+  coach_id: null,
+  owner_type: 'COMPANY',
+  is_editable: false,
+  is_favorite: false,
   name: 'Back Squat',
-  description: null,
-  tags: null,
+  description: '',
+  tags: [],
   video_asset_id: null,
   created_at: '2025-01-01T00:00:00Z',
   updated_at: '2025-01-01T00:00:00Z',
@@ -123,6 +127,8 @@ function setupCoach() {
     activeTeamId: 'team-1',
     error: null,
     refreshMe: vi.fn(),
+    setActiveTeamId: vi.fn(),
+    clearActiveTeam: vi.fn(),
   })
   mockUseTeamOverview.mockReturnValue(COACH_TEAM_STATE)
 }
@@ -135,6 +141,8 @@ function setupAthlete() {
     activeTeamId: 'team-1',
     error: null,
     refreshMe: vi.fn(),
+    setActiveTeamId: vi.fn(),
+    clearActiveTeam: vi.fn(),
   })
   // useTeamOverview should not be called for ATHLETE, but provide a safe default
   mockUseTeamOverview.mockReturnValue({ status: 'loading' })
@@ -347,6 +355,8 @@ describe('HomePage — loading state', () => {
       activeTeamId: null,
       error: null,
       refreshMe: vi.fn(),
+      setActiveTeamId: vi.fn(),
+      clearActiveTeam: vi.fn(),
     })
     mockUseTeamOverview.mockReturnValue({ status: 'loading' })
 

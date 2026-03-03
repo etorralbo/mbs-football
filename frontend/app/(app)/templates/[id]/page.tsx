@@ -271,11 +271,7 @@ export default function TemplateDetailPage() {
         )}
 
         {/* Status badge */}
-        {template.status === 'published' ? (
-          <span className="shrink-0 rounded-full bg-emerald-900/40 px-2.5 py-1 text-xs font-medium text-emerald-400">
-            Published
-          </span>
-        ) : (
+        {template.status === 'draft' && (
           <span className="shrink-0 rounded-full bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-400">
             Draft
           </span>
@@ -435,12 +431,9 @@ export default function TemplateDetailPage() {
                     <li key={item.id} className="flex items-center gap-2">
                       <span className="h-1.5 w-1.5 rounded-full bg-[#4f9cf9]" aria-hidden="true" />
                       <span className="text-sm text-white">{item.exercise.name}</span>
-                      {Object.values(item.prescription_json).some((v) => v != null) && (
+                      {item.sets.length > 0 && (
                         <span className="text-xs text-slate-500">
-                          {(['sets', 'reps', 'load', 'rest'] as const)
-                            .filter((k) => item.prescription_json[k] != null)
-                            .map((k) => `${item.prescription_json[k]} ${k}`)
-                            .join(' · ')}
+                          {item.sets.length} {item.sets.length === 1 ? 'set' : 'sets'}
                         </span>
                       )}
                     </li>

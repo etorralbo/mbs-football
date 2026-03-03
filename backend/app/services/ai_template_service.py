@@ -96,7 +96,11 @@ def _score(intent_tokens: set[str], exercise: Exercise) -> float:
 
     exercise_vocab = _tokenize(
         " ".join(
-            filter(None, [exercise.name, exercise.tags or "", exercise.description or ""])
+            filter(None, [
+                exercise.name,
+                " ".join(exercise.tags) if exercise.tags else "",
+                exercise.description or "",
+            ])
         )
     )
 
@@ -120,7 +124,7 @@ def _match_exercises(
 
         matched = sorted(
             intent_tokens
-            & _tokenize(f"{ex.name} {ex.tags or ''} {ex.description or ''}")
+            & _tokenize(f"{ex.name} {' '.join(ex.tags or [])} {ex.description or ''}")
         )
         reason = f"Matched: {', '.join(matched)}" if matched else "General match"
 

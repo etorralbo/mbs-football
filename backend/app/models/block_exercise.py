@@ -44,8 +44,14 @@ class BlockExercise(Base, TimestampMixin):
     prescription_json: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,
+        default=dict,
         server_default="{}"
     )
+
+    @property
+    def sets(self) -> list[dict]:
+        """Expose sets array from prescription_json for Pydantic serialisation."""
+        return (self.prescription_json or {}).get("sets", [])
 
     # Relationships
     workout_block: Mapped["WorkoutBlock"] = relationship(

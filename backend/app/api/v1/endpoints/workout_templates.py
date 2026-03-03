@@ -88,6 +88,35 @@ def update_template(
     current_user: Annotated[CurrentUser, Depends(require_coach)],
     db: Annotated[Session, Depends(get_db)],
 ):
+    # Pre-validate content requirements when publishing.
+    # Idempotent: publishing an already-published template succeeds without error.
+    if data.status == "published":
+        detail = workout_templates_service.get_template_detail(
+            db, current_user.team_id, template_id
+        )
+        if not detail:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Workout template not found",
+            )
+        if not detail.blocks:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Template must have at least one block before publishing",
+            )
+        if not any(block.items for block in detail.blocks):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Template must have at least one exercise before publishing",
+            )
+        for block in detail.blocks:
+            for item in block.items:
+                if not item.prescription_json.get("sets"):
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail="Each exercise must have at least one set before publishing",
+                    )
+
     template = workout_templates_service.update_template(
         db, current_user.team_id, template_id, data
     )

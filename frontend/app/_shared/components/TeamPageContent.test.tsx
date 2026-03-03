@@ -95,7 +95,7 @@ afterEach(() => {
 // Helper: a child that records every mount via a spy
 // ---------------------------------------------------------------------------
 
-function makeTrackedChild(mountSpy: ReturnType<typeof vi.fn>) {
+function makeTrackedChild(mountSpy: () => void) {
   return function TrackedChild() {
     useEffect(() => {
       mountSpy()

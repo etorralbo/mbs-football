@@ -55,7 +55,7 @@ const MOCK_ITEM: BlockItem = {
   id: 'item-1',
   workout_block_id: 'blk-1',
   order: 0,
-  prescription_json: {},
+  sets: [{ order: 0, reps: null, weight: null, rpe: null }],
   exercise: SQUAT,
 }
 
