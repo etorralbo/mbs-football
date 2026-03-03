@@ -12,7 +12,7 @@ import { supabase } from '@/app/_shared/auth/supabaseClient'
 import type { AcceptInviteResponse } from '@/app/_shared/api/types'
 
 // Tokens stored in localStorage expire after 30 minutes to limit exposure.
-const TOKEN_MAX_AGE_MS = 30 * 60 * 1000
+export const TOKEN_MAX_AGE_MS = 30 * 60 * 1000
 
 type Phase = 'loading' | 'joining' | 'already_member' | 'not_eligible' | 'error'
 

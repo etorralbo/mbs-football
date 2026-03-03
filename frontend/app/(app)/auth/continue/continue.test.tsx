@@ -13,7 +13,7 @@
  */
 import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react'
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
-import AuthContinuePage from './page'
+import AuthContinuePage, { TOKEN_MAX_AGE_MS } from './page'
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -93,8 +93,7 @@ describe('AuthContinuePage — no pending token', () => {
   })
 
   it('redirects to /sessions when token is older than 30 minutes', async () => {
-    const THIRTY_ONE_MINUTES = 31 * 60 * 1000
-    setToken('old-token', THIRTY_ONE_MINUTES)
+    setToken('old-token', TOKEN_MAX_AGE_MS + 1)
 
     render(<AuthContinuePage />)
 
