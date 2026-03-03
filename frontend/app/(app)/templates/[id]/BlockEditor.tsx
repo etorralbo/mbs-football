@@ -61,7 +61,7 @@ function SetTable({ item, onDeleted }: SetTableProps) {
         `/v1/block-items/${item.id}`,
         {
           method: 'PATCH',
-          body: JSON.stringify({ sets: newSets.map(({ _cid: _, ...s }) => s) }),
+          body: JSON.stringify({ sets: newSets.map(({ _cid, ...s }) => s) }),
           signal: ac.signal,
         },
       )
