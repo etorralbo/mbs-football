@@ -6,6 +6,18 @@ import type { BlockItem, Exercise, SetPrescription, WorkoutBlock } from '@/app/_
 import { ExercisePicker } from './ExercisePicker'
 
 // ---------------------------------------------------------------------------
+// Local type — SetPrescription augmented with a stable client-side ID.
+// _cid is never sent to the backend; it exists solely so React rows have a
+// stable key that survives order renumbering after deletion.
+// ---------------------------------------------------------------------------
+
+type SetWithId = SetPrescription & { _cid: string }
+
+function withId(s: SetPrescription): SetWithId {
+  return { ...s, _cid: crypto.randomUUID() }
+}
+
+// ---------------------------------------------------------------------------
 // SetTable — per-set row editor for one exercise item
 // ---------------------------------------------------------------------------
 
@@ -15,31 +27,63 @@ interface SetTableProps {
 }
 
 function SetTable({ item, onDeleted }: SetTableProps) {
-  const [sets, setSets] = useState<SetPrescription[]>(item.sets)
+  const [sets, setSetsState] = useState<SetWithId[]>(() => item.sets.map(withId))
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function saveSets(newSets: SetPrescription[]) {
+  // latestSetsRef always holds the current sets value synchronously,
+  // eliminating the stale-closure problem in concurrent blur handlers.
+  const latestSetsRef = useRef<SetWithId[]>(item.sets.map(withId))
+
+  // Abort controller for cancelling an in-flight PATCH when a newer edit arrives.
+  const saveAbortRef = useRef<AbortController | null>(null)
+
+  // Flag set as soon as item deletion starts — prevents blur events from
+  // firing a PATCH after the item is already being removed.
+  const itemDeletedRef = useRef(false)
+
+  function setSets(newSets: SetWithId[]) {
+    latestSetsRef.current = newSets
+    setSetsState(newSets)
+  }
+
+  async function persistSets(newSets: SetWithId[]) {
+    // Cancel any previous in-flight PATCH — only the latest edit matters.
+    saveAbortRef.current?.abort()
+    const ac = new AbortController()
+    saveAbortRef.current = ac
+
     setSaving(true)
     setError(null)
-    const prev = sets
-    setSets(newSets)
     try {
-      await request(`/v1/block-items/${item.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ sets: newSets }),
-      })
+      const result = await request<BlockItem>(
+        `/v1/block-items/${item.id}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ sets: newSets.map(({ _cid: _, ...s }) => s) }),
+          signal: ac.signal,
+        },
+      )
+      if (ac.signal.aborted) return
+
+      // Rehidrate from the server response, preserving _cid values by matching order.
+      const cidByOrder = new Map(latestSetsRef.current.map((s) => [s.order, s._cid]))
+      setSets(
+        result.sets.map((s) => ({
+          ...s,
+          _cid: cidByOrder.get(s.order) ?? crypto.randomUUID(),
+        })),
+      )
     } catch (err) {
-      // Item was deleted server-side (e.g. its exercise was removed from the library).
+      if (ac.signal.aborted) return
       if (err instanceof NotFoundError) {
         onDeleted(item.id)
         return
       }
-      setSets(prev)
       setError('Failed to save.')
     } finally {
-      setSaving(false)
+      if (!ac.signal.aborted) setSaving(false)
     }
   }
 
@@ -48,37 +92,50 @@ function SetTable({ item, onDeleted }: SetTableProps) {
     field: 'reps' | 'weight' | 'rpe',
     raw: string,
   ) {
+    if (itemDeletedRef.current) return
     const value = raw === '' ? null : Number(raw)
-    const newSets = sets.map((s, i) =>
+    // Read from latestSetsRef to avoid stale closure — avoids losing concurrent edits.
+    const newSets = latestSetsRef.current.map((s, i) =>
       i === setIdx ? { ...s, [field]: value } : s,
     )
-    saveSets(newSets)
+    setSets(newSets)
+    persistSets(newSets)
   }
 
   function addSet() {
-    saveSets([...sets, { order: sets.length, reps: null, weight: null, rpe: null }])
+    const newSets: SetWithId[] = [
+      ...latestSetsRef.current,
+      { order: latestSetsRef.current.length, reps: null, weight: null, rpe: null, _cid: crypto.randomUUID() },
+    ]
+    setSets(newSets)
+    persistSets(newSets)
   }
 
   function deleteSet(setIdx: number) {
-    saveSets(
-      sets
-        .filter((_, i) => i !== setIdx)
-        .map((s, i) => ({ ...s, order: i })),
-    )
+    const newSets = latestSetsRef.current
+      .filter((_, i) => i !== setIdx)
+      .map((s, i) => ({ ...s, order: i }))
+    setSets(newSets)
+    persistSets(newSets)
   }
 
   async function handleDeleteItem() {
+    // Raise the flag first so any concurrent blur PATCH is skipped.
+    itemDeletedRef.current = true
+    // Cancel any in-flight PATCH — no point saving an item we're about to delete.
+    saveAbortRef.current?.abort()
     setDeleting(true)
     setError(null)
     try {
       await request(`/v1/block-items/${item.id}`, { method: 'DELETE' })
       onDeleted(item.id)
     } catch (err) {
-      // Already gone — remove from UI silently.
+      // Already gone (idempotent 404 → treat as success).
       if (err instanceof NotFoundError) {
         onDeleted(item.id)
         return
       }
+      itemDeletedRef.current = false
       setError('Failed to delete.')
       setDeleting(false)
     }
@@ -116,7 +173,7 @@ function SetTable({ item, onDeleted }: SetTableProps) {
         </thead>
         <tbody>
           {sets.map((s, idx) => (
-            <tr key={idx}>
+            <tr key={s._cid}>
               <td className="py-0.5 text-center text-slate-500">{idx + 1}</td>
               {(['reps', 'weight', 'rpe'] as const).map((field) => (
                 <td key={field} className="px-1 py-0.5">
