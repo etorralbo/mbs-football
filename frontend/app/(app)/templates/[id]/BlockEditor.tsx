@@ -3,15 +3,7 @@
 import { useRef, useState } from 'react'
 import { request } from '@/app/_shared/api/httpClient'
 import type { BlockItem, Exercise, WorkoutBlock } from '@/app/_shared/api/types'
-import { ExerciseSelector } from './ExerciseSelector'
-
-interface AddedItem {
-  id: string
-  workout_block_id: string
-  order: number
-  prescription_json: Record<string, unknown>
-  exercise: Exercise
-}
+import { ExercisePicker } from './ExercisePicker'
 
 // Prescription fields shown in the editor, matching what athletes see.
 const PRESCRIPTION_FIELDS = [
@@ -115,23 +107,20 @@ function ItemRow({ item, onDeleted }: ItemRowProps) {
 export interface BlockEditorProps {
   block: WorkoutBlock
   onDeleted: (blockId: string) => void
-  onItemsChange: (blockId: string, items: BlockItem[]) => void
+  onItemAdded: (blockId: string, item: BlockItem) => void
 }
 
-export function BlockEditor({ block, onDeleted, onItemsChange }: BlockEditorProps) {
+export function BlockEditor({ block, onDeleted, onItemAdded }: BlockEditorProps) {
   const [items, setItems] = useState<BlockItem[]>(block.items)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [addingExercise, setAddingExercise] = useState(false)
-  const [creatingExercise, setCreatingExercise] = useState(false)
-  const [addError, setAddError] = useState<string | null>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const nameRef = useRef<HTMLInputElement>(null)
   const notesRef = useRef<HTMLTextAreaElement>(null)
 
   async function handleNameBlur() {
     const value = nameRef.current?.value.trim() ?? ''
     if (!value) {
-      // Restore to original — don't persist an empty name (validates on backend too)
       if (nameRef.current) nameRef.current.value = block.name
       return
     }
@@ -172,130 +161,94 @@ export function BlockEditor({ block, onDeleted, onItemsChange }: BlockEditorProp
   }
 
   function handleItemDeleted(itemId: string) {
-    const updated = items.filter((i) => i.id !== itemId)
-    setItems(updated)
-    onItemsChange(block.id, updated)
+    setItems((prev) => prev.filter((i) => i.id !== itemId))
   }
 
-  function handleItemAdded(added: AddedItem) {
-    // AddedItem is compatible with BlockItem (same shape)
-    const asItem: BlockItem = {
-      id: added.id,
-      workout_block_id: added.workout_block_id,
-      order: added.order,
-      prescription_json: added.prescription_json,
-      exercise: added.exercise,
-    }
-    const updated = [...items, asItem]
-    setItems(updated)
-    onItemsChange(block.id, updated)
-  }
-
-  async function handleSelectExercise(exercise: Exercise) {
-    setAddingExercise(true)
-    setAddError(null)
-    try {
-      const item = await request<AddedItem>(`/v1/blocks/${block.id}/items`, {
-        method: 'POST',
-        body: JSON.stringify({ exercise_id: exercise.id, prescription_json: {} }),
-      })
-      handleItemAdded(item)
-    } catch {
-      setAddError('Could not add exercise. Please try again.')
-    } finally {
-      setAddingExercise(false)
-    }
-  }
-
-  async function handleCreateExercise(name: string) {
-    setCreatingExercise(true)
-    setAddError(null)
-    try {
-      const exercise = await request<Exercise>('/v1/exercises', {
-        method: 'POST',
-        body: JSON.stringify({ name }),
-      })
-      const item = await request<AddedItem>(`/v1/blocks/${block.id}/items`, {
-        method: 'POST',
-        body: JSON.stringify({ exercise_id: exercise.id, prescription_json: {} }),
-      })
-      handleItemAdded(item)
-    } catch {
-      setAddError('Could not create exercise. Please try again.')
-    } finally {
-      setCreatingExercise(false)
-    }
+  function handlePickerSelect(_exercise: Exercise, item: BlockItem) {
+    setItems((prev) => [...prev, item])
+    onItemAdded(block.id, item)
   }
 
   return (
-    <section
-      aria-label={`Edit block: ${block.name}`}
-      className="rounded-lg border border-white/8 bg-[#131922] p-5"
-    >
-      {/* Block header row */}
-      <div className="flex items-start gap-3">
-        <div className="flex-1 space-y-1.5">
-          <input
-            ref={nameRef}
-            type="text"
-            defaultValue={block.name}
-            onBlur={handleNameBlur}
-            maxLength={255}
-            placeholder="Block name"
-            className="w-full rounded-md border border-white/10 bg-[#0d1420] px-2.5 py-1.5 text-sm font-semibold text-white focus:border-[#4f9cf9] focus:outline-none"
-          />
-          <textarea
-            ref={notesRef}
-            defaultValue={block.notes ?? ''}
-            onBlur={handleNotesBlur}
-            rows={1}
-            placeholder="Notes (optional)"
-            className="w-full resize-none rounded-md border border-white/10 bg-[#0d1420] px-2.5 py-1.5 text-xs text-slate-400 placeholder:text-slate-600 focus:border-[#4f9cf9] focus:outline-none"
-          />
-        </div>
-        <button
-          onClick={handleDeleteBlock}
-          disabled={deleting}
-          aria-label={`Delete block ${block.name}`}
-          className="mt-0.5 shrink-0 rounded p-1.5 text-slate-600 transition-colors hover:bg-red-900/30 hover:text-red-400 disabled:opacity-40"
-        >
-          {deleting ? '…' : (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          )}
-        </button>
-      </div>
-
-      {deleteError && (
-        <p role="alert" className="mt-1 text-xs text-red-400">{deleteError}</p>
-      )}
-
-      {/* Exercise items */}
-      {items.length > 0 ? (
-        <ul className="mt-3">
-          {items.map((item) => (
-            <ItemRow
-              key={item.id}
-              item={item}
-              onDeleted={handleItemDeleted}
+    <>
+      <section
+        aria-label={`Edit block: ${block.name}`}
+        className="rounded-lg border border-white/8 bg-[#131922] p-5"
+      >
+        {/* Block header row */}
+        <div className="flex items-start gap-3">
+          <div className="flex-1 space-y-1.5">
+            <input
+              ref={nameRef}
+              type="text"
+              defaultValue={block.name}
+              onBlur={handleNameBlur}
+              maxLength={255}
+              placeholder="Block name"
+              className="w-full rounded-md border border-white/10 bg-[#0d1420] px-2.5 py-1.5 text-sm font-semibold text-white focus:border-[#4f9cf9] focus:outline-none"
             />
-          ))}
-        </ul>
-      ) : (
-        <p className="mt-2 text-xs text-slate-500">No exercises yet. Add one below.</p>
-      )}
+            <textarea
+              ref={notesRef}
+              defaultValue={block.notes ?? ''}
+              onBlur={handleNotesBlur}
+              rows={1}
+              placeholder="Notes (optional)"
+              className="w-full resize-none rounded-md border border-white/10 bg-[#0d1420] px-2.5 py-1.5 text-xs text-slate-400 placeholder:text-slate-600 focus:border-[#4f9cf9] focus:outline-none"
+            />
+          </div>
+          <button
+            onClick={handleDeleteBlock}
+            disabled={deleting}
+            aria-label={`Delete block ${block.name}`}
+            className="mt-0.5 shrink-0 rounded p-1.5 text-slate-600 transition-colors hover:bg-red-900/30 hover:text-red-400 disabled:opacity-40"
+          >
+            {deleting ? '…' : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            )}
+          </button>
+        </div>
 
-      {/* Add exercise selector */}
-      <ExerciseSelector
-        onSelect={handleSelectExercise}
-        onCreateRequest={handleCreateExercise}
-        adding={addingExercise}
-        creating={creatingExercise}
-      />
-      {addError && (
-        <p role="alert" className="mt-1 text-xs text-red-400">{addError}</p>
+        {deleteError && (
+          <p role="alert" className="mt-1 text-xs text-red-400">{deleteError}</p>
+        )}
+
+        {/* Exercise items */}
+        {items.length > 0 ? (
+          <ul className="mt-3">
+            {items.map((item) => (
+              <ItemRow
+                key={item.id}
+                item={item}
+                onDeleted={handleItemDeleted}
+              />
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 text-xs text-slate-500">No exercises yet.</p>
+        )}
+
+        {/* Browse library button */}
+        <button
+          onClick={() => setPickerOpen(true)}
+          className="mt-3 flex items-center gap-1.5 rounded-md border border-dashed border-white/15 px-3 py-2 text-sm text-slate-400 transition-colors hover:border-white/25 hover:text-white"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Browse library
+        </button>
+      </section>
+
+      {/* ExercisePicker modal — rendered outside the block card so it's full-screen */}
+      {pickerOpen && (
+        <ExercisePicker
+          blockId={block.id}
+          onSelect={handlePickerSelect}
+          onClose={() => setPickerOpen(false)}
+        />
       )}
-    </section>
+    </>
   )
 }

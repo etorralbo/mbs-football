@@ -126,6 +126,8 @@ export default function TemplateDetailPage() {
   const [showAddBlock, setShowAddBlock] = useState(false)
   const [titleValue, setTitleValue] = useState('')
   const [savingTitle, setSavingTitle] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [reorderingBlockId, setReorderingBlockId] = useState<string | null>(null)
 
   // Capture on mount so banner stays visible after the URL param is cleaned.
   const [showFromAiBanner] = useState(() => searchParams.get('fromAi') === '1')
@@ -162,18 +164,66 @@ export default function TemplateDetailPage() {
     }
   }
 
+  async function handlePublish() {
+    if (!template || template.status === 'published') return
+    // Optimistic update
+    setTemplate((prev) => prev ? { ...prev, status: 'published' } : prev)
+    setPublishing(true)
+    try {
+      await request(`/v1/workout-templates/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'published' }),
+      })
+    } catch {
+      // Revert on error
+      setTemplate((prev) => prev ? { ...prev, status: 'draft' } : prev)
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  async function handleReorderBlock(blockId: string, direction: 'up' | 'down') {
+    if (!template) return
+    const idx = template.blocks.findIndex((b) => b.id === blockId)
+    if (idx === -1) return
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+    if (swapIdx < 0 || swapIdx >= template.blocks.length) return
+
+    // Optimistic reorder
+    const newBlocks = [...template.blocks]
+    ;[newBlocks[idx], newBlocks[swapIdx]] = [newBlocks[swapIdx], newBlocks[idx]]
+    setTemplate((prev) => prev ? { ...prev, blocks: newBlocks } : prev)
+    setReorderingBlockId(blockId)
+
+    try {
+      await request(`/v1/workout-templates/${id}/blocks/reorder`, {
+        method: 'PUT',
+        body: JSON.stringify({ block_ids: newBlocks.map((b) => b.id) }),
+      })
+    } catch {
+      // Revert on error
+      setTemplate((prev) =>
+        prev ? { ...prev, blocks: template.blocks } : prev,
+      )
+    } finally {
+      setReorderingBlockId(null)
+    }
+  }
+
   function handleBlockDeleted(blockId: string) {
     setTemplate((prev) =>
       prev ? { ...prev, blocks: prev.blocks.filter((b) => b.id !== blockId) } : prev,
     )
   }
 
-  function handleBlockItemsChange(blockId: string, items: BlockItem[]) {
+  function handleBlockItemAdded(blockId: string, item: BlockItem) {
     setTemplate((prev) => {
       if (!prev) return prev
       return {
         ...prev,
-        blocks: prev.blocks.map((b) => (b.id === blockId ? { ...b, items } : b)),
+        blocks: prev.blocks.map((b) =>
+          b.id === blockId ? { ...b, items: [...b.items, item] } : b,
+        ),
       }
     })
   }
@@ -220,7 +270,29 @@ export default function TemplateDetailPage() {
           <h1 className="flex-1 text-xl font-semibold text-white">{template.title}</h1>
         )}
 
+        {/* Status badge */}
+        {template.status === 'published' ? (
+          <span className="shrink-0 rounded-full bg-emerald-900/40 px-2.5 py-1 text-xs font-medium text-emerald-400">
+            Published
+          </span>
+        ) : (
+          <span className="shrink-0 rounded-full bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-400">
+            Draft
+          </span>
+        )}
+
         {savingTitle && <span className="text-xs text-slate-400">Saving…</span>}
+
+        {/* Publish button (only when draft) */}
+        {template.status === 'draft' && (
+          <button
+            onClick={handlePublish}
+            disabled={publishing}
+            className="shrink-0 rounded-md bg-[#c8f135] px-3 py-1.5 text-xs font-bold text-[#0a0d14] transition-colors hover:bg-[#d4f755] disabled:opacity-50"
+          >
+            {publishing ? 'Publishing…' : 'Publish'}
+          </button>
+        )}
 
         <button
           onClick={() => { setEditMode((v) => !v); setShowAddBlock(false) }}
@@ -296,13 +368,40 @@ export default function TemplateDetailPage() {
       <div className="mt-8 space-y-4">
         {editMode ? (
           <>
-            {template.blocks.map((block) => (
-              <BlockEditor
-                key={block.id}
-                block={block}
-                onDeleted={handleBlockDeleted}
-                onItemsChange={handleBlockItemsChange}
-              />
+            {template.blocks.map((block, idx) => (
+              <div key={block.id} className="flex gap-2">
+                {/* Reorder buttons */}
+                <div className="flex flex-col justify-center gap-1">
+                  <button
+                    onClick={() => handleReorderBlock(block.id, 'up')}
+                    disabled={idx === 0 || reorderingBlockId !== null}
+                    aria-label={`Move ${block.name} up`}
+                    className="rounded p-1 text-slate-600 transition-colors hover:bg-white/5 hover:text-slate-300 disabled:opacity-30"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => handleReorderBlock(block.id, 'down')}
+                    disabled={idx === template.blocks.length - 1 || reorderingBlockId !== null}
+                    aria-label={`Move ${block.name} down`}
+                    className="rounded p-1 text-slate-600 transition-colors hover:bg-white/5 hover:text-slate-300 disabled:opacity-30"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="flex-1">
+                  <BlockEditor
+                    block={block}
+                    onDeleted={handleBlockDeleted}
+                    onItemAdded={handleBlockItemAdded}
+                  />
+                </div>
+              </div>
             ))}
 
             {showAddBlock ? (
