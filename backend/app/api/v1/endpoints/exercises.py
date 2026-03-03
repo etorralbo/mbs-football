@@ -32,7 +32,6 @@ from app.core.dependencies import (
 from app.db.session import get_db
 from app.schemas.exercise import ExerciseCreate, ExerciseFavoriteToggleOut, ExerciseOut, ExerciseUpdate
 from app.services import exercises_service
-from app.services.exercises_service import ExerciseInUseError
 
 router = APIRouter(prefix="/exercises", tags=["exercises"])
 
@@ -226,17 +225,11 @@ def delete_exercise(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=_COMPANY_EXERCISE_DETAIL,
         )
-    try:
-        deleted = exercises_service.delete_exercise(
-            db=db,
-            coach_id=current_user.user_id,
-            exercise_id=exercise_id,
-        )
-    except ExerciseInUseError:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Exercise is in use by one or more workout templates and cannot be deleted.",
-        )
+    deleted = exercises_service.delete_exercise(
+        db=db,
+        coach_id=current_user.user_id,
+        exercise_id=exercise_id,
+    )
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found")
     return None

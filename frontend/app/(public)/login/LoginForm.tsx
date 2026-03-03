@@ -9,8 +9,8 @@ import { Button } from '@/app/_shared/components/Button'
 function getNextParam(): string {
   if (typeof window === 'undefined') return ''
   const next = new URLSearchParams(window.location.search).get('next') ?? ''
-  // Only honour same-origin paths that start with /join/ or equal /auth/continue.
-  return (next.startsWith('/join/') || next === '/auth/continue') ? next : ''
+  // Only honour same-origin paths that start with /join/ to prevent open redirects.
+  return next.startsWith('/join/') ? next : ''
 }
 
 export function LoginForm() {

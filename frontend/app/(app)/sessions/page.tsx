@@ -1,7 +1,7 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { request } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
@@ -39,40 +39,6 @@ function groupByAthlete(sessions: WorkoutSessionSummary[]): AthleteGroup[] {
   return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name))
 }
 
-function WelcomeBanner({ teamName }: { teamName: string }) {
-  const [visible, setVisible] = useState(true)
-  useEffect(() => {
-    const id = setTimeout(() => setVisible(false), 4000)
-    return () => clearTimeout(id)
-  }, [])
-  if (!visible) return null
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl border border-[#c8f135]/30 bg-[#131922] px-5 py-3 text-sm font-medium text-[#c8f135] shadow-lg"
-    >
-      <svg className="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-        <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
-      </svg>
-      Bienvenido/a al equipo {teamName}
-    </div>
-  )
-}
-
-function WelcomeBannerWrapper() {
-  const searchParams = useSearchParams()
-  const [teamName] = useState<string | null>(() => {
-    if (searchParams.get('welcome') !== '1') return null
-    const stored = sessionStorage.getItem('welcome_team_name')
-    if (stored) sessionStorage.removeItem('welcome_team_name')
-    return stored
-  })
-
-  if (!teamName) return null
-  return <WelcomeBanner teamName={teamName} />
-}
-
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<WorkoutSessionSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -107,9 +73,6 @@ export default function SessionsPage() {
 
   return (
     <>
-      <Suspense>
-        <WelcomeBannerWrapper />
-      </Suspense>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold text-white">Workout Sessions</h1>
         <div className="flex items-center gap-2">

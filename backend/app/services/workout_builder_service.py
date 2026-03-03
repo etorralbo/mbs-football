@@ -244,15 +244,12 @@ def delete_item(
     item_id: uuid.UUID,
 ) -> bool:
     item = _get_item_for_team(db, team_id, item_id)
-    if item:
-        db.delete(item)
-        db.commit()
-        return True
+    if not item:
+        return False
 
-    # Item not found for this team. Distinguish between two cases:
-    #   - Truly gone (already deleted): return True → 204 (idempotent).
-    #   - Exists but belongs to another team: return False → 404 (IDOR protection).
-    return db.get(BlockExercise, item_id) is None
+    db.delete(item)
+    db.commit()
+    return True
 
 
 def reorder_items(
