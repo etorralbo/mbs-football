@@ -3,7 +3,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
 }))
 
 vi.mock('next/link', () => ({

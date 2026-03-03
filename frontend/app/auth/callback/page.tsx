@@ -17,13 +17,11 @@ function CallbackHandler() {
     const code = searchParams.get('code')
     if (code) {
       supabase.auth.exchangeCodeForSession(code).then(() => {
-        const pending = localStorage.getItem('pending_invite_token')
-        router.replace(pending ? '/auth/continue' : '/onboarding')
+        router.replace('/onboarding')
       })
     } else {
       // No code — session may already be set (implicit flow) or something went wrong.
-      const pending = localStorage.getItem('pending_invite_token')
-      router.replace(pending ? '/auth/continue' : '/onboarding')
+      router.replace('/onboarding')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
