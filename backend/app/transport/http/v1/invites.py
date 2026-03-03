@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Path, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -24,7 +24,6 @@ from app.domain.use_cases.accept_invite import (
     InviteAlreadyUsedError,
     InviteExpiredError,
     InviteNotFoundError,
-    InviteRoleConflictError,
 )
 from app.domain.use_cases.create_invite import (
     CreateInviteCommand,
@@ -97,7 +96,7 @@ class AcceptInviteRequest(BaseModel):
 
 
 class AcceptInviteResponse(BaseModel):
-    status: str        # "joined" | "already_member"
+    status: str        # "joined" | "already_member" | "not_eligible"
     team_id: uuid.UUID
     team_name: str
 
@@ -108,7 +107,12 @@ def accept_invite(
     token: Annotated[str, Path(min_length=1, max_length=64)],
     user_id: Annotated[uuid.UUID, Depends(get_auth_user_id)],
     db: Session = Depends(get_db),
+    response: Response = None,  # type: ignore[assignment]
 ) -> AcceptInviteResponse:
+    # Prevent CDN/proxy caching of this mutating endpoint.
+    if response is not None:
+        response.headers["Cache-Control"] = "no-store"
+
     use_case = AcceptInviteUseCase(
         invite_repo=SqlAlchemyInviteRepository(db),
         membership_repo=SqlAlchemyMembershipRepository(db),
@@ -129,8 +133,6 @@ def accept_invite(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     except InviteExpiredError as exc:
         raise HTTPException(status_code=status.HTTP_410_GONE, detail=str(exc))
-    except InviteRoleConflictError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
     db.commit()
 

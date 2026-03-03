@@ -18,6 +18,7 @@ export default function JoinTokenPage() {
   useEffect(() => {
     if (token) {
       localStorage.setItem('pending_invite_token', token)
+      localStorage.setItem('pending_invite_token_at', Date.now().toString())
     }
     router.replace('/auth/continue')
     // eslint-disable-next-line react-hooks/exhaustive-deps

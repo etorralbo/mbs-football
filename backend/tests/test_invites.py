@@ -460,14 +460,14 @@ class TestAcceptInvite:
         assert resp.status_code == 200
         assert resp.json()["team_id"] == str(invite_team_a.team_id)
 
-    def test_coach_on_different_team_returns_403(
+    def test_coach_on_different_team_returns_not_eligible(
         self,
         client: TestClient,
         db_session: Session,
         mock_jwt,
         invite_team_a: Invite,
     ) -> None:
-        """A coach on a DIFFERENT team cannot accept an athlete invite (403)."""
+        """A coach on a different team gets not_eligible (200) — not an error."""
         coach_id = uuid.uuid4()
         other_team = Team(id=uuid.uuid4(), name="Coach Own Team")
         db_session.add(other_team)
@@ -483,5 +483,35 @@ class TestAcceptInvite:
             json={},
             headers=AUTH,
         )
-        assert resp.status_code == 403
-        assert "coach" in resp.json()["detail"].lower()
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "not_eligible"
+        assert body["team_id"] == str(invite_team_a.team_id)
+        assert isinstance(body["team_name"], str) and body["team_name"]
+
+    def test_not_eligible_does_not_consume_invite(
+        self,
+        client: TestClient,
+        db_session: Session,
+        mock_jwt,
+        invite_team_a: Invite,
+    ) -> None:
+        """not_eligible must NOT mark the invite as used — athletes can still join."""
+        coach_id = uuid.uuid4()
+        other_team = Team(id=uuid.uuid4(), name="Coach Other Team")
+        db_session.add(other_team)
+        db_session.flush()
+        db_session.add(
+            Membership(id=uuid.uuid4(), user_id=coach_id, team_id=other_team.id, role=Role.COACH)
+        )
+        db_session.commit()
+
+        mock_jwt(str(coach_id))
+        client.post(
+            f"/v1/team-invites/{invite_team_a.token}/accept",
+            json={},
+            headers=AUTH,
+        )
+
+        db_session.expire(invite_team_a)
+        assert invite_team_a.used_at is None

@@ -3,12 +3,13 @@
  *
  * Contract:
  *   no pending token             → redirect to /sessions
- *   joined                       → clear token, redirect to /sessions?welcome=<team>
+ *   expired token (>30 min)      → redirect to /sessions, no API call
+ *   joined                       → clear token, sessionStorage team name, redirect to /sessions?welcome=1
  *   already_member               → show "already member" screen + buttons
+ *   not_eligible                 → show "invite for athletes" screen + buttons
  *   404 (NotFoundError)          → error: "no es válido"
  *   410 (GoneError)              → error: "caducado"
  *   409 (ConflictError)          → error: "ya ha sido utilizado"
- *   403 (ForbiddenError)         → error: "para atletas"
  */
 import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react'
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
@@ -54,8 +55,9 @@ const USER = {
   },
 }
 
-function setToken(token = 'invite-token-abc') {
+function setToken(token = 'invite-token-abc', ageMs = 0) {
   localStorage.setItem('pending_invite_token', token)
+  localStorage.setItem('pending_invite_token_at', String(Date.now() - ageMs))
 }
 
 // ---------------------------------------------------------------------------
@@ -64,6 +66,7 @@ function setToken(token = 'invite-token-abc') {
 
 beforeEach(() => {
   localStorage.clear()
+  sessionStorage.clear()
   mockRequest.mockReset()
   mockReplace.mockReset()
   mockGetUser.mockReset()
@@ -88,10 +91,24 @@ describe('AuthContinuePage — no pending token', () => {
     })
     expect(mockRequest).not.toHaveBeenCalled()
   })
+
+  it('redirects to /sessions when token is older than 30 minutes', async () => {
+    const THIRTY_ONE_MINUTES = 31 * 60 * 1000
+    setToken('old-token', THIRTY_ONE_MINUTES)
+
+    render(<AuthContinuePage />)
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/sessions')
+    })
+    expect(mockRequest).not.toHaveBeenCalled()
+    expect(localStorage.getItem('pending_invite_token')).toBeNull()
+    expect(localStorage.getItem('pending_invite_token_at')).toBeNull()
+  })
 })
 
 describe('AuthContinuePage — joined', () => {
-  it('calls accept endpoint and redirects to /sessions?welcome=TeamName', async () => {
+  it('calls accept endpoint, stores team name in sessionStorage and redirects to /sessions?welcome=1', async () => {
     setToken()
     mockRequest.mockResolvedValue({
       status: 'joined',
@@ -102,12 +119,12 @@ describe('AuthContinuePage — joined', () => {
     render(<AuthContinuePage />)
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith(
-        '/sessions?welcome=FC%20Barcelona',
-      )
+      expect(mockReplace).toHaveBeenCalledWith('/sessions?welcome=1')
     })
 
+    expect(sessionStorage.getItem('welcome_team_name')).toBe('FC Barcelona')
     expect(localStorage.getItem('pending_invite_token')).toBeNull()
+    expect(localStorage.getItem('pending_invite_token_at')).toBeNull()
   })
 
   it('passes display_name from user metadata to accept endpoint', async () => {
@@ -145,7 +162,7 @@ describe('AuthContinuePage — already_member', () => {
     expect(screen.getByRole('button', { name: /ir a mi dashboard/i })).toBeInTheDocument()
   })
 
-  it('clears token from localStorage on already_member', async () => {
+  it('clears token and timestamp from localStorage on already_member', async () => {
     setToken()
     mockRequest.mockResolvedValue({
       status: 'already_member',
@@ -157,6 +174,7 @@ describe('AuthContinuePage — already_member', () => {
 
     await screen.findByText(/este enlace es para invitar a atletas/i)
     expect(localStorage.getItem('pending_invite_token')).toBeNull()
+    expect(localStorage.getItem('pending_invite_token_at')).toBeNull()
   })
 
   it('clicking "Ir a mi dashboard" redirects to /sessions', async () => {
@@ -173,6 +191,39 @@ describe('AuthContinuePage — already_member', () => {
     fireEvent.click(btn)
 
     expect(mockReplace).toHaveBeenCalledWith('/sessions')
+  })
+})
+
+describe('AuthContinuePage — not_eligible', () => {
+  it('shows "invite for athletes" screen when coach is on a different team', async () => {
+    setToken()
+    mockRequest.mockResolvedValue({
+      status: 'not_eligible',
+      team_id: 'team-1',
+      team_name: 'FC Barcelona',
+    })
+
+    render(<AuthContinuePage />)
+
+    await screen.findByText(/este enlace es para invitar a atletas/i)
+    expect(screen.getByText(/coach/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /copiar enlace/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /ir a mi dashboard/i })).toBeInTheDocument()
+  })
+
+  it('clears token and timestamp from localStorage on not_eligible', async () => {
+    setToken()
+    mockRequest.mockResolvedValue({
+      status: 'not_eligible',
+      team_id: 'team-1',
+      team_name: 'FC Barcelona',
+    })
+
+    render(<AuthContinuePage />)
+
+    await screen.findByText(/este enlace es para invitar a atletas/i)
+    expect(localStorage.getItem('pending_invite_token')).toBeNull()
+    expect(localStorage.getItem('pending_invite_token_at')).toBeNull()
   })
 })
 
@@ -210,18 +261,7 @@ describe('AuthContinuePage — error states', () => {
     expect(alert).toHaveTextContent(/ya ha sido utilizado/i)
   })
 
-  it('shows athletes-only error on 403', async () => {
-    const { ForbiddenError } = await import('@/app/_shared/api/httpClient')
-    setToken()
-    mockRequest.mockRejectedValue(new ForbiddenError('forbidden'))
-
-    render(<AuthContinuePage />)
-
-    const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/para atletas/i)
-  })
-
-  it('clears token from localStorage on error', async () => {
+  it('clears token and timestamp from localStorage on error', async () => {
     const { NotFoundError } = await import('@/app/_shared/api/httpClient')
     setToken()
     mockRequest.mockRejectedValue(new NotFoundError('not found'))
@@ -230,5 +270,6 @@ describe('AuthContinuePage — error states', () => {
 
     await screen.findByRole('alert')
     expect(localStorage.getItem('pending_invite_token')).toBeNull()
+    expect(localStorage.getItem('pending_invite_token_at')).toBeNull()
   })
 })

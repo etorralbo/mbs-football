@@ -41,7 +41,7 @@ class AcceptInviteCommand:
 
 @dataclass
 class AcceptInviteResult:
-    status: str                         # "joined" | "already_member"
+    status: str                         # "joined" | "already_member" | "not_eligible"
     team_id: uuid.UUID
     membership_id: Optional[uuid.UUID] = field(default=None)
     role: Optional[Role] = field(default=None)
@@ -101,10 +101,13 @@ class AcceptInviteUseCase:
         if invite.used_at is not None:
             raise InviteAlreadyUsedError("This invite has already been used.")
 
-        # 5. Coaches on OTHER teams must not be added as athletes via invite.
+        # 5. Coaches on OTHER teams are not eligible to join as athletes.
+        #    Return not_eligible instead of raising an error — the link is valid,
+        #    the user just isn't the right role.  Do NOT consume the invite.
         if self._membership_repo.has_coach_membership(command.supabase_user_id):
-            raise InviteRoleConflictError(
-                "Coaches cannot join teams via athlete invite links."
+            return AcceptInviteResult(
+                status="not_eligible",
+                team_id=invite.team_id,
             )
 
         # 6. Create membership, mark invite used, bootstrap UserProfile.

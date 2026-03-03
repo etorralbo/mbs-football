@@ -62,9 +62,19 @@ function WelcomeBanner({ teamName }: { teamName: string }) {
 
 function WelcomeBannerWrapper() {
   const searchParams = useSearchParams()
-  const welcome = searchParams.get('welcome')
-  if (!welcome) return null
-  return <WelcomeBanner teamName={decodeURIComponent(welcome)} />
+  const [teamName, setTeamName] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (searchParams.get('welcome') !== '1') return
+    const stored = sessionStorage.getItem('welcome_team_name')
+    if (stored) {
+      sessionStorage.removeItem('welcome_team_name')
+      setTeamName(stored)
+    }
+  }, [searchParams])
+
+  if (!teamName) return null
+  return <WelcomeBanner teamName={teamName} />
 }
 
 export default function SessionsPage() {

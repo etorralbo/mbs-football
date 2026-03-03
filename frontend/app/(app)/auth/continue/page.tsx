@@ -7,21 +7,24 @@ import {
   NotFoundError,
   GoneError,
   ConflictError,
-  ForbiddenError,
 } from '@/app/_shared/api/httpClient'
 import { supabase } from '@/app/_shared/auth/supabaseClient'
 import type { AcceptInviteResponse } from '@/app/_shared/api/types'
 
-type Phase = 'loading' | 'joining' | 'already_member' | 'error'
+// Tokens stored in localStorage expire after 30 minutes to limit exposure.
+const TOKEN_MAX_AGE_MS = 30 * 60 * 1000
+
+type Phase = 'loading' | 'joining' | 'already_member' | 'not_eligible' | 'error'
 
 /**
  * /auth/continue
  *
- * Reads the pending_invite_token from localStorage, calls the accept endpoint,
- * then redirects or shows the appropriate UI:
+ * Reads the pending_invite_token from localStorage, validates its age,
+ * calls the accept endpoint, then redirects or shows the appropriate UI:
  *
- *   joined         → /sessions?welcome=<team_name>
+ *   joined         → sessionStorage.welcome_team_name + /sessions?welcome=1
  *   already_member → "Este enlace es para invitar a atletas" screen
+ *   not_eligible   → same screen (user is a coach on a different team)
  *   error          → inline error message
  *
  * RequireAuth (wrapping the (app) group) ensures the user is authenticated
@@ -32,7 +35,7 @@ export default function AuthContinuePage() {
   const router = useRouter()
   const [phase, setPhase] = useState<Phase>('loading')
   const [errorMessage, setErrorMessage] = useState('')
-  const [alreadyMemberTeamName, setAlreadyMemberTeamName] = useState('')
+  const [teamName, setTeamName] = useState('')
   const inviteUrl = useRef('')
   const hasRun = useRef(false)
 
@@ -41,7 +44,17 @@ export default function AuthContinuePage() {
     hasRun.current = true
 
     const token = localStorage.getItem('pending_invite_token')
+    const tokenAt = localStorage.getItem('pending_invite_token_at')
+
     if (!token) {
+      router.replace('/sessions')
+      return
+    }
+
+    // Reject tokens that are too old — forces the user to re-visit the invite link.
+    if (tokenAt && Date.now() - parseInt(tokenAt, 10) > TOKEN_MAX_AGE_MS) {
+      localStorage.removeItem('pending_invite_token')
+      localStorage.removeItem('pending_invite_token_at')
       router.replace('/sessions')
       return
     }
@@ -67,16 +80,24 @@ export default function AuthContinuePage() {
         )
 
         localStorage.removeItem('pending_invite_token')
+        localStorage.removeItem('pending_invite_token_at')
 
-        if (result.status === 'already_member') {
-          setAlreadyMemberTeamName(result.team_name)
+        if (result.status === 'joined') {
+          // Store the team name in sessionStorage so /sessions can show a
+          // welcome banner without embedding arbitrary text in the URL.
+          sessionStorage.setItem('welcome_team_name', result.team_name)
+          router.replace('/sessions?welcome=1')
+        } else if (result.status === 'already_member') {
+          setTeamName(result.team_name)
           setPhase('already_member')
         } else {
-          // joined
-          router.replace(`/sessions?welcome=${encodeURIComponent(result.team_name)}`)
+          // not_eligible — coach on a different team
+          setTeamName(result.team_name)
+          setPhase('not_eligible')
         }
       } catch (err) {
         localStorage.removeItem('pending_invite_token')
+        localStorage.removeItem('pending_invite_token_at')
 
         if (err instanceof NotFoundError) {
           setErrorMessage('El enlace no es válido o ha caducado. Pide uno nuevo al coach.')
@@ -84,8 +105,6 @@ export default function AuthContinuePage() {
           setErrorMessage('El enlace ha caducado. Pide uno nuevo al coach.')
         } else if (err instanceof ConflictError) {
           setErrorMessage('Este enlace ya ha sido utilizado. Pide uno nuevo al coach.')
-        } else if (err instanceof ForbiddenError) {
-          setErrorMessage('Este enlace es para atletas. Los coaches no pueden unirse con él.')
         } else {
           setErrorMessage('Algo ha ido mal. Inténtalo de nuevo o pide un nuevo enlace.')
         }
@@ -108,7 +127,12 @@ export default function AuthContinuePage() {
   }
 
   // ── Already member ───────────────────────────────────────────────────────
-  if (phase === 'already_member') {
+  if (phase === 'already_member' || phase === 'not_eligible') {
+    const description =
+      phase === 'already_member'
+        ? `Ya eres miembro de ${teamName}.`
+        : `Eres coach y no puedes unirte como atleta al equipo${teamName ? ` ${teamName}` : ''}.`
+
     return (
       <div className="mx-auto max-w-sm space-y-5 pt-10 text-center">
         <div className="flex h-14 w-14 mx-auto items-center justify-center rounded-full bg-[#4f9cf9]/15">
@@ -128,12 +152,7 @@ export default function AuthContinuePage() {
           <h1 className="text-xl font-semibold text-white">
             Este enlace es para invitar a atletas
           </h1>
-          {alreadyMemberTeamName && (
-            <p className="mt-1.5 text-sm text-slate-400">
-              Ya eres miembro de{' '}
-              <span className="font-medium text-white">{alreadyMemberTeamName}</span>.
-            </p>
-          )}
+          <p className="mt-1.5 text-sm text-slate-400">{description}</p>
           <p className="mt-1 text-sm text-slate-500">
             Comparte este enlace con los atletas que quieras invitar.
           </p>
