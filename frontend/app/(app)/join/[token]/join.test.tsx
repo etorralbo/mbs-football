@@ -5,7 +5,7 @@
  *   404 (NotFoundError)  → "invalid" message   — token does not exist in DB
  *   410 (GoneError)      → "expired" message   — token exists but past expires_at
  *   409 (ConflictError)  → "already used"      — token was already accepted
- *   201                  → redirect to /sessions
+ *   201                  → welcome screen, then redirect to /sessions
  */
 import { render, screen, waitFor, cleanup } from '@testing-library/react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
@@ -64,13 +64,14 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('JoinTokenPage — happy path', () => {
-  it('auto-joins and redirects to /sessions when user already has a name', async () => {
+  it('auto-joins and shows welcome screen when user already has a name', async () => {
     mockGetUser.mockResolvedValue(USER_WITH_NAME)
     mockRequest.mockResolvedValue(MEMBERSHIP)
 
     render(<JoinTokenPage />)
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/sessions'))
+    await screen.findByText(/welcome to the team/i)
+    expect(screen.getByText(/taking you to your sessions/i)).toBeInTheDocument()
   })
 
   it('shows name form when user has no display name', async () => {

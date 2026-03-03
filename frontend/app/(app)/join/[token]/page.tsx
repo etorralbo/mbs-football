@@ -15,10 +15,13 @@ import type { AcceptInviteResponse } from '@/app/_shared/api/types'
 import { getPostActionRedirect } from '@/src/features/activation/postActionRedirect'
 import { supabase } from '@/app/_shared/auth/supabaseClient'
 
+const WELCOME_REDIRECT_MS = 2500
+
 type PageState =
   | { phase: 'loading-name' }
   | { phase: 'needs-name'; displayName: string }
   | { phase: 'joining' }
+  | { phase: 'welcome' }
   | { phase: 'error'; message: string }
 
 export default function JoinTokenPage() {
@@ -51,6 +54,14 @@ export default function JoinTokenPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Auto-redirect after showing the welcome screen.
+  useEffect(() => {
+    if (state.phase !== 'welcome') return
+    const target = getPostActionRedirect('invite_accepted', 'ATHLETE') ?? '/sessions'
+    const id = setTimeout(() => router.replace(target), WELCOME_REDIRECT_MS)
+    return () => clearTimeout(id)
+  }, [state.phase, router])
+
   async function joinTeam(displayName: string) {
     setState({ phase: 'joining' })
     try {
@@ -62,8 +73,7 @@ export default function JoinTokenPage() {
           teamScoped: false,
         },
       )
-      // getPostActionRedirect returns a hardcoded internal path — no open redirect risk.
-      router.replace(getPostActionRedirect('invite_accepted', 'ATHLETE') ?? '/sessions')
+      setState({ phase: 'welcome' })
     } catch (err) {
       if (err instanceof UnauthorizedError) {
         router.replace('/login')
@@ -111,6 +121,24 @@ export default function JoinTokenPage() {
         <p className="text-sm text-slate-400">
           {state.phase === 'joining' ? 'Joining team…' : 'Loading…'}
         </p>
+      </div>
+    )
+  }
+
+  if (state.phase === 'welcome') {
+    return (
+      <div className="flex max-w-sm flex-col items-center gap-4 pt-10 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#c8f135]/15">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-[#c8f135]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <div>
+          <h1 className="text-xl font-semibold text-white">Welcome to the team!</h1>
+          <p className="mt-1.5 text-sm text-slate-400">
+            You&apos;ve successfully joined. Taking you to your sessions…
+          </p>
+        </div>
       </div>
     )
   }

@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/app/_shared/auth/supabaseClient'
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const router = useRouter()
+  const pathname = usePathname()
   const [authorized, setAuthorized] = useState(false)
 
   useEffect(() => {
@@ -14,7 +15,9 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
       if (session) {
         setAuthorized(true)
       } else {
-        router.replace('/login')
+        // Preserve invite URLs so the user lands back on the join page after auth.
+        const next = encodeURIComponent(pathname)
+        router.replace(`/login?next=${next}`)
       }
     })
 
@@ -29,7 +32,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     })
 
     return () => subscription.unsubscribe()
-  }, [router])
+  }, [router, pathname])
 
   if (!authorized) return null
 

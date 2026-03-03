@@ -19,7 +19,7 @@ export function OnboardingHub() {
     request<MeResponse>('/v1/me', { teamScoped: false })
       .then((me) => {
         if (me.memberships.length > 0) {
-          router.replace('/home')
+          router.replace('/sessions')
         } else {
           setChecking(false)
         }
