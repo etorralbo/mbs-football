@@ -25,13 +25,18 @@ HEADERS = {"Authorization": "Bearer test-token"}
 
 @pytest.fixture
 def company_exercise(db_session: Session) -> Exercise:
-    """A COMPANY-owned exercise (global, read-only)."""
+    """A COMPANY-owned exercise (global, read-only).
+
+    Uses a name outside the seed dataset so it doesn't conflict with the
+    data migration that already seeds 'Back Squat', 'Nordic Hamstring Curl',
+    etc. via `alembic upgrade head` in conftest.
+    """
     ex = Exercise(
         id=uuid.uuid4(),
         coach_id=None,
         owner_type=OwnerType.COMPANY,
         is_editable=False,
-        name="Back Squat",
+        name="Zercher Squat",
         tags="strength, legs",
     )
     db_session.add(ex)
@@ -48,7 +53,7 @@ def another_company_exercise(db_session: Session) -> Exercise:
         coach_id=None,
         owner_type=OwnerType.COMPANY,
         is_editable=False,
-        name="Nordic Hamstring Curl",
+        name="Svend Press",
     )
     db_session.add(ex)
     db_session.commit()
@@ -174,9 +179,11 @@ class TestCompanyExerciseVisibility:
         mock_jwt,
         db_session: Session,
         coach_a: UserProfile,
-        company_exercise: Exercise,        # name = "Back Squat"
     ):
-        """Search query filters across both COMPANY and COACH exercises."""
+        """Search query filters across both COMPANY and COACH exercises.
+
+        "Back Squat" is already present via the seed migration — no fixture needed.
+        """
         own_squat = Exercise(coach_id=coach_a.id, name="Front Squat",
                              owner_type=OwnerType.COACH, is_editable=True)
         other = Exercise(coach_id=coach_a.id, name="Bench Press",
@@ -189,7 +196,7 @@ class TestCompanyExerciseVisibility:
 
         assert resp.status_code == 200
         names = [e["name"] for e in resp.json()]
-        assert "Back Squat" in names    # COMPANY
+        assert "Back Squat" in names    # COMPANY (seeded by migration)
         assert "Front Squat" in names   # COACH (own)
         assert "Bench Press" not in names
 
@@ -319,3 +326,122 @@ class TestCoachExerciseMutationAllowed:
         assert body["owner_type"] == "COACH"
         assert body["is_editable"] is True
         assert body["coach_id"] == str(coach_a.id)
+
+
+# ---------------------------------------------------------------------------
+# Seeding tests — assert that the data migration inserts COMPANY exercises
+# ---------------------------------------------------------------------------
+
+class TestSeededCompanyExercises:
+    """
+    The Alembic data migration c4d5e6f7a8b9 seeds a curated COMPANY dataset.
+    These tests verify that the seeded rows are present and well-formed after
+    the conftest runs `alembic upgrade head` against the test database.
+
+    We spot-check a representative sample rather than asserting the full list
+    so the tests remain green even if the seed list is later extended.
+    """
+
+    _EXPECTED_NAMES = [
+        "Back Squat",
+        "Nordic Hamstring Curl",
+        "Bench Press",
+        "Pull Up",
+        "Plank",
+        "Box Jump",
+        "Farmer's Carry",
+    ]
+
+    def test_seeded_company_exercises_appear_in_list(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+    ):
+        """List endpoint returns the seeded COMPANY exercises."""
+        mock_jwt(str(coach_a.supabase_user_id))
+        resp = client.get("/v1/exercises", headers=HEADERS)
+
+        assert resp.status_code == 200
+        names = {e["name"] for e in resp.json()}
+        for expected in self._EXPECTED_NAMES:
+            assert expected in names, f"Seeded exercise '{expected}' missing from list"
+
+    def test_seeded_company_exercises_have_correct_fields(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+    ):
+        """Every seeded COMPANY exercise has owner_type=COMPANY, is_editable=False, coach_id=None."""
+        mock_jwt(str(coach_a.supabase_user_id))
+        resp = client.get("/v1/exercises", headers=HEADERS)
+
+        assert resp.status_code == 200
+        company_items = [e for e in resp.json() if e["owner_type"] == "COMPANY"]
+        assert len(company_items) >= len(self._EXPECTED_NAMES)
+        for item in company_items:
+            assert item["is_editable"] is False, f"{item['name']}: expected is_editable=False"
+            assert item["coach_id"] is None, f"{item['name']}: expected coach_id=None"
+
+    def test_seeded_exercises_appear_before_coach_exercises(
+        self,
+        client: TestClient,
+        mock_jwt,
+        db_session: Session,
+        coach_a: UserProfile,
+    ):
+        """Seeded COMPANY exercises are ordered before any COACH exercises."""
+        own = Exercise(
+            coach_id=coach_a.id,
+            name="AAA Always First Alphabetically",
+            owner_type=OwnerType.COACH,
+            is_editable=True,
+        )
+        db_session.add(own)
+        db_session.commit()
+
+        mock_jwt(str(coach_a.supabase_user_id))
+        resp = client.get("/v1/exercises", headers=HEADERS)
+
+        assert resp.status_code == 200
+        result = resp.json()
+        company_indices = [i for i, e in enumerate(result) if e["owner_type"] == "COMPANY"]
+        coach_indices = [i for i, e in enumerate(result) if e["owner_type"] == "COACH"]
+        assert company_indices, "No COMPANY exercises found in response"
+        assert coach_indices, "No COACH exercises found in response"
+        assert all(ci < oi for ci in company_indices for oi in coach_indices), (
+            "COMPANY exercises must precede COACH exercises"
+        )
+
+    def test_seeding_is_idempotent(
+        self,
+        client: TestClient,
+        mock_jwt,
+        db_session: Session,
+        coach_a: UserProfile,
+    ):
+        """
+        Manually re-inserting the same COMPANY name should conflict-silently:
+        the upsert must not create duplicates.
+        """
+        # Simulate what the migration does — insert same name again.
+        from sqlalchemy import text
+        db_session.execute(
+            text("""
+                INSERT INTO exercises
+                    (id, owner_type, is_editable, coach_id, name, created_at, updated_at)
+                VALUES
+                    (gen_random_uuid(), 'COMPANY', FALSE, NULL, 'Back Squat', NOW(), NOW())
+                ON CONFLICT (name) WHERE owner_type = 'COMPANY'
+                DO NOTHING
+            """)
+        )
+        db_session.commit()
+
+        mock_jwt(str(coach_a.supabase_user_id))
+        resp = client.get("/v1/exercises", headers=HEADERS)
+
+        assert resp.status_code == 200
+        back_squat_rows = [e for e in resp.json() if e["name"] == "Back Squat"]
+        assert len(back_squat_rows) == 1, "Duplicate COMPANY exercise was created"
