@@ -1,7 +1,8 @@
-"""Domain use case: accept an invite code and join a team as ATHLETE."""
+"""Domain use case: accept an invite token and join a team as ATHLETE."""
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import Optional
 
 from app.domain.events.models import FunnelEvent
 from app.domain.events.service import AuthContext, ProductEventService
@@ -12,11 +13,11 @@ from app.persistence.repositories.user_profile_repository import AbstractUserPro
 
 
 class InviteNotFoundError(Exception):
-    """Raised when the invite code does not exist."""
+    """Raised when the invite token does not exist."""
 
 
 class InviteAlreadyUsedError(Exception):
-    """Raised when the invite has already been consumed."""
+    """Raised when the invite has already been consumed by another user."""
 
 
 class InviteExpiredError(Exception):
@@ -24,7 +25,7 @@ class InviteExpiredError(Exception):
 
 
 class InviteRoleConflictError(Exception):
-    """Raised when a COACH user tries to accept an ATHLETE invite."""
+    """Raised when a COACH user (on a different team) tries to accept an ATHLETE invite."""
 
 
 # ---------------------------------------------------------------------------
@@ -40,9 +41,10 @@ class AcceptInviteCommand:
 
 @dataclass
 class AcceptInviteResult:
+    status: str                         # "joined" | "already_member"
     team_id: uuid.UUID
-    membership_id: uuid.UUID
-    role: Role
+    membership_id: Optional[uuid.UUID] = field(default=None)
+    role: Optional[Role] = field(default=None)
 
 
 # ---------------------------------------------------------------------------
@@ -64,42 +66,48 @@ class AcceptInviteUseCase:
         self._event_service = event_service
 
     def execute(self, command: AcceptInviteCommand) -> AcceptInviteResult:
+        # 1. Token must exist.
         invite = self._invite_repo.get_by_token(command.token)
         if invite is None:
             raise InviteNotFoundError("Invite not found.")
 
-        if invite.used_at is not None:
-            raise InviteAlreadyUsedError("This invite has already been used.")
-
+        # 2. Check expiry before anything else.
         if invite.expires_at is not None:
             now = datetime.now(timezone.utc)
             expires = invite.expires_at
-            # Normalise naive datetime stored by older DB drivers
             if expires.tzinfo is None:
                 expires = expires.replace(tzinfo=timezone.utc)
             if now > expires:
                 raise InviteExpiredError("This invite has expired.")
 
-        # Coaches must not be added as athletes via invite links.
-        if self._membership_repo.has_coach_membership(command.supabase_user_id):
-            raise InviteRoleConflictError(
-                "Coaches cannot join teams via athlete invite links."
-            )
-
-        # Idempotent: if the membership already exists return it without error.
-        # No event is tracked on the idempotent path — the join already happened.
+        # 3. If the user is already a member of the invite's team, return
+        #    "already_member" immediately — do NOT consume the invite and do
+        #    NOT modify roles.  This covers:
+        #      • A coach who accidentally opens their own invite link.
+        #      • An athlete who clicks the same link a second time.
         existing = self._membership_repo.get_by_user_and_team(
             user_id=command.supabase_user_id,
             team_id=invite.team_id,
         )
         if existing is not None:
-            self._invite_repo.mark_used(invite)
             return AcceptInviteResult(
+                status="already_member",
                 team_id=existing.team_id,
                 membership_id=existing.id,
                 role=existing.role,
             )
 
+        # 4. Invite must not have been consumed by another user.
+        if invite.used_at is not None:
+            raise InviteAlreadyUsedError("This invite has already been used.")
+
+        # 5. Coaches on OTHER teams must not be added as athletes via invite.
+        if self._membership_repo.has_coach_membership(command.supabase_user_id):
+            raise InviteRoleConflictError(
+                "Coaches cannot join teams via athlete invite links."
+            )
+
+        # 6. Create membership, mark invite used, bootstrap UserProfile.
         membership = self._membership_repo.create(
             user_id=command.supabase_user_id,
             team_id=invite.team_id,
@@ -107,7 +115,6 @@ class AcceptInviteUseCase:
         )
         self._invite_repo.mark_used(invite)
 
-        # Create UserProfile for backward compat with existing endpoints.
         existing_profile = self._user_profile_repo.get_by_supabase_user_id(
             command.supabase_user_id
         )
@@ -119,9 +126,7 @@ class AcceptInviteUseCase:
                 role=invite.role,
             )
 
-        # Funnel event — post-validation, post-write, same transaction.
-        # invite.team_id must always be set by this point; assert to catch regressions.
-        assert invite.team_id is not None, "invite.team_id must be set before tracking INVITE_ACCEPTED"
+        assert invite.team_id is not None, "invite.team_id must be set"
         self._event_service.track(
             event=FunnelEvent.INVITE_ACCEPTED,
             actor=AuthContext(
@@ -134,6 +139,7 @@ class AcceptInviteUseCase:
         )
 
         return AcceptInviteResult(
+            status="joined",
             team_id=invite.team_id,
             membership_id=membership.id,
             role=invite.role,

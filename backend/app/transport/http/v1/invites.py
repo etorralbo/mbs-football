@@ -31,6 +31,7 @@ from app.domain.use_cases.create_invite import (
     CreateInviteUseCase,
     NotACoachError,
 )
+from app.models import Team
 from app.persistence.repositories.invite_repository import SqlAlchemyInviteRepository
 from app.persistence.repositories.membership_repository import SqlAlchemyMembershipRepository
 from app.persistence.repositories.user_profile_repository import SqlAlchemyUserProfileRepository
@@ -92,16 +93,16 @@ def create_invite(
 # ---------------------------------------------------------------------------
 
 class AcceptInviteRequest(BaseModel):
-    display_name: str = Field(..., min_length=1, max_length=255)
+    display_name: str = Field("", max_length=255)
 
 
 class AcceptInviteResponse(BaseModel):
+    status: str        # "joined" | "already_member"
     team_id: uuid.UUID
-    membership_id: uuid.UUID
-    role: str
+    team_name: str
 
 
-@router.post("/team-invites/{token}/accept", response_model=AcceptInviteResponse, status_code=201)
+@router.post("/team-invites/{token}/accept", response_model=AcceptInviteResponse, status_code=200)
 def accept_invite(
     payload: AcceptInviteRequest,
     token: Annotated[str, Path(min_length=1, max_length=64)],
@@ -116,7 +117,11 @@ def accept_invite(
     )
     try:
         result = use_case.execute(
-            AcceptInviteCommand(supabase_user_id=user_id, token=token, name=payload.display_name)
+            AcceptInviteCommand(
+                supabase_user_id=user_id,
+                token=token,
+                name=payload.display_name,
+            )
         )
     except InviteNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
@@ -127,11 +132,11 @@ def accept_invite(
     except InviteRoleConflictError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
-    # user_profile_repo.create() commits; if profile already existed, commit here.
     db.commit()
 
+    team = db.get(Team, result.team_id)
     return AcceptInviteResponse(
+        status=result.status,
         team_id=result.team_id,
-        membership_id=result.membership_id,
-        role=result.role.value,
+        team_name=team.name if team else "",
     )
