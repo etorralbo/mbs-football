@@ -340,3 +340,29 @@ class TestAcceptInvite:
         )
         assert resp.status_code == 201
         assert resp.json()["team_id"] == str(invite_team_a.team_id)
+
+    def test_coach_cannot_accept_athlete_invite_returns_403(
+        self,
+        client: TestClient,
+        db_session: Session,
+        mock_jwt,
+        invite_team_a: Invite,
+    ) -> None:
+        """A user who already holds a COACH role must not be added as an ATHLETE."""
+        coach_id = uuid.uuid4()
+        other_team = Team(id=uuid.uuid4(), name="Coach Own Team")
+        db_session.add(other_team)
+        db_session.flush()
+        db_session.add(
+            Membership(id=uuid.uuid4(), user_id=coach_id, team_id=other_team.id, role=Role.COACH)
+        )
+        db_session.commit()
+
+        mock_jwt(str(coach_id))
+        resp = client.post(
+            f"/v1/team-invites/{invite_team_a.token}/accept",
+            json={"display_name": "Coach User"},
+            headers=AUTH,
+        )
+        assert resp.status_code == 403
+        assert "coach" in resp.json()["detail"].lower()

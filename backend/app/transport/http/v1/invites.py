@@ -24,6 +24,7 @@ from app.domain.use_cases.accept_invite import (
     InviteAlreadyUsedError,
     InviteExpiredError,
     InviteNotFoundError,
+    InviteRoleConflictError,
 )
 from app.domain.use_cases.create_invite import (
     CreateInviteCommand,
@@ -123,6 +124,8 @@ def accept_invite(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     except InviteExpiredError as exc:
         raise HTTPException(status_code=status.HTTP_410_GONE, detail=str(exc))
+    except InviteRoleConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
     # user_profile_repo.create() commits; if profile already existed, commit here.
     db.commit()

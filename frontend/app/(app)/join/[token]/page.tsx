@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import {
   request,
   UnauthorizedError,
+  ForbiddenError,
   NotFoundError,
   GoneError,
   ConflictError,
@@ -66,6 +67,10 @@ export default function JoinTokenPage() {
     } catch (err) {
       if (err instanceof UnauthorizedError) {
         router.replace('/login')
+        return
+      }
+      if (err instanceof ForbiddenError) {
+        setState({ phase: 'error', message: 'Coaches cannot join teams via athlete invite links.' })
         return
       }
       if (err instanceof NotFoundError) {
