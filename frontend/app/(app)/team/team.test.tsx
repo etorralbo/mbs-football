@@ -46,9 +46,10 @@ const athleteMe = {
 }
 
 const inviteResponse = {
-  code: 'ABC123',
-  join_url: 'https://app.com/join?code=ABC123',
+  token: 'ABC123-token-xyz',
+  join_url: 'https://app.com/join/ABC123-token-xyz',
   team_id: TEAM_A,
+  expires_at: '2026-03-10T00:00:00Z',
 }
 
 const athletesList = [
@@ -80,8 +81,8 @@ function authAs(
 
 /**
  * Routes mockRequest by URL so tests can control each endpoint independently.
- *  GET /v1/athletes → athletes (default: [])
- *  POST /v1/invites → invite (default: rejected)
+ *  GET /v1/athletes      → athletes (default: [])
+ *  POST /v1/team-invites → invite (default: rejected)
  */
 function setupRequest({
   athletes = [] as typeof athletesList,
@@ -94,7 +95,7 @@ function setupRequest({
         ? Promise.reject(new Error('network error'))
         : Promise.resolve(athletes)
     }
-    if (url === '/v1/invites') {
+    if (url === '/v1/team-invites') {
       return invite
         ? Promise.resolve(invite)
         : Promise.reject(new Error('invite not configured'))
@@ -244,9 +245,9 @@ describe('TeamPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: /generate invite link/i }))
 
     expect(
-      await screen.findByDisplayValue('https://app.com/join?code=ABC123'),
+      await screen.findByDisplayValue('https://app.com/join/ABC123-token-xyz'),
     ).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /copy/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /copy invite link/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /generate new link/i })).toBeInTheDocument()
   })
 
@@ -256,10 +257,10 @@ describe('TeamPage', () => {
     render(<TeamPage />)
 
     fireEvent.click(await screen.findByRole('button', { name: /generate invite link/i }))
-    fireEvent.click(await screen.findByRole('button', { name: /copy/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /copy invite link/i }))
 
     await waitFor(() => {
-      expect(mockWriteText).toHaveBeenCalledWith('https://app.com/join?code=ABC123')
+      expect(mockWriteText).toHaveBeenCalledWith('https://app.com/join/ABC123-token-xyz')
     })
     expect(await screen.findByRole('button', { name: /copied/i })).toBeInTheDocument()
   })
@@ -282,7 +283,7 @@ describe('TeamPage', () => {
 
     await waitFor(() => {
       expect(mockRequest).toHaveBeenCalledWith(
-        '/v1/invites',
+        '/v1/team-invites',
         expect.objectContaining({
           body: JSON.stringify({ team_id: TEAM_A }),
         }),

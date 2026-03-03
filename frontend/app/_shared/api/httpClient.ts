@@ -106,7 +106,7 @@ function extractMessage(body: unknown): string {
 export type RequestOptions = RequestInit & {
   /**
    * Set to false for bootstrap endpoints that do not require a team context
-   * (e.g. /v1/me, POST /v1/teams, POST /v1/invites/accept, onboarding).
+   * (e.g. /v1/me, POST /v1/teams, POST /v1/team-invites/{token}/accept, onboarding).
    * Defaults to true — all other requests are team-scoped.
    */
   teamScoped?: boolean

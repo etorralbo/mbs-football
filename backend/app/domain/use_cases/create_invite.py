@@ -29,7 +29,7 @@ class CreateInviteCommand:
 
 @dataclass
 class CreateInviteResult:
-    code: str
+    token: str
     team_id: uuid.UUID
     expires_at: Optional[datetime]
 
@@ -65,12 +65,12 @@ class CreateInviteUseCase:
         if command.expires_in_days is not None:
             expires_at = datetime.now(timezone.utc) + timedelta(days=command.expires_in_days)
 
-        # 18 bytes → 24 chars of base64url (non-guessable)
-        code = secrets.token_urlsafe(18)
+        # 32 bytes → 43 chars of base64url (cryptographically secure, unguessable)
+        token = secrets.token_urlsafe(32)
 
         invite = self._invite_repo.create(
             team_id=command.team_id,
-            code=code,
+            token=token,
             role=Role.ATHLETE,
             created_by_user_id=command.requesting_user_id,
             expires_at=expires_at,
@@ -89,7 +89,7 @@ class CreateInviteUseCase:
         )
 
         return CreateInviteResult(
-            code=invite.code,
+            token=invite.token,
             team_id=invite.team_id,
             expires_at=invite.expires_at,
         )

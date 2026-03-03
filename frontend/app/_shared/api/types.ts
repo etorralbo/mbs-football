@@ -21,9 +21,10 @@ export interface CreateTeamResponse {
 }
 
 export interface CreateInviteResponse {
-  code: string
+  token: string
   join_url: string
   team_id: string
+  expires_at: string | null
 }
 
 export interface AcceptInviteResponse {

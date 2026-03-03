@@ -15,6 +15,7 @@ interface Athlete {
 
 type InviteState = {
   url: string | null
+  expiresAt: string | null
   generating: boolean
   copied: boolean
   error: string | null
@@ -25,7 +26,7 @@ type AthletesState =
   | { status: 'ok'; data: Athlete[] }
   | { status: 'error' }
 
-const EMPTY_INVITE: InviteState = { url: null, generating: false, copied: false, error: null }
+const EMPTY_INVITE: InviteState = { url: null, expiresAt: null, generating: false, copied: false, error: null }
 
 export default function TeamPage() {
   const router = useRouter()
@@ -57,11 +58,11 @@ export default function TeamPage() {
   async function handleGenerate() {
     setInvite((prev) => ({ ...prev, generating: true, error: null }))
     try {
-      const result = await request<CreateInviteResponse>('/v1/invites', {
+      const result = await request<CreateInviteResponse>('/v1/team-invites', {
         method: 'POST',
         body: JSON.stringify({ team_id: activeTeamId }),
       })
-      setInvite({ url: result.join_url, generating: false, copied: false, error: null })
+      setInvite({ url: result.join_url, expiresAt: result.expires_at, generating: false, copied: false, error: null })
     } catch {
       setInvite((prev) => ({
         ...prev,
@@ -170,15 +171,27 @@ export default function TeamPage() {
               )}
 
               {invite.url && (
-                <div className="mb-3 flex items-center gap-2">
-                  <input
-                    readOnly
-                    value={invite.url}
-                    className="min-w-0 flex-1 rounded-md border border-white/10 bg-[#0d1420] px-3 py-2 text-sm text-slate-300 focus:outline-none"
-                  />
-                  <Button variant="secondary" onClick={handleCopy}>
-                    {invite.copied ? 'Copied!' : 'Copy'}
-                  </Button>
+                <div className="mb-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      readOnly
+                      value={invite.url}
+                      className="min-w-0 flex-1 rounded-md border border-white/10 bg-[#0d1420] px-3 py-2 text-sm text-slate-300 focus:outline-none"
+                    />
+                    <Button variant="secondary" onClick={handleCopy}>
+                      {invite.copied ? 'Copied!' : 'Copy invite link'}
+                    </Button>
+                  </div>
+                  {invite.expiresAt && (
+                    <p className="text-xs text-slate-500">
+                      Expires{' '}
+                      {new Date(invite.expiresAt).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </p>
+                  )}
                 </div>
               )}
 

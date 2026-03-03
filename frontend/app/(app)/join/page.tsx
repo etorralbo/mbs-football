@@ -6,7 +6,7 @@ export default function JoinPage() {
     <div className="max-w-sm">
       <h1 className="text-2xl font-semibold text-white">Join a team</h1>
       <p className="mt-2 text-sm text-slate-400">
-        Enter the invite code your coach sent you.
+        Open the invite link your coach sent you, or paste the token below.
       </p>
       {/* Suspense required because JoinTeamForm uses useSearchParams */}
       <Suspense>

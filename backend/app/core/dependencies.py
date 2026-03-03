@@ -193,7 +193,7 @@ def get_auth_user_id(
 
     Unlike get_current_user(), this does NOT require a UserProfile to exist.
     Use for endpoints reachable before onboarding completes
-    (GET /v1/me, POST /v1/teams, POST /v1/invites, POST /v1/invites/accept).
+    (GET /v1/me, POST /v1/teams, POST /v1/team-invites, POST /v1/team-invites/{token}/accept).
 
     Returns:
         uuid.UUID: The Supabase user ID ('sub' claim).

@@ -447,7 +447,7 @@ def invite_team_a(db_session: Session, team_a: Team, membership_coach_a: Members
     invite = Invite(
         id=uuid.uuid4(),
         team_id=team_a.id,
-        code="valid-test-invite-code-abc",
+        token="valid-test-invite-token-abc",
         role=Role.ATHLETE,
         created_by_user_id=membership_coach_a.user_id,
     )

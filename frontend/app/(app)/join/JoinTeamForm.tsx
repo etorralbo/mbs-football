@@ -53,9 +53,9 @@ export function JoinTeamForm() {
         await supabase.auth.updateUser({ data: { name: trimmedDisplay } })
       }
 
-      await request<AcceptInviteResponse>('/v1/invites/accept', {
+      await request<AcceptInviteResponse>(`/v1/team-invites/${encodeURIComponent(trimmed)}/accept`, {
         method: 'POST',
-        body: JSON.stringify({ code: trimmed, display_name: trimmedDisplay }),
+        body: JSON.stringify({ display_name: trimmedDisplay }),
         teamScoped: false,
       })
       router.replace(getPostActionRedirect('invite_accepted', 'ATHLETE') ?? '/templates')

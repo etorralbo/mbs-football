@@ -1,4 +1,4 @@
-"""Tests for POST /v1/invites and POST /v1/invites/accept."""
+"""Tests for POST /v1/team-invites and POST /v1/team-invites/{token}/accept."""
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -13,12 +13,12 @@ AUTH = {"Authorization": "Bearer test-token"}
 
 
 # ---------------------------------------------------------------------------
-# POST /v1/invites
+# POST /v1/team-invites
 # ---------------------------------------------------------------------------
 
 class TestCreateInvite:
     def test_no_auth_returns_401(self, client: TestClient) -> None:
-        resp = client.post("/v1/invites", json={"team_id": str(uuid.uuid4())})
+        resp = client.post("/v1/team-invites", json={"team_id": str(uuid.uuid4())})
         assert resp.status_code == 401
 
     def test_non_coach_returns_403(
@@ -28,7 +28,6 @@ class TestCreateInvite:
         team = Team(id=uuid.uuid4(), name="Invite-403 Team")
         db_session.add(team)
         db_session.flush()
-        # Only ATHLETE membership — should not be allowed to create invite
         m = Membership(
             id=uuid.uuid4(), user_id=user_id, team_id=team.id, role=Role.ATHLETE
         )
@@ -37,7 +36,7 @@ class TestCreateInvite:
 
         mock_jwt(str(user_id))
         resp = client.post(
-            "/v1/invites", json={"team_id": str(team.id)}, headers=AUTH
+            "/v1/team-invites", json={"team_id": str(team.id)}, headers=AUTH
         )
         assert resp.status_code == 403
 
@@ -56,24 +55,48 @@ class TestCreateInvite:
 
         mock_jwt(str(user_id))
         resp = client.post(
-            "/v1/invites",
-            json={"team_id": str(team.id), "expires_in_days": 7},
+            "/v1/team-invites",
+            json={"team_id": str(team.id)},
             headers=AUTH,
         )
         assert resp.status_code == 201
         body = resp.json()
-        assert "code" in body
-        assert len(body["code"]) >= 24
-        assert "/join?code=" in body["join_url"]
+        assert "token" in body
+        assert len(body["token"]) >= 43  # secrets.token_urlsafe(32) → 43 chars
+        assert "/join/" in body["join_url"]
+        assert body["token"] in body["join_url"]
         assert body["team_id"] == str(team.id)
+        assert body["expires_at"] is not None  # default 7 days
+
+    def test_default_expires_in_7_days(
+        self, client: TestClient, db_session: Session, mock_jwt
+    ) -> None:
+        """When expires_in_days is omitted the invite expires in 7 days."""
+        user_id = uuid.uuid4()
+        team = Team(id=uuid.uuid4(), name="Expiry Default Team")
+        db_session.add(team)
+        db_session.flush()
+        db_session.add(
+            Membership(id=uuid.uuid4(), user_id=user_id, team_id=team.id, role=Role.COACH)
+        )
+        db_session.commit()
+
+        mock_jwt(str(user_id))
+        resp = client.post("/v1/team-invites", json={"team_id": str(team.id)}, headers=AUTH)
+        assert resp.status_code == 201
+        expires_at = resp.json()["expires_at"]
+        assert expires_at is not None
+        parsed = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+        delta = parsed - datetime.now(timezone.utc)
+        assert timedelta(days=6, hours=23, minutes=59, seconds=50) < delta < timedelta(days=7, seconds=10)
 
     def test_coach_different_team_returns_403(
         self, client: TestClient, db_session: Session, mock_jwt
     ) -> None:
         """A coach cannot create an invite for a team they don't belong to."""
         user_id = uuid.uuid4()
-        own_team = Team(id=uuid.uuid4(), name="Own Team")
-        other_team = Team(id=uuid.uuid4(), name="Other Team")
+        own_team = Team(id=uuid.uuid4(), name="Own Team 2")
+        other_team = Team(id=uuid.uuid4(), name="Other Team 2")
         db_session.add_all([own_team, other_team])
         db_session.flush()
         m = Membership(
@@ -84,7 +107,7 @@ class TestCreateInvite:
 
         mock_jwt(str(user_id))
         resp = client.post(
-            "/v1/invites", json={"team_id": str(other_team.id)}, headers=AUTH
+            "/v1/team-invites", json={"team_id": str(other_team.id)}, headers=AUTH
         )
         assert resp.status_code == 403
 
@@ -105,7 +128,7 @@ class TestCreateInvite:
         db_session.commit()
 
         mock_jwt(str(user_id))
-        resp = client.post("/v1/invites", json={"team_id": str(team.id)}, headers=AUTH)
+        resp = client.post("/v1/team-invites", json={"team_id": str(team.id)}, headers=AUTH)
         assert resp.status_code == 201
 
         events = db_session.execute(
@@ -127,8 +150,8 @@ class TestCreateInvite:
         from app.domain.events.models import FunnelEvent, ProductEvent
 
         user_id = uuid.uuid4()
-        team_a = Team(id=uuid.uuid4(), name="Scoping Team A")
-        team_b = Team(id=uuid.uuid4(), name="Scoping Team B")
+        team_a = Team(id=uuid.uuid4(), name="Scoping Team A2")
+        team_b = Team(id=uuid.uuid4(), name="Scoping Team B2")
         db_session.add_all([team_a, team_b])
         db_session.flush()
         db_session.add(
@@ -137,7 +160,7 @@ class TestCreateInvite:
         db_session.commit()
 
         mock_jwt(str(user_id))
-        resp = client.post("/v1/invites", json={"team_id": str(team_a.id)}, headers=AUTH)
+        resp = client.post("/v1/team-invites", json={"team_id": str(team_a.id)}, headers=AUTH)
         assert resp.status_code == 201
 
         team_a_events = db_session.execute(
@@ -156,21 +179,24 @@ class TestCreateInvite:
 
 
 # ---------------------------------------------------------------------------
-# POST /v1/invites/accept
+# POST /v1/team-invites/{token}/accept
 # ---------------------------------------------------------------------------
 
 class TestAcceptInvite:
     def test_no_auth_returns_401(self, client: TestClient) -> None:
-        resp = client.post("/v1/invites/accept", json={"code": "abc"})
+        resp = client.post(
+            "/v1/team-invites/some-token/accept",
+            json={"display_name": "Test User"},
+        )
         assert resp.status_code == 401
 
-    def test_invalid_code_returns_404(
+    def test_invalid_token_returns_404(
         self, client: TestClient, mock_jwt
     ) -> None:
         mock_jwt(str(uuid.uuid4()))
         resp = client.post(
-            "/v1/invites/accept",
-            json={"code": "nonexistent-code", "display_name": "Test User"},
+            "/v1/team-invites/nonexistent-token/accept",
+            json={"display_name": "Test User"},
             headers=AUTH,
         )
         assert resp.status_code == 404
@@ -187,8 +213,8 @@ class TestAcceptInvite:
         athlete_id = uuid.uuid4()
         mock_jwt(str(athlete_id))
         resp = client.post(
-            "/v1/invites/accept",
-            json={"code": invite_team_a.code, "display_name": "Test Athlete"},
+            f"/v1/team-invites/{invite_team_a.token}/accept",
+            json={"display_name": "Test Athlete"},
             headers=AUTH,
         )
         assert resp.status_code == 201
@@ -196,14 +222,12 @@ class TestAcceptInvite:
         assert body["role"] == "ATHLETE"
         assert body["team_id"] == str(invite_team_a.team_id)
 
-        # Membership must exist
         m = db_session.execute(
             select(Membership).where(Membership.user_id == athlete_id)
         ).scalar_one_or_none()
         assert m is not None
         assert m.role == Role.ATHLETE
 
-        # Invite must be marked used
         db_session.expire(invite_team_a)
         assert invite_team_a.used_at is not None
 
@@ -214,34 +238,32 @@ class TestAcceptInvite:
         mock_jwt,
         invite_team_a: Invite,
     ) -> None:
-        # Mark invite as used
         invite_team_a.used_at = datetime.now(timezone.utc)
         db_session.commit()
 
         mock_jwt(str(uuid.uuid4()))
         resp = client.post(
-            "/v1/invites/accept",
-            json={"code": invite_team_a.code, "display_name": "Test User"},
+            f"/v1/team-invites/{invite_team_a.token}/accept",
+            json={"display_name": "Test User"},
             headers=AUTH,
         )
         assert resp.status_code == 409
         assert "already been used" in resp.json()["detail"]
 
-    def test_expired_invite_returns_410(
+    def test_expired_token_returns_410(
         self,
         client: TestClient,
         db_session: Session,
         mock_jwt,
         invite_team_a: Invite,
     ) -> None:
-        # Set expiry in the past
         invite_team_a.expires_at = datetime.now(timezone.utc) - timedelta(days=1)
         db_session.commit()
 
         mock_jwt(str(uuid.uuid4()))
         resp = client.post(
-            "/v1/invites/accept",
-            json={"code": invite_team_a.code, "display_name": "Test User"},
+            f"/v1/team-invites/{invite_team_a.token}/accept",
+            json={"display_name": "Test User"},
             headers=AUTH,
         )
         assert resp.status_code == 410
@@ -256,7 +278,6 @@ class TestAcceptInvite:
     ) -> None:
         """Accepting the same invite twice returns the existing membership."""
         athlete_id = uuid.uuid4()
-        # Pre-create membership for this user in the same team
         m = Membership(
             id=uuid.uuid4(),
             user_id=athlete_id,
@@ -268,13 +289,12 @@ class TestAcceptInvite:
 
         mock_jwt(str(athlete_id))
         resp = client.post(
-            "/v1/invites/accept",
-            json={"code": invite_team_a.code, "display_name": "Test Athlete"},
+            f"/v1/team-invites/{invite_team_a.token}/accept",
+            json={"display_name": "Test Athlete"},
             headers=AUTH,
         )
         assert resp.status_code == 201
-        body = resp.json()
-        assert body["membership_id"] == str(m.id)
+        assert resp.json()["membership_id"] == str(m.id)
 
     def test_display_name_stored_in_user_profile(
         self,
@@ -283,15 +303,15 @@ class TestAcceptInvite:
         mock_jwt,
         invite_team_a: Invite,
     ) -> None:
-        """POST /v1/invites/accept with display_name persists it as UserProfile.name."""
+        """Accept stores display_name in UserProfile."""
         from app.models import UserProfile
         from sqlalchemy import select
 
         athlete_id = uuid.uuid4()
         mock_jwt(str(athlete_id))
         resp = client.post(
-            "/v1/invites/accept",
-            json={"code": invite_team_a.code, "display_name": "Bob Smith"},
+            f"/v1/team-invites/{invite_team_a.token}/accept",
+            json={"display_name": "Bob Smith"},
             headers=AUTH,
         )
         assert resp.status_code == 201
@@ -302,3 +322,21 @@ class TestAcceptInvite:
         ).scalar_one_or_none()
         assert profile is not None
         assert profile.name == "Bob Smith"
+
+    def test_token_is_team_scoped(
+        self,
+        client: TestClient,
+        db_session: Session,
+        mock_jwt,
+        invite_team_a: Invite,
+    ) -> None:
+        """Accepting a token joins the correct team — team_id cannot be spoofed."""
+        athlete_id = uuid.uuid4()
+        mock_jwt(str(athlete_id))
+        resp = client.post(
+            f"/v1/team-invites/{invite_team_a.token}/accept",
+            json={"display_name": "Scoped Athlete"},
+            headers=AUTH,
+        )
+        assert resp.status_code == 201
+        assert resp.json()["team_id"] == str(invite_team_a.team_id)
