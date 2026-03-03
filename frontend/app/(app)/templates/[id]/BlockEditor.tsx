@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { request } from '@/app/_shared/api/httpClient'
+import { NotFoundError, request } from '@/app/_shared/api/httpClient'
 import type { BlockItem, Exercise, SetPrescription, WorkoutBlock } from '@/app/_shared/api/types'
 import { ExercisePicker } from './ExercisePicker'
 
@@ -30,7 +30,12 @@ function SetTable({ item, onDeleted }: SetTableProps) {
         method: 'PATCH',
         body: JSON.stringify({ sets: newSets }),
       })
-    } catch {
+    } catch (err) {
+      // Item was deleted server-side (e.g. its exercise was removed from the library).
+      if (err instanceof NotFoundError) {
+        onDeleted(item.id)
+        return
+      }
       setSets(prev)
       setError('Failed to save.')
     } finally {
@@ -68,7 +73,12 @@ function SetTable({ item, onDeleted }: SetTableProps) {
     try {
       await request(`/v1/block-items/${item.id}`, { method: 'DELETE' })
       onDeleted(item.id)
-    } catch {
+    } catch (err) {
+      // Already gone — remove from UI silently.
+      if (err instanceof NotFoundError) {
+        onDeleted(item.id)
+        return
+      }
       setError('Failed to delete.')
       setDeleting(false)
     }
