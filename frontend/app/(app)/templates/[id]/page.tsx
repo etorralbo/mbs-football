@@ -271,11 +271,7 @@ export default function TemplateDetailPage() {
         )}
 
         {/* Status badge */}
-        {template.status === 'published' ? (
-          <span className="shrink-0 rounded-full bg-emerald-900/40 px-2.5 py-1 text-xs font-medium text-emerald-400">
-            Published
-          </span>
-        ) : (
+        {template.status === 'draft' && (
           <span className="shrink-0 rounded-full bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-400">
             Draft
           </span>
