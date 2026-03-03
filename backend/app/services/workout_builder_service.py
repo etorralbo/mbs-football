@@ -2,11 +2,11 @@ import uuid
 from typing import Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.block_exercise import BlockExercise
-from app.models.exercise import Exercise
+from app.models.exercise import Exercise, OwnerType
 from app.models.workout_block import WorkoutBlock
 from app.models.workout_template import WorkoutTemplate
 from app.schemas.block_exercise import BlockExerciseCreate, BlockExerciseUpdate
@@ -185,11 +185,15 @@ def add_item(
     if not _get_block_for_team(db, team_id, block_id):
         return None
 
-    # Validate exercise belongs to the calling coach (cross-coach → 404, not 403)
+    # Validate exercise is visible to this coach: COMPANY (global) or own COACH exercise.
+    # Cross-coach exercises → 404 (not 403) to avoid information leakage.
     exercise = db.execute(
         select(Exercise).where(
             Exercise.id == data.exercise_id,
-            Exercise.coach_id == coach_id,
+            or_(
+                Exercise.owner_type == OwnerType.COMPANY,
+                Exercise.coach_id == coach_id,
+            ),
         )
     ).scalar_one_or_none()
 

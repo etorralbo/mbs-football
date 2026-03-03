@@ -18,7 +18,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models import Exercise, OwnerType, UserProfile
+from app.models import Exercise, OwnerType, Team, UserProfile, WorkoutBlock, WorkoutTemplate
 
 HEADERS = {"Authorization": "Bearer test-token"}
 
@@ -445,3 +445,129 @@ class TestSeededCompanyExercises:
         assert resp.status_code == 200
         back_squat_rows = [e for e in resp.json() if e["name"] == "Back Squat"]
         assert len(back_squat_rows) == 1, "Duplicate COMPANY exercise was created"
+
+
+# ---------------------------------------------------------------------------
+# Regression: COMPANY exercise must be addable to a block
+# ---------------------------------------------------------------------------
+
+class TestAddCompanyExerciseToBlock:
+    """
+    Regression for the bug where POST /blocks/{id}/items returned 404 when
+    the exercise_id belonged to a COMPANY exercise (coach_id=NULL).
+
+    Root cause: workout_builder_service.add_item filtered by
+    Exercise.coach_id == coach_id, which is always False for COMPANY rows.
+    Fix: use OR(owner_type=COMPANY, coach_id=coach_id).
+    """
+
+    @pytest.fixture
+    def _template_and_block(self, db_session: Session, coach_a: UserProfile) -> WorkoutBlock:
+        """A template + one empty block owned by team_a / coach_a."""
+        tmpl = WorkoutTemplate(
+            id=uuid.uuid4(),
+            team_id=coach_a.team_id,
+            title="Test Template",
+        )
+        db_session.add(tmpl)
+        db_session.flush()
+        block = WorkoutBlock(
+            id=uuid.uuid4(),
+            workout_template_id=tmpl.id,
+            name="Block A",
+            order_index=0,
+        )
+        db_session.add(block)
+        db_session.commit()
+        db_session.refresh(block)
+        return block
+
+    def test_company_exercise_can_be_added_to_block(
+        self,
+        client: TestClient,
+        mock_jwt,
+        db_session: Session,
+        coach_a: UserProfile,
+        _template_and_block: WorkoutBlock,
+    ):
+        """
+        POST /blocks/{id}/items with a COMPANY exercise_id must return 201,
+        not 404 (the pre-fix behaviour).
+        """
+        # "Back Squat" is seeded by the migration — look it up by name.
+        from sqlalchemy import select as sa_select
+        back_squat = db_session.execute(
+            sa_select(Exercise).where(
+                Exercise.name == "Back Squat",
+                Exercise.owner_type == OwnerType.COMPANY,
+            )
+        ).scalar_one()
+
+        mock_jwt(str(coach_a.supabase_user_id))
+        resp = client.post(
+            f"/v1/blocks/{_template_and_block.id}/items",
+            headers=HEADERS,
+            json={"exercise_id": str(back_squat.id), "prescription_json": {}},
+        )
+
+        assert resp.status_code == 201, resp.json()
+        body = resp.json()
+        assert body["exercise"]["name"] == "Back Squat"
+
+    def test_own_exercise_can_still_be_added_to_block(
+        self,
+        client: TestClient,
+        mock_jwt,
+        db_session: Session,
+        coach_a: UserProfile,
+        _template_and_block: WorkoutBlock,
+    ):
+        """COACH-owned exercises still work after the fix."""
+        own = Exercise(
+            coach_id=coach_a.id,
+            owner_type=OwnerType.COACH,
+            is_editable=True,
+            name="My Custom Exercise",
+        )
+        db_session.add(own)
+        db_session.commit()
+        db_session.refresh(own)
+
+        mock_jwt(str(coach_a.supabase_user_id))
+        resp = client.post(
+            f"/v1/blocks/{_template_and_block.id}/items",
+            headers=HEADERS,
+            json={"exercise_id": str(own.id), "prescription_json": {}},
+        )
+
+        assert resp.status_code == 201, resp.json()
+        assert resp.json()["exercise"]["name"] == "My Custom Exercise"
+
+    def test_cross_coach_exercise_still_returns_404(
+        self,
+        client: TestClient,
+        mock_jwt,
+        db_session: Session,
+        coach_a: UserProfile,
+        coach_b: UserProfile,
+        _template_and_block: WorkoutBlock,
+    ):
+        """Coach A cannot add Coach B's COACH exercise (cross-coach isolation preserved)."""
+        other = Exercise(
+            coach_id=coach_b.id,
+            owner_type=OwnerType.COACH,
+            is_editable=True,
+            name="Coach B Only",
+        )
+        db_session.add(other)
+        db_session.commit()
+        db_session.refresh(other)
+
+        mock_jwt(str(coach_a.supabase_user_id))
+        resp = client.post(
+            f"/v1/blocks/{_template_and_block.id}/items",
+            headers=HEADERS,
+            json={"exercise_id": str(other.id), "prescription_json": {}},
+        )
+
+        assert resp.status_code == 404
