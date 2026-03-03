@@ -81,7 +81,10 @@ class TestExercisesCoachOnly:
         exercises = response.json()
         assert isinstance(exercises, list)
         assert len(exercises) >= 1
-        assert exercises[0]["name"] == "Squats"
+        # COMPANY exercises now appear first (seeded by migration); assert the
+        # coach's exercise is present somewhere in the list.
+        names = [e["name"] for e in exercises]
+        assert "Squats" in names
 
     def test_list_exercises_athlete_forbidden(
         self,
@@ -149,8 +152,12 @@ class TestExercisesCoachOnly:
 
         assert response.status_code == 200
         exercises = response.json()
-        assert len(exercises) == 1
-        assert exercises[0]["name"] == "Squats"
+        names = [e["name"] for e in exercises]
+        # The seeded COMPANY dataset also contains "Back Squat", "Front Squat",
+        # "Bulgarian Split Squat" — so the result set is > 1.  Assert the coach's
+        # own exercise is present and an unrelated exercise is absent.
+        assert "Squats" in names
+        assert "Push-ups" not in names
 
 
 class TestRoleBasedAccessControl:
