@@ -53,8 +53,11 @@ export interface Exercise {
   /** False for company exercises — they cannot be edited or deleted. */
   is_editable: boolean
   name: string
-  description: string | null
-  tags: string | null
+  description: string
+  /** Categorisation tags, e.g. ["strength", "lower-body"]. */
+  tags: string[]
+  /** True if the requesting coach has bookmarked this exercise. */
+  is_favorite: boolean
   video_asset_id: string | null
   created_at: string
   updated_at: string

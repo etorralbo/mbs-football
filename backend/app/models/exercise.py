@@ -6,7 +6,7 @@ import sqlalchemy as sa
 from sqlalchemy import Boolean, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy import text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
@@ -70,8 +70,16 @@ class Exercise(Base, TimestampMixin):
         server_default=sa.true(),
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    tags: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # description is required (NOT NULL, min 20 chars enforced at DB + schema level).
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    # tags stored as a JSONB array of lowercase strings, e.g. ["strength", "lower-body"].
+    # GIN index ix_exercises_tags_gin enables efficient @> containment queries.
+    tags: Mapped[list] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sa.text("'[]'::jsonb"),
+    )
     video_asset_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("media_assets.id", ondelete="SET NULL"),
