@@ -21,6 +21,7 @@ import { CompletionBar } from './CompletionBar'
 export default function SessionDetailPage() {
   const { id } = useParams() as { id: string }
   const router = useRouter()
+  const { role } = useAuth()
 
   // ── Fetch: execution view (includes title, scheduled_for, blocks + logs)
   const execState = useSessionExecution(id)
@@ -89,7 +90,6 @@ export default function SessionDetailPage() {
 
   const execution = execState.data
   const isCompleted = execution.status === 'completed'
-  const { role } = useAuth()
   const isCoach = role === 'COACH'
   const isReadOnly = isCompleted
   const progress = progressFromDraft(execution, draft)
