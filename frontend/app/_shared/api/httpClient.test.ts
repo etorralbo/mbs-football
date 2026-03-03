@@ -151,7 +151,7 @@ describe('request', () => {
 
   it('GoneError preserves the detail message', async () => {
     mockFetch.mockReturnValue(jsonResponse(410, { detail: 'Invite has expired' }))
-    const err = await request('/test').catch((e) => e)
+    const err = await request('/test').catch((e) => e) as GoneError
     expect(err).toBeInstanceOf(GoneError)
     expect(err.message).toBe('Invite has expired')
   })
