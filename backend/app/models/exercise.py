@@ -1,31 +1,73 @@
+import enum
 import uuid
 from typing import Optional
 
-from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
+import sqlalchemy as sa
+from sqlalchemy import Boolean, ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy import Enum as SAEnum
+from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
 
 
+class OwnerType(str, enum.Enum):
+    """Whether an exercise is managed by the company or by an individual coach."""
+    COMPANY = "COMPANY"
+    COACH = "COACH"
+
+
 class Exercise(Base, TimestampMixin):
     """
-    Exercise model representing a single exercise in a coach's library.
+    Exercise in a training library.
 
-    Each exercise belongs to a coach (UserProfile) rather than a team, so the
-    same library is reusable across all teams the coach manages.
-    The tags field is a simple text field for MVP; can be normalized later.
+    Ownership model:
+    - owner_type = COMPANY → global, read-only; coach_id is NULL.
+    - owner_type = COACH   → personal to a coach; coach_id = coach's UserProfile.id.
+
+    Uniqueness:
+    - COACH exercises: (coach_id, name) unique — see uq_exercise_coach_name.
+    - COMPANY exercises: name unique across all COMPANY rows — see
+      uix_company_exercise_name (partial index).
     """
     __tablename__ = "exercises"
     __table_args__ = (
+        # Coach-scoped uniqueness (NULL coach_id for COMPANY rows is excluded
+        # from this constraint in PostgreSQL — NULLs are never equal).
         UniqueConstraint("coach_id", "name", name="uq_exercise_coach_name"),
+        # Partial unique index: COMPANY exercise names must be globally unique.
+        Index(
+            "uix_company_exercise_name",
+            "name",
+            unique=True,
+            postgresql_where=text("owner_type = 'COMPANY'"),
+        ),
     )
 
-    coach_id: Mapped[uuid.UUID] = mapped_column(
+    # NULL for COMPANY exercises; set to the owning coach for COACH exercises.
+    coach_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("user_profiles.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    owner_type: Mapped[OwnerType] = mapped_column(
+        SAEnum(
+            OwnerType,
+            name="exercise_owner_type",
+            native_enum=True,
+            values_callable=lambda x: [e.value for e in x],
+        ),
         nullable=False,
-        index=True
+        default=OwnerType.COACH,
+        server_default=OwnerType.COACH.value,
+    )
+    is_editable: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=sa.true(),
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -33,8 +75,8 @@ class Exercise(Base, TimestampMixin):
     video_asset_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("media_assets.id", ondelete="SET NULL"),
-        nullable=True
+        nullable=True,
     )
 
     def __repr__(self) -> str:
-        return f"<Exercise(id={self.id}, name={self.name})>"
+        return f"<Exercise(id={self.id}, name={self.name}, owner_type={self.owner_type})>"
