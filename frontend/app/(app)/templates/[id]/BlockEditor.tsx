@@ -51,7 +51,11 @@ function SetTable({ item, onDeleted }: SetTableProps) {
   }
 
   function addSet() {
-    saveSets([...sets, { order: sets.length, reps: null, weight: null, rpe: null }])
+    const last = sets[sets.length - 1]
+    const newSet: SetPrescription = last
+      ? { order: sets.length, reps: last.reps, weight: last.weight, rpe: last.rpe }
+      : { order: sets.length, reps: null, weight: null, rpe: null }
+    saveSets([...sets, newSet])
   }
 
   function deleteSet(setIdx: number) {
