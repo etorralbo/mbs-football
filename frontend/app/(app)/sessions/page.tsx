@@ -43,7 +43,7 @@ export default function SessionsPage() {
   const [sessions, setSessions] = useState<WorkoutSessionSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [viewMode, setViewMode] = useState<ViewMode>('calendar')
   const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(null)
   const router = useRouter()
   const { role, steps, isLoading: activationLoading } = useActivationState()
