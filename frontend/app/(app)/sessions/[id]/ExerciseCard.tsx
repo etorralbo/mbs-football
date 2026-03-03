@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { request, ConflictError, ValidationError } from '@/app/_shared/api/httpClient'
-import { Button } from '@/app/_shared/components/Button'
 import type { ExecutionItem } from '@/app/_shared/api/types'
 import type { DraftAction, DraftState } from '@/src/features/session-execution/draftState'
 import { SetRow } from './SetRow'
@@ -13,7 +12,7 @@ interface Props {
   exerciseSets: DraftState[string]
   isCompleted: boolean
   /** When false (coach view): saving does not mark the exercise done and
-   *  the Undo button is hidden. Defaults to true (athlete behaviour). */
+   *  the toggle icon is hidden. Defaults to true (athlete behaviour). */
   completionEnabled?: boolean
   dispatch: (action: DraftAction) => void
   onSavingChange?: (exerciseId: string, isSaving: boolean) => void
@@ -54,7 +53,9 @@ export function ExerciseCard({
 
   const isAlreadyDone = sortedSets.every((s) => s.draft.done)
 
-  async function handleSave() {
+  // Saves all logged entries for this exercise, then dispatches the given action.
+  // If there is nothing to save (all fields empty), skips the API call.
+  async function saveThenDispatch(action: DraftAction) {
     const validEntries = sortedSets
       .map(({ setNumber, draft }) => ({
         set_number: setNumber,
@@ -64,25 +65,21 @@ export function ExerciseCard({
       }))
       .filter((e) => e.reps !== null || e.weight !== null || e.rpe !== null)
 
-    if (validEntries.length === 0) return
-
     setError(null)
     setSaving(true)
     onSavingChange?.(item.exercise_id, true)
 
     try {
-      await request(`/v1/workout-sessions/${sessionId}/logs`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          exercise_id: item.exercise_id,
-          entries: validEntries,
-        }),
-      })
-      if (completionEnabled) dispatch({ type: 'MARK_DONE', exerciseId: item.exercise_id })
+      if (validEntries.length > 0) {
+        await request(`/v1/workout-sessions/${sessionId}/logs`, {
+          method: 'PUT',
+          body: JSON.stringify({ exercise_id: item.exercise_id, entries: validEntries }),
+        })
+      }
+      dispatch(action)
     } catch (err) {
       if (err instanceof ConflictError) {
-        // Duplicate log — treat as success (idempotent)
-        if (completionEnabled) dispatch({ type: 'MARK_DONE', exerciseId: item.exercise_id })
+        dispatch(action)
       } else if (err instanceof ValidationError) {
         setError('Some entries are invalid. Check your values and try again.')
       } else {
@@ -92,6 +89,22 @@ export function ExerciseCard({
       setSaving(false)
       onSavingChange?.(item.exercise_id, false)
     }
+  }
+
+  function handleToggleAll() {
+    if (isAlreadyDone) {
+      dispatch({ type: 'UNDO_DONE', exerciseId: item.exercise_id })
+      return
+    }
+    saveThenDispatch({ type: 'MARK_DONE', exerciseId: item.exercise_id })
+  }
+
+  function handleToggleSet(setNumber: number, isDone: boolean) {
+    if (isDone) {
+      dispatch({ type: 'UNDO_SET_DONE', exerciseId: item.exercise_id, setNumber })
+      return
+    }
+    saveThenDispatch({ type: 'MARK_SET_DONE', exerciseId: item.exercise_id, setNumber })
   }
 
   function handleAddSet() {
@@ -106,22 +119,34 @@ export function ExerciseCard({
           <p className="text-sm font-semibold text-white">{item.exercise_name}</p>
           <p className="mt-0.5 text-xs text-slate-400">{prescriptionText(item.prescription)}</p>
         </div>
-        {isAlreadyDone && (
-          <div className="flex items-center gap-2">
+
+        {/* Exercise-level done toggle (athlete) or read-only badge (coach / completed) */}
+        {completionEnabled && !isCompleted ? (
+          <button
+            type="button"
+            onClick={handleToggleAll}
+            disabled={saving}
+            aria-label={isAlreadyDone ? `Undo ${item.exercise_name}` : `Mark ${item.exercise_name} done`}
+            className="shrink-0 rounded-full p-0.5 transition-colors disabled:opacity-40"
+          >
+            {isAlreadyDone ? (
+              /* All sets done — solid green check circle */
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-[#c8f135]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+              </svg>
+            ) : (
+              /* Not all done — outline grey circle */
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
+                <circle cx="12" cy="12" r="9.25" />
+              </svg>
+            )}
+          </button>
+        ) : (
+          isAlreadyDone && (
             <span className="rounded-full bg-[#c8f135]/15 px-2 py-0.5 text-xs font-semibold text-[#c8f135] ring-1 ring-[#c8f135]/30">
               Done
             </span>
-            {!isCompleted && completionEnabled && (
-              <button
-                type="button"
-                onClick={() => dispatch({ type: 'UNDO_DONE', exerciseId: item.exercise_id })}
-                className="text-xs text-slate-400 hover:text-white"
-                aria-label={`Undo ${item.exercise_name}`}
-              >
-                Undo
-              </button>
-            )}
-          </div>
+          )
         )}
       </div>
 
@@ -140,6 +165,9 @@ export function ExerciseCard({
               setNumber={setNumber}
               draft={draft}
               disabled={isCompleted}
+              completionEnabled={completionEnabled}
+              saving={saving}
+              onToggleDone={() => handleToggleSet(setNumber, draft.done)}
               onChange={(field, value) =>
                 dispatch({
                   type: 'UPDATE_SET',
@@ -164,18 +192,10 @@ export function ExerciseCard({
         )}
       </div>
 
-      {/* Save button + error */}
-      {!isCompleted && !isAlreadyDone && (
-        <div className="mt-3 flex items-center gap-3">
-          {error && (
-            <p role="alert" className="text-xs text-red-400">
-              {error}
-            </p>
-          )}
-          <Button size="sm" variant="secondary" onClick={handleSave} loading={saving}>
-            {saving ? 'Saving…' : 'Save sets'}
-          </Button>
-        </div>
+      {error && (
+        <p role="alert" className="mt-2 text-xs text-red-400">
+          {error}
+        </p>
       )}
     </div>
   )
