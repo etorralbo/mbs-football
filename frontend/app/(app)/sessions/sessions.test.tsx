@@ -21,6 +21,7 @@ vi.mock('@/app/_shared/api/httpClient', async (importOriginal) => {
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush, replace: mockReplace }),
+  useSearchParams: () => new URLSearchParams(),
 }))
 
 vi.mock('@/src/features/activation/useActivationState', () => ({
