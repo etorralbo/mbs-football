@@ -223,11 +223,7 @@ export default function TemplatesPage() {
               >
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-white">{t.title}</span>
-                  {t.status === 'published' ? (
-                    <span className="rounded-full bg-emerald-900/40 px-2 py-0.5 text-xs font-medium text-emerald-400">
-                      Published
-                    </span>
-                  ) : (
+                  {t.status === 'draft' && (
                     <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-400">
                       Draft
                     </span>
