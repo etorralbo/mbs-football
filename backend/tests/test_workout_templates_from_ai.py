@@ -109,6 +109,8 @@ class TestFromAiValidation:
             id=uuid.uuid4(),
             coach_id=onboarded_coach_jwt.id,
             name="Second Coach Exercise",
+            description="Supplementary coach exercise for validation testing.",
+            tags=[],
         )
         db_session.add(ex2)
         db_session.commit()
@@ -187,6 +189,8 @@ class TestFromAiQueryPerformance:
                 id=uuid.uuid4(),
                 coach_id=onboarded_coach_jwt.id,
                 name=f"Extra Exercise {i + 2}",
+                description="Extra exercise for query performance testing.",
+                tags=[],
             )
             db_session.add(ex)
             db_session.flush()

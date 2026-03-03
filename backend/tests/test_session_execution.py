@@ -35,7 +35,7 @@ HEADERS = {"Authorization": "Bearer test-token"}
 @pytest.fixture
 def exercise_b(db_session: Session, coach_a) -> "Exercise":
     from app.models.exercise import Exercise
-    ex = Exercise(id=uuid.uuid4(), coach_id=coach_a.id, name="Romanian Deadlift")
+    ex = Exercise(id=uuid.uuid4(), coach_id=coach_a.id, name="Romanian Deadlift", description="Hip-hinge pull targeting posterior chain.", tags=[])
     db_session.add(ex)
     db_session.flush()
     return ex
