@@ -28,9 +28,9 @@ export interface CreateInviteResponse {
 }
 
 export interface AcceptInviteResponse {
+  status: 'joined' | 'already_member' | 'not_eligible'
   team_id: string
-  membership_id: string
-  role: string
+  team_name: string
 }
 
 // ---------------------------------------------------------------------------

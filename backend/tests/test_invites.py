@@ -184,10 +184,7 @@ class TestCreateInvite:
 
 class TestAcceptInvite:
     def test_no_auth_returns_401(self, client: TestClient) -> None:
-        resp = client.post(
-            "/v1/team-invites/some-token/accept",
-            json={"display_name": "Test User"},
-        )
+        resp = client.post("/v1/team-invites/some-token/accept", json={})
         assert resp.status_code == 401
 
     def test_invalid_token_returns_404(
@@ -196,7 +193,7 @@ class TestAcceptInvite:
         mock_jwt(str(uuid.uuid4()))
         resp = client.post(
             "/v1/team-invites/nonexistent-token/accept",
-            json={"display_name": "Test User"},
+            json={},
             headers=AUTH,
         )
         assert resp.status_code == 404
@@ -217,10 +214,11 @@ class TestAcceptInvite:
             json={"display_name": "Test Athlete"},
             headers=AUTH,
         )
-        assert resp.status_code == 201
+        assert resp.status_code == 200
         body = resp.json()
-        assert body["role"] == "ATHLETE"
+        assert body["status"] == "joined"
         assert body["team_id"] == str(invite_team_a.team_id)
+        assert isinstance(body["team_name"], str) and body["team_name"]
 
         m = db_session.execute(
             select(Membership).where(Membership.user_id == athlete_id)
@@ -230,6 +228,44 @@ class TestAcceptInvite:
 
         db_session.expire(invite_team_a)
         assert invite_team_a.used_at is not None
+
+    def test_display_name_optional(
+        self,
+        client: TestClient,
+        db_session: Session,
+        mock_jwt,
+        invite_team_a: Invite,
+    ) -> None:
+        """Accept works with no display_name in payload."""
+        athlete_id = uuid.uuid4()
+        mock_jwt(str(athlete_id))
+        resp = client.post(
+            f"/v1/team-invites/{invite_team_a.token}/accept",
+            json={},
+            headers=AUTH,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "joined"
+
+    def test_response_includes_team_name(
+        self,
+        client: TestClient,
+        db_session: Session,
+        mock_jwt,
+        invite_team_a: Invite,
+    ) -> None:
+        """Response always includes the team name."""
+        from app.models import Team as TeamModel
+        team = db_session.get(TeamModel, invite_team_a.team_id)
+
+        mock_jwt(str(uuid.uuid4()))
+        resp = client.post(
+            f"/v1/team-invites/{invite_team_a.token}/accept",
+            json={},
+            headers=AUTH,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["team_name"] == team.name
 
     def test_used_invite_returns_409(
         self,
@@ -244,7 +280,7 @@ class TestAcceptInvite:
         mock_jwt(str(uuid.uuid4()))
         resp = client.post(
             f"/v1/team-invites/{invite_team_a.token}/accept",
-            json={"display_name": "Test User"},
+            json={},
             headers=AUTH,
         )
         assert resp.status_code == 409
@@ -263,20 +299,20 @@ class TestAcceptInvite:
         mock_jwt(str(uuid.uuid4()))
         resp = client.post(
             f"/v1/team-invites/{invite_team_a.token}/accept",
-            json={"display_name": "Test User"},
+            json={},
             headers=AUTH,
         )
         assert resp.status_code == 410
         assert "expired" in resp.json()["detail"]
 
-    def test_idempotent_second_accept_returns_existing_membership(
+    def test_already_member_returns_already_member_status(
         self,
         client: TestClient,
         db_session: Session,
         mock_jwt,
         invite_team_a: Invite,
     ) -> None:
-        """Accepting the same invite twice returns the existing membership."""
+        """Accepting an invite for a team you're already in returns already_member."""
         athlete_id = uuid.uuid4()
         m = Membership(
             id=uuid.uuid4(),
@@ -290,11 +326,94 @@ class TestAcceptInvite:
         mock_jwt(str(athlete_id))
         resp = client.post(
             f"/v1/team-invites/{invite_team_a.token}/accept",
-            json={"display_name": "Test Athlete"},
+            json={},
             headers=AUTH,
         )
-        assert resp.status_code == 201
-        assert resp.json()["membership_id"] == str(m.id)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "already_member"
+        assert body["team_id"] == str(invite_team_a.team_id)
+        assert isinstance(body["team_name"], str) and body["team_name"]
+
+    def test_already_member_does_not_consume_invite(
+        self,
+        client: TestClient,
+        db_session: Session,
+        mock_jwt,
+        invite_team_a: Invite,
+    ) -> None:
+        """already_member must NOT mark the invite as used — other athletes can still join."""
+        athlete_id = uuid.uuid4()
+        db_session.add(Membership(
+            id=uuid.uuid4(),
+            user_id=athlete_id,
+            team_id=invite_team_a.team_id,
+            role=Role.ATHLETE,
+        ))
+        db_session.commit()
+
+        mock_jwt(str(athlete_id))
+        client.post(
+            f"/v1/team-invites/{invite_team_a.token}/accept",
+            json={},
+            headers=AUTH,
+        )
+
+        db_session.expire(invite_team_a)
+        assert invite_team_a.used_at is None
+
+    def test_coach_on_own_team_returns_already_member(
+        self,
+        client: TestClient,
+        db_session: Session,
+        mock_jwt,
+        invite_team_a: Invite,
+    ) -> None:
+        """A coach who is already a member of the invite's team gets already_member."""
+        coach_id = uuid.uuid4()
+        db_session.add(Membership(
+            id=uuid.uuid4(),
+            user_id=coach_id,
+            team_id=invite_team_a.team_id,
+            role=Role.COACH,
+        ))
+        db_session.commit()
+
+        mock_jwt(str(coach_id))
+        resp = client.post(
+            f"/v1/team-invites/{invite_team_a.token}/accept",
+            json={},
+            headers=AUTH,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "already_member"
+
+    def test_coach_on_own_team_does_not_consume_invite(
+        self,
+        client: TestClient,
+        db_session: Session,
+        mock_jwt,
+        invite_team_a: Invite,
+    ) -> None:
+        """Coach opening their own link must NOT consume the invite."""
+        coach_id = uuid.uuid4()
+        db_session.add(Membership(
+            id=uuid.uuid4(),
+            user_id=coach_id,
+            team_id=invite_team_a.team_id,
+            role=Role.COACH,
+        ))
+        db_session.commit()
+
+        mock_jwt(str(coach_id))
+        client.post(
+            f"/v1/team-invites/{invite_team_a.token}/accept",
+            json={},
+            headers=AUTH,
+        )
+
+        db_session.expire(invite_team_a)
+        assert invite_team_a.used_at is None
 
     def test_display_name_stored_in_user_profile(
         self,
@@ -314,7 +433,7 @@ class TestAcceptInvite:
             json={"display_name": "Bob Smith"},
             headers=AUTH,
         )
-        assert resp.status_code == 201
+        assert resp.status_code == 200
 
         db_session.expire_all()
         profile = db_session.execute(
@@ -338,17 +457,17 @@ class TestAcceptInvite:
             json={"display_name": "Scoped Athlete"},
             headers=AUTH,
         )
-        assert resp.status_code == 201
+        assert resp.status_code == 200
         assert resp.json()["team_id"] == str(invite_team_a.team_id)
 
-    def test_coach_cannot_accept_athlete_invite_returns_403(
+    def test_coach_on_different_team_returns_not_eligible(
         self,
         client: TestClient,
         db_session: Session,
         mock_jwt,
         invite_team_a: Invite,
     ) -> None:
-        """A user who already holds a COACH role must not be added as an ATHLETE."""
+        """A coach on a different team gets not_eligible (200) — not an error."""
         coach_id = uuid.uuid4()
         other_team = Team(id=uuid.uuid4(), name="Coach Own Team")
         db_session.add(other_team)
@@ -361,8 +480,38 @@ class TestAcceptInvite:
         mock_jwt(str(coach_id))
         resp = client.post(
             f"/v1/team-invites/{invite_team_a.token}/accept",
-            json={"display_name": "Coach User"},
+            json={},
             headers=AUTH,
         )
-        assert resp.status_code == 403
-        assert "coach" in resp.json()["detail"].lower()
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "not_eligible"
+        assert body["team_id"] == str(invite_team_a.team_id)
+        assert isinstance(body["team_name"], str) and body["team_name"]
+
+    def test_not_eligible_does_not_consume_invite(
+        self,
+        client: TestClient,
+        db_session: Session,
+        mock_jwt,
+        invite_team_a: Invite,
+    ) -> None:
+        """not_eligible must NOT mark the invite as used — athletes can still join."""
+        coach_id = uuid.uuid4()
+        other_team = Team(id=uuid.uuid4(), name="Coach Other Team")
+        db_session.add(other_team)
+        db_session.flush()
+        db_session.add(
+            Membership(id=uuid.uuid4(), user_id=coach_id, team_id=other_team.id, role=Role.COACH)
+        )
+        db_session.commit()
+
+        mock_jwt(str(coach_id))
+        client.post(
+            f"/v1/team-invites/{invite_team_a.token}/accept",
+            json={},
+            headers=AUTH,
+        )
+
+        db_session.expire(invite_team_a)
+        assert invite_team_a.used_at is None

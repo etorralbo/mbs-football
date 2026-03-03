@@ -19,14 +19,19 @@ Tags are stored as JSONB arrays.  Filtering uses the PostgreSQL @>
 import uuid
 from typing import List, Optional
 
-from sqlalchemy import case, cast, func, literal, or_, select, text
+from sqlalchemy import case, cast, exists, func, literal, or_, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.models.block_exercise import BlockExercise
 from app.models.exercise import Exercise, OwnerType
 from app.models.exercise_favorite import ExerciseFavorite
 from app.schemas.exercise import ExerciseCreate, ExerciseUpdate
+
+
+class ExerciseInUseError(Exception):
+    """Raised when attempting to delete an exercise referenced by a block item."""
 
 
 # ---------------------------------------------------------------------------
@@ -230,6 +235,12 @@ def delete_exercise(
     exercise = db.execute(stmt).scalar_one_or_none()
     if not exercise:
         return False
+
+    in_use = db.execute(
+        select(exists().where(BlockExercise.exercise_id == exercise_id))
+    ).scalar()
+    if in_use:
+        raise ExerciseInUseError()
 
     db.delete(exercise)
     db.commit()
