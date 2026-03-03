@@ -6,6 +6,12 @@ import Link from 'next/link'
 import { supabase } from '@/app/_shared/auth/supabaseClient'
 import { Button } from '@/app/_shared/components/Button'
 
+function getNextParam(): string {
+  if (typeof window === 'undefined') return ''
+  const next = new URLSearchParams(window.location.search).get('next') ?? ''
+  return next.startsWith('/join/') ? next : ''
+}
+
 export function SignupForm() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -43,8 +49,8 @@ export function SignupForm() {
         setError(authError.message)
         return
       }
-      // After sign-up Supabase auto-signs the user in; send them to onboarding.
-      router.push('/onboarding')
+      // If the user came via an invite link, skip onboarding and go straight there.
+      router.push(getNextParam() || '/onboarding')
     } finally {
       setLoading(false)
     }

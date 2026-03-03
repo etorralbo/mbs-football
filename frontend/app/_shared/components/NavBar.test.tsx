@@ -128,6 +128,16 @@ describe('NavBar — ATHLETE', () => {
     expect(screen.queryByRole('link', { name: /templates/i })).not.toBeInTheDocument()
   })
 
+  it('does NOT render the Home link', () => {
+    render(<NavBar />)
+    expect(screen.queryByRole('link', { name: /^home$/i })).not.toBeInTheDocument()
+  })
+
+  it('does NOT render the Training link', () => {
+    render(<NavBar />)
+    expect(screen.queryByRole('link', { name: /^training$/i })).not.toBeInTheDocument()
+  })
+
   it('does NOT render the Team link', () => {
     render(<NavBar />)
     expect(screen.queryByRole('link', { name: /^team$/i })).not.toBeInTheDocument()

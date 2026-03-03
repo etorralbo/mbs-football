@@ -20,8 +20,6 @@ export function NavBar() {
     supabase.auth.signOut().then(() => router.replace('/login'))
   }
 
-  const isAthlete = role === 'ATHLETE'
-
   return (
     <nav className="flex h-14 items-center gap-1 border-b border-white/8 bg-[#131922] px-6">
       <div className="mr-4 flex items-center gap-2">
@@ -33,19 +31,9 @@ export function NavBar() {
         <span className="text-sm font-semibold text-white">Mettle Performance</span>
       </div>
       <TeamSwitcher />
-      {!isCoach && (
-        <NavLink href="/home" active={isActive('/home')}>
-          Home
-        </NavLink>
-      )}
       {isCoach && (
         <NavLink href="/templates" active={isActive('/templates')}>
           Templates
-        </NavLink>
-      )}
-      {isAthlete && (
-        <NavLink href="/athlete" active={isActive('/athlete')}>
-          Training
         </NavLink>
       )}
       <NavLink href="/sessions" active={isActive('/sessions')}>

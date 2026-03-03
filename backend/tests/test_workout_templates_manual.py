@@ -428,7 +428,7 @@ class TestBlockItems:
         assert body["exercise"]["id"] == ex["id"]
         assert body["exercise"]["name"] == ex["name"]
 
-    def test_new_item_has_one_default_set(
+    def test_new_item_has_three_default_sets(
         self, client: TestClient, mock_jwt, coach_a: UserProfile
     ):
         """Items created without explicit sets get one default set."""
@@ -444,8 +444,8 @@ class TestBlockItems:
         )
         assert r.status_code == 201
         sets = r.json()["sets"]
-        assert len(sets) == 1
-        assert sets[0]["order"] == 0
+        assert len(sets) == 3
+        assert [s["order"] for s in sets] == [0, 1, 2]
 
     def test_update_item_sets(
         self, client: TestClient, mock_jwt, coach_a: UserProfile

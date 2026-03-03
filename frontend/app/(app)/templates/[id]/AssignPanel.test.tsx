@@ -137,7 +137,7 @@ describe('AssignPanel — team submit', () => {
         body: JSON.stringify({
           workout_template_id: 'tpl-1',
           target: { type: 'team' },
-          scheduled_for: null,
+          scheduled_for: new Date().toLocaleDateString('en-CA'),
         }),
       }),
     )

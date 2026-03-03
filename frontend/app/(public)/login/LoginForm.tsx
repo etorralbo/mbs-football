@@ -6,19 +6,29 @@ import Link from 'next/link'
 import { supabase } from '@/app/_shared/auth/supabaseClient'
 import { Button } from '@/app/_shared/components/Button'
 
+function getNextParam(): string {
+  if (typeof window === 'undefined') return ''
+  const next = new URLSearchParams(window.location.search).get('next') ?? ''
+  // Only honour same-origin paths that start with /join/ to prevent open redirects.
+  return next.startsWith('/join/') ? next : ''
+}
+
 export function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [signupHref, setSignupHref] = useState('/signup')
   const router = useRouter()
 
   // Redirect already-authenticated users away from the login page
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.replace('/home')
+      if (session) router.replace('/onboarding')
     })
+    const next = getNextParam()
+    if (next) setSignupHref(`/signup?next=${encodeURIComponent(next)}`)
   }, [router])
 
   async function handleGoogleSignIn() {
@@ -48,7 +58,7 @@ export function LoginForm() {
         setError('Invalid email or password.')
         return
       }
-      router.replace('/onboarding')
+      router.replace(getNextParam() || '/onboarding')
     } finally {
       setLoading(false)
     }
@@ -133,7 +143,7 @@ export function LoginForm() {
 
         <p className="text-center text-sm text-slate-500">
           No account yet?{' '}
-          <Link href="/signup" className="font-semibold text-indigo-400 transition-colors hover:text-indigo-300">
+          <Link href={signupHref} className="font-semibold text-indigo-400 transition-colors hover:text-indigo-300">
             Create one
           </Link>
         </p>
