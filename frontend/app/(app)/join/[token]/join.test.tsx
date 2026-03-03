@@ -130,4 +130,15 @@ describe('JoinTokenPage — error states', () => {
     // 404 must say "invalid", not "expired" (404 ≠ 410)
     expect(alert).not.toHaveTextContent(/expired/i)
   })
+
+  it('shows "coaches cannot join" message on 403 (ForbiddenError)', async () => {
+    const { ForbiddenError } = await import('@/app/_shared/api/httpClient')
+    mockGetUser.mockResolvedValue(USER_WITH_NAME)
+    mockRequest.mockRejectedValue(new ForbiddenError('Coaches cannot join teams via athlete invite links.'))
+
+    render(<JoinTokenPage />)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/coaches cannot join/i)
+  })
 })

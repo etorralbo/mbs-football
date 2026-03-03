@@ -23,6 +23,10 @@ class InviteExpiredError(Exception):
     """Raised when the invite has passed its expiry date."""
 
 
+class InviteRoleConflictError(Exception):
+    """Raised when a COACH user tries to accept an ATHLETE invite."""
+
+
 # ---------------------------------------------------------------------------
 # Command / Result DTOs
 # ---------------------------------------------------------------------------
@@ -75,6 +79,12 @@ class AcceptInviteUseCase:
                 expires = expires.replace(tzinfo=timezone.utc)
             if now > expires:
                 raise InviteExpiredError("This invite has expired.")
+
+        # Coaches must not be added as athletes via invite links.
+        if self._membership_repo.has_coach_membership(command.supabase_user_id):
+            raise InviteRoleConflictError(
+                "Coaches cannot join teams via athlete invite links."
+            )
 
         # Idempotent: if the membership already exists return it without error.
         # No event is tracked on the idempotent path — the join already happened.
