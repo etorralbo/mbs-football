@@ -1,15 +1,16 @@
-"""Invite management endpoints.
+"""Team invite endpoints.
 
-POST /v1/invites        — COACH creates an invite code for their team.
-POST /v1/invites/accept — authenticated user (ATHLETE) accepts an invite.
+POST /v1/team-invites               — COACH creates an invite link for their team.
+POST /v1/team-invites/{token}/accept — authenticated user accepts an invite by token.
 
 Both endpoints use get_auth_user_id (lightweight JWT-only auth) so they work
 before a UserProfile is created in the system.
 """
 import uuid
+from datetime import datetime
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Path, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -31,28 +32,28 @@ from app.domain.use_cases.create_invite import (
 )
 from app.persistence.repositories.invite_repository import SqlAlchemyInviteRepository
 from app.persistence.repositories.membership_repository import SqlAlchemyMembershipRepository
-from app.persistence.repositories.team_repository import SqlAlchemyTeamRepository
 from app.persistence.repositories.user_profile_repository import SqlAlchemyUserProfileRepository
 
-router = APIRouter(tags=["invites"])
+router = APIRouter(tags=["team-invites"])
 
 
 # ---------------------------------------------------------------------------
-# POST /v1/invites
+# POST /v1/team-invites
 # ---------------------------------------------------------------------------
 
 class CreateInviteRequest(BaseModel):
     team_id: uuid.UUID
-    expires_in_days: Optional[int] = Field(None, ge=1, le=365)
+    expires_in_days: Optional[int] = Field(7, ge=1, le=365)
 
 
 class CreateInviteResponse(BaseModel):
-    code: str
+    token: str
     join_url: str
     team_id: uuid.UUID
+    expires_at: Optional[datetime]
 
 
-@router.post("/invites", response_model=CreateInviteResponse, status_code=201)
+@router.post("/team-invites", response_model=CreateInviteResponse, status_code=201)
 def create_invite(
     payload: CreateInviteRequest,
     user_id: Annotated[uuid.UUID, Depends(get_auth_user_id)],
@@ -78,18 +79,18 @@ def create_invite(
     db.commit()
 
     return CreateInviteResponse(
-        code=result.code,
-        join_url=f"{settings.FRONTEND_URL}/join?code={result.code}",
+        token=result.token,
+        join_url=f"{settings.FRONTEND_URL}/join/{result.token}",
         team_id=result.team_id,
+        expires_at=result.expires_at,
     )
 
 
 # ---------------------------------------------------------------------------
-# POST /v1/invites/accept
+# POST /v1/team-invites/{token}/accept
 # ---------------------------------------------------------------------------
 
 class AcceptInviteRequest(BaseModel):
-    code: str = Field(..., min_length=1, max_length=64)
     display_name: str = Field(..., min_length=1, max_length=255)
 
 
@@ -99,9 +100,10 @@ class AcceptInviteResponse(BaseModel):
     role: str
 
 
-@router.post("/invites/accept", response_model=AcceptInviteResponse, status_code=201)
+@router.post("/team-invites/{token}/accept", response_model=AcceptInviteResponse, status_code=201)
 def accept_invite(
     payload: AcceptInviteRequest,
+    token: Annotated[str, Path(min_length=1, max_length=64)],
     user_id: Annotated[uuid.UUID, Depends(get_auth_user_id)],
     db: Session = Depends(get_db),
 ) -> AcceptInviteResponse:
@@ -113,7 +115,7 @@ def accept_invite(
     )
     try:
         result = use_case.execute(
-            AcceptInviteCommand(supabase_user_id=user_id, code=payload.code, name=payload.display_name)
+            AcceptInviteCommand(supabase_user_id=user_id, token=token, name=payload.display_name)
         )
     except InviteNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))

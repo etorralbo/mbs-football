@@ -30,7 +30,7 @@ class InviteExpiredError(Exception):
 @dataclass
 class AcceptInviteCommand:
     supabase_user_id: uuid.UUID
-    code: str
+    token: str
     name: str = ""
 
 
@@ -60,9 +60,9 @@ class AcceptInviteUseCase:
         self._event_service = event_service
 
     def execute(self, command: AcceptInviteCommand) -> AcceptInviteResult:
-        invite = self._invite_repo.get_by_code(command.code)
+        invite = self._invite_repo.get_by_token(command.token)
         if invite is None:
-            raise InviteNotFoundError("Invite code not found.")
+            raise InviteNotFoundError("Invite not found.")
 
         if invite.used_at is not None:
             raise InviteAlreadyUsedError("This invite has already been used.")

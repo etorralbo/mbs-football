@@ -33,9 +33,11 @@ export function NavBar() {
         <span className="text-sm font-semibold text-white">Mettle Performance</span>
       </div>
       <TeamSwitcher />
-      <NavLink href="/home" active={isActive('/home')}>
-        Home
-      </NavLink>
+      {!isCoach && (
+        <NavLink href="/home" active={isActive('/home')}>
+          Home
+        </NavLink>
+      )}
       {isCoach && (
         <NavLink href="/templates" active={isActive('/templates')}>
           Templates

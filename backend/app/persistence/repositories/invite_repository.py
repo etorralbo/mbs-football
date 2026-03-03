@@ -17,7 +17,7 @@ class AbstractInviteRepository(ABC):
     def create(
         self,
         team_id: uuid.UUID,
-        code: str,
+        token: str,
         role: Role,
         created_by_user_id: uuid.UUID,
         expires_at: Optional[datetime] = None,
@@ -26,8 +26,8 @@ class AbstractInviteRepository(ABC):
         ...
 
     @abstractmethod
-    def get_by_code(self, code: str) -> Optional[Invite]:
-        """Return the invite with the given code, or None."""
+    def get_by_token(self, token: str) -> Optional[Invite]:
+        """Return the invite with the given token, or None."""
         ...
 
     @abstractmethod
@@ -44,7 +44,7 @@ class SqlAlchemyInviteRepository(AbstractInviteRepository):
     def create(
         self,
         team_id: uuid.UUID,
-        code: str,
+        token: str,
         role: Role,
         created_by_user_id: uuid.UUID,
         expires_at: Optional[datetime] = None,
@@ -52,7 +52,7 @@ class SqlAlchemyInviteRepository(AbstractInviteRepository):
         invite = Invite(
             id=uuid.uuid4(),
             team_id=team_id,
-            code=code,
+            token=token,
             role=role,
             created_by_user_id=created_by_user_id,
             expires_at=expires_at,
@@ -61,8 +61,8 @@ class SqlAlchemyInviteRepository(AbstractInviteRepository):
         self._db.flush()
         return invite
 
-    def get_by_code(self, code: str) -> Optional[Invite]:
-        stmt = select(Invite).where(Invite.code == code)
+    def get_by_token(self, token: str) -> Optional[Invite]:
+        stmt = select(Invite).where(Invite.token == token)
         return self._db.execute(stmt).scalar_one_or_none()
 
     def mark_used(self, invite: Invite) -> Invite:
