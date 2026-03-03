@@ -3,6 +3,7 @@
 import { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/app/_shared/auth/supabaseClient'
+import { getSafePostAuthPath } from '@/app/_shared/auth/postAuthRedirect'
 
 /**
  * Inner component that uses useSearchParams — must be inside <Suspense>.
@@ -15,13 +16,15 @@ function CallbackHandler() {
 
   useEffect(() => {
     const code = searchParams.get('code')
+    const nextPath = getSafePostAuthPath(searchParams.get('next'), '/onboarding')
+
     if (code) {
       supabase.auth.exchangeCodeForSession(code).then(() => {
-        router.replace('/onboarding')
+        router.replace(nextPath)
       })
     } else {
       // No code — session may already be set (implicit flow) or something went wrong.
-      router.replace('/onboarding')
+      router.replace(nextPath)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

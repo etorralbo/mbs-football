@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/app/_shared/auth/supabaseClient'
 import { Button } from '@/app/_shared/components/Button'
+import { getSafePostAuthPath } from '@/app/_shared/auth/postAuthRedirect'
 
 export function SignupForm() {
   const [name, setName] = useState('')
@@ -14,6 +15,8 @@ export function SignupForm() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const nextPath = getSafePostAuthPath(searchParams.get('next'), '/onboarding')
 
   async function handleGoogleSignIn() {
     setError(null)
@@ -21,7 +24,7 @@ export function SignupForm() {
     try {
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
+        options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}` },
       })
       if (authError) setError('Could not sign in with Google. Please try again.')
     } finally {
@@ -44,7 +47,7 @@ export function SignupForm() {
         return
       }
       // After sign-up Supabase auto-signs the user in; send them to onboarding.
-      router.push('/onboarding')
+      router.push(nextPath)
     } finally {
       setLoading(false)
     }
@@ -151,7 +154,7 @@ export function SignupForm() {
 
         <p className="text-center text-sm text-slate-500">
           Already have an account?{' '}
-          <Link href="/login" className="font-semibold text-indigo-400 transition-colors hover:text-indigo-300">
+          <Link href={`/login?next=${encodeURIComponent(nextPath)}`} className="font-semibold text-indigo-400 transition-colors hover:text-indigo-300">
             Sign in
           </Link>
         </p>

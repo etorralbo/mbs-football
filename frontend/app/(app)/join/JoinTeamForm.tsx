@@ -61,7 +61,7 @@ export function JoinTeamForm() {
       router.replace(getPostActionRedirect('invite_accepted', 'ATHLETE') ?? '/templates')
     } catch (err) {
       if (err instanceof UnauthorizedError) {
-        router.replace('/login')
+        router.replace(`/login?next=${encodeURIComponent(`/join/${trimmed}`)}`)
       } else if (err instanceof NotFoundError) {
         setError('Invite code not found. Please check and try again.')
       } else if (err instanceof ValidationError) {

@@ -63,7 +63,7 @@ export default function JoinTokenPage() {
       router.replace(getPostActionRedirect('invite_accepted', 'ATHLETE') ?? '/sessions')
     } catch (err) {
       if (err instanceof UnauthorizedError) {
-        router.replace('/login')
+        router.replace(`/login?next=${encodeURIComponent(`/join/${token}`)}`)
         return
       }
       if (err instanceof NotFoundError) {

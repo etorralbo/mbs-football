@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/app/_shared/auth/supabaseClient'
 import { Button } from '@/app/_shared/components/Button'
+import { getSafePostAuthPath } from '@/app/_shared/auth/postAuthRedirect'
 
 export function LoginForm() {
   const [email, setEmail] = useState('')
@@ -13,13 +14,16 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const nextPath = getSafePostAuthPath(searchParams.get('next'), '/home')
 
   // Redirect already-authenticated users away from the login page
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.replace('/home')
+      if (session) router.replace(nextPath)
     })
-  }, [router])
+  }, [nextPath, router])
 
   async function handleGoogleSignIn() {
     setError(null)
@@ -27,7 +31,7 @@ export function LoginForm() {
     try {
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
+        options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}` },
       })
       if (authError) setError('Could not sign in with Google. Please try again.')
     } finally {
@@ -48,7 +52,7 @@ export function LoginForm() {
         setError('Invalid email or password.')
         return
       }
-      router.replace('/onboarding')
+      router.replace(nextPath)
     } finally {
       setLoading(false)
     }
@@ -133,7 +137,7 @@ export function LoginForm() {
 
         <p className="text-center text-sm text-slate-500">
           No account yet?{' '}
-          <Link href="/signup" className="font-semibold text-indigo-400 transition-colors hover:text-indigo-300">
+          <Link href={`/signup?next=${encodeURIComponent(nextPath)}`} className="font-semibold text-indigo-400 transition-colors hover:text-indigo-300">
             Create one
           </Link>
         </p>
