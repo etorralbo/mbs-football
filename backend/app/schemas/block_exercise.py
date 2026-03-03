@@ -24,8 +24,10 @@ class SetOut(BaseModel):
 
 class BlockExerciseCreate(BaseModel):
     exercise_id: uuid.UUID
-    # Default one empty set; callers may omit `sets` entirely
-    sets: list[SetIn] = Field(default_factory=lambda: [SetIn(order=0)])
+    # Default three empty sets; callers may omit `sets` entirely
+    sets: list[SetIn] = Field(
+        default_factory=lambda: [SetIn(order=0), SetIn(order=1), SetIn(order=2)]
+    )
 
 
 class BlockExerciseUpdate(BaseModel):
