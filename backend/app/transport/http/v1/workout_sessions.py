@@ -18,8 +18,7 @@ from app.domain.events.service import ProductEventService
 from app.domain.use_cases.complete_workout_session import (
     CompleteWorkoutSessionCommand,
     CompleteWorkoutSessionUseCase,
-    NotFoundError,
-    NotLoggedException,
+    NotFoundError
 )
 from app.domain.use_cases.list_workout_sessions import (
     ListWorkoutSessionsQuery,
@@ -27,9 +26,6 @@ from app.domain.use_cases.list_workout_sessions import (
     WorkoutSessionItem,
 )
 from app.models.user_profile import Role
-from app.persistence.repositories.workout_session_log_repository import (
-    SqlAlchemyWorkoutSessionLogRepository,
-)
 from app.persistence.repositories.workout_session_repository import (
     SqlAlchemyWorkoutSessionRepository,
 )
@@ -65,7 +61,6 @@ def _build_list_use_case(db: Session) -> ListWorkoutSessionsUseCase:
 def _build_complete_use_case(db: Session) -> CompleteWorkoutSessionUseCase:
     return CompleteWorkoutSessionUseCase(
         session_repo=SqlAlchemyWorkoutSessionRepository(db),
-        log_repo=SqlAlchemyWorkoutSessionLogRepository(db),
         event_service=ProductEventService(db),
     )
 
@@ -133,8 +128,3 @@ def complete_session(
         use_case.execute(command)
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except NotLoggedException:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Log at least one set before completing the session.",
-        )

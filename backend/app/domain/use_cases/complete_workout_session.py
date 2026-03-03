@@ -7,9 +7,6 @@ from app.domain.events.models import FunnelEvent
 from app.domain.events.service import AuthContext, ProductEventService
 from app.domain.use_cases._session_scope import resolve_session
 from app.models.user_profile import Role
-from app.persistence.repositories.workout_session_log_repository import (
-    AbstractWorkoutSessionLogRepository,
-)
 from app.persistence.repositories.workout_session_repository import (
     AbstractWorkoutSessionRepository,
 )
@@ -24,10 +21,6 @@ class NotFoundError(Exception):
     Raised when the session does not exist or the caller is not authorised to
     access it.  Treated identically to avoid leaking existence to other tenants.
     """
-
-
-class NotLoggedException(Exception):
-    """Raised when a session has no logged sets — cannot be completed."""
 
 
 # ---------------------------------------------------------------------------
@@ -53,19 +46,16 @@ class CompleteWorkoutSessionUseCase:
     def __init__(
         self,
         session_repo: AbstractWorkoutSessionRepository,
-        log_repo: AbstractWorkoutSessionLogRepository,
         event_service: ProductEventService,
     ) -> None:
         self._session_repo = session_repo
-        self._log_repo = log_repo
         self._event_service = event_service
 
     def execute(self, command: CompleteWorkoutSessionCommand) -> None:
-        """Complete the session or raise if not accessible / not logged.
+        """Complete the session or raise if not accessible.
 
         Idempotent: calling again on an already-completed session still returns
         successfully (no error, no duplicate update).
-        Requires at least one logged set (raises NotLoggedException otherwise).
         """
         session = resolve_session(
             session_id=command.session_id,
@@ -80,12 +70,6 @@ class CompleteWorkoutSessionUseCase:
         # Idempotent: already completed — nothing to do, no duplicate event.
         if session.completed_at is not None:
             return
-
-        # Require at least one logged set before marking complete.
-        if self._log_repo.count_by_session(command.session_id) == 0:
-            raise NotLoggedException(
-                f"Session {command.session_id} has no logged sets"
-            )
 
         # Track before mark_complete so both land in the same commit.
         # team_id comes from the command: resolve_session already enforced that
