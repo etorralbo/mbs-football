@@ -598,31 +598,39 @@ export default function TemplateDetailPage() {
                             {item.exercise.name}
                           </h4>
                           {item.sets.length > 0 && (
-                            <div className="mt-2 grid grid-cols-3 gap-3">
-                              <div className="space-y-1">
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Reps</span>
-                                <div className="rounded-lg border border-slate-800/50 bg-[#1a2938]/60 px-3 py-1.5 text-center text-sm font-semibold text-white">
-                                  {item.sets[0].reps ?? '—'}
+                            <div className="mt-2 space-y-2">
+                              {item.sets.map((s, sIdx) => (
+                                <div key={s.order} className="flex items-end gap-3">
+                                  <span className="mb-1.5 text-xs font-bold text-slate-600">{sIdx + 1}</span>
+                                  <div className="grid flex-1 grid-cols-3 gap-3">
+                                    <div className="space-y-1">
+                                      {sIdx === 0 && (
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Reps</span>
+                                      )}
+                                      <div className="rounded-lg border border-slate-800/50 bg-[#1a2938]/60 px-3 py-1.5 text-center text-sm font-semibold text-white">
+                                        {s.reps ?? '—'}
+                                      </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                      {sIdx === 0 && (
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">kg</span>
+                                      )}
+                                      <div className="rounded-lg border border-slate-800/50 bg-[#1a2938]/60 px-3 py-1.5 text-center text-sm font-semibold text-white">
+                                        {s.weight ?? '—'}
+                                      </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                      {sIdx === 0 && (
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">RPE</span>
+                                      )}
+                                      <div className="rounded-lg border border-slate-800/50 bg-[#1a2938]/60 px-3 py-1.5 text-center text-sm font-semibold text-white">
+                                        {s.rpe ?? '—'}
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="space-y-1">
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">kg</span>
-                                <div className="rounded-lg border border-slate-800/50 bg-[#1a2938]/60 px-3 py-1.5 text-center text-sm font-semibold text-white">
-                                  {item.sets[0].weight ?? '—'}
-                                </div>
-                              </div>
-                              <div className="space-y-1">
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">RPE</span>
-                                <div className="rounded-lg border border-slate-800/50 bg-[#1a2938]/60 px-3 py-1.5 text-center text-sm font-semibold text-white">
-                                  {item.sets[0].rpe ?? '—'}
-                                </div>
-                              </div>
+                              ))}
                             </div>
-                          )}
-                          {item.sets.length > 1 && (
-                            <p className="mt-1 text-[10px] text-slate-500">
-                              +{item.sets.length - 1} more {item.sets.length - 1 === 1 ? 'set' : 'sets'}
-                            </p>
                           )}
                         </div>
                       </div>
