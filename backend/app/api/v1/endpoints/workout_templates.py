@@ -47,12 +47,14 @@ def create_template(
 ):
     try:
         return workout_templates_service.create_template(db, current_user.team_id, data)
-    except IntegrityError:
+    except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"A template named '{data.title}' already exists in this team.",
-        )
+        if exc.orig and "uix_templates_team_title" in str(exc.orig):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"A template named '{data.title}' already exists in this team.",
+            )
+        raise
 
 
 @router.get(
@@ -129,12 +131,14 @@ def update_template(
         template = workout_templates_service.update_template(
             db, current_user.team_id, template_id, data
         )
-    except IntegrityError:
+    except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"A template named '{data.title}' already exists in this team.",
-        )
+        if exc.orig and "uix_templates_team_title" in str(exc.orig):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"A template named '{data.title}' already exists in this team.",
+            )
+        raise
     if not template:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workout template not found")
     return template

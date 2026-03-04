@@ -110,11 +110,13 @@ def create_from_ai(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except IntegrityError:
+    except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"A template named '{payload.title}' already exists in this team.",
-        )
+        if exc.orig and "uix_templates_team_title" in str(exc.orig):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"A template named '{payload.title}' already exists in this team.",
+            )
+        raise
 
     return WorkoutTemplateCreatedOut(id=result.id)

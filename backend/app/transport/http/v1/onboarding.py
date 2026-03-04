@@ -8,6 +8,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import AliasChoices, BaseModel, Field
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core import dependencies as auth_deps
@@ -98,5 +99,13 @@ def onboard_user(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except IntegrityError as exc:
+        db.rollback()
+        if exc.orig and "uix_teams_creator_name" in str(exc.orig):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"You already have a team named '{payload.team_name}'.",
+            )
+        raise
 
     return OnboardingResponse(id=result.id, team_id=result.team_id, role=result.role.value)

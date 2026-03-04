@@ -55,12 +55,14 @@ def create_team(
         db.commit()
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-    except IntegrityError:
+    except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"You already have a team named '{payload.name}'.",
-        )
+        if exc.orig and "uix_teams_creator_name" in str(exc.orig):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"You already have a team named '{payload.name}'.",
+            )
+        raise
 
     return CreateTeamResponse(
         team_id=result.team_id,
