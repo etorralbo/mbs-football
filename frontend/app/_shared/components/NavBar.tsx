@@ -69,7 +69,7 @@ export function NavBar() {
         {isCoach && (
           <SidebarLink href="/team" active={isActive('/team')}>
             <TeamIcon />
-            Team
+            Teams
           </SidebarLink>
         )}
       </nav>

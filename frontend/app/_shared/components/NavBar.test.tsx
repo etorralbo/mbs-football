@@ -91,7 +91,7 @@ describe('NavBar — COACH', () => {
 
   it('renders the Team link', () => {
     render(<NavBar />)
-    expect(screen.getByRole('link', { name: /^team$/i })).toHaveAttribute('href', '/team')
+    expect(screen.getByRole('link', { name: /^teams$/i })).toHaveAttribute('href', '/team')
   })
 
   it('renders the Sign out button', () => {
@@ -130,7 +130,7 @@ describe('NavBar — ATHLETE', () => {
 
   it('does NOT render the Team link', () => {
     render(<NavBar />)
-    expect(screen.queryByRole('link', { name: /^team$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /^teams$/i })).not.toBeInTheDocument()
   })
 
   it('renders the Sign out button', () => {
@@ -154,6 +154,6 @@ describe('NavBar — loading', () => {
   it('does not render coach-only links while loading', () => {
     render(<NavBar />)
     expect(screen.queryByRole('link', { name: /templates/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /^team$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /^teams$/i })).not.toBeInTheDocument()
   })
 })
