@@ -324,10 +324,18 @@ export default function TemplateDetailPage() {
 
           {/* Auto-save indicator (visible in edit mode) */}
           {editMode && saveStatus === 'saving' && (
-            <p className="text-xs text-slate-400">Saving…</p>
+            <p className="text-sm text-slate-400">
+              <span className="mr-1.5 inline-block h-2 w-2 animate-pulse rounded-full bg-slate-400" />
+              Saving…
+            </p>
           )}
-          {editMode && saveStatus === 'saved' && (
-            <p className="text-xs text-emerald-400">Changes saved automatically</p>
+          {editMode && saveStatus !== 'saving' && (
+            <p className="text-sm text-emerald-400/70">
+              <svg xmlns="http://www.w3.org/2000/svg" className="mr-1.5 -mt-0.5 inline h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              All changes saved
+            </p>
           )}
 
           {template.description && (
@@ -353,18 +361,14 @@ export default function TemplateDetailPage() {
 
           <button
             onClick={() => { setEditMode((v) => !v); setShowAddBlock(false) }}
-            className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
-              editMode
-                ? 'border-[#137fec]/30 bg-[#137fec]/10 text-[#137fec] hover:bg-[#137fec]/15'
-                : 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700'
-            }`}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700"
           >
             {editMode ? (
               <>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                Done editing
+                Close editor
               </>
             ) : (
               <>
