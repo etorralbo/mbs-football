@@ -156,7 +156,7 @@ describe('SessionsPage', () => {
     mockActivation.mockReturnValue(ATHLETE_STATE)
     mockRequest.mockResolvedValue([])
     render(<SessionsPage />)
-    expect(await screen.findByText(/no sessions assigned/i)).toBeInTheDocument()
+    expect(await screen.findByText(/you're all set/i)).toBeInTheDocument()
   })
 
   it('redirects to /login on UnauthorizedError', async () => {

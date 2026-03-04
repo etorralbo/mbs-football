@@ -101,6 +101,8 @@ describe('OnboardingHub', () => {
     })
   })
 
+  // ── Invite flow (token present) ─────────────────────────────────────────
+
   describe('no memberships, valid token', () => {
     beforeEach(() => {
       mockRequest
@@ -134,8 +136,29 @@ describe('OnboardingHub', () => {
     })
   })
 
+  describe('no memberships, token without timestamp (legacy)', () => {
+    it('still attempts accept and does NOT redirect to /create-team', async () => {
+      localStorage.setItem('pending_invite_token', 'legacy-token')
+      // no pending_invite_token_at
+      mockRequest
+        .mockResolvedValueOnce(NO_MEMBERSHIPS)
+        .mockResolvedValueOnce({
+          status: 'joined',
+          team_id: 'team-1',
+          team_name: 'FC Test',
+        })
+
+      render(<OnboardingHub />)
+
+      await waitFor(() => {
+        expect(mockReplace).toHaveBeenCalledWith('/sessions?welcome=1')
+      })
+      expect(mockRequest).toHaveBeenCalledTimes(2)
+    })
+  })
+
   describe('no memberships, valid token, accept fails', () => {
-    it('clears token and redirects to /create-team on 404', async () => {
+    it('redirects to /invite-invalid on 404 (not /create-team)', async () => {
       const { NotFoundError } = await import('@/app/_shared/api/httpClient')
       setToken()
       mockRequest
@@ -145,9 +168,23 @@ describe('OnboardingHub', () => {
       render(<OnboardingHub />)
 
       await waitFor(() => {
-        expect(mockReplace).toHaveBeenCalledWith('/create-team')
+        expect(mockReplace).toHaveBeenCalledWith('/invite-invalid')
       })
       expect(localStorage.getItem('pending_invite_token')).toBeNull()
+    })
+
+    it('redirects to /invite-invalid on 410', async () => {
+      const { GoneError } = await import('@/app/_shared/api/httpClient')
+      setToken()
+      mockRequest
+        .mockResolvedValueOnce(NO_MEMBERSHIPS)
+        .mockRejectedValueOnce(new GoneError('gone'))
+
+      render(<OnboardingHub />)
+
+      await waitFor(() => {
+        expect(mockReplace).toHaveBeenCalledWith('/invite-invalid')
+      })
     })
 
     it('redirects to /sessions on 409 (invite already used)', async () => {
@@ -166,30 +203,19 @@ describe('OnboardingHub', () => {
     })
   })
 
-  it('redirects to /create-team when token has no timestamp (stale)', async () => {
-    localStorage.setItem('pending_invite_token', 'stale-token')
-    // no pending_invite_token_at
-    mockRequest.mockResolvedValue(NO_MEMBERSHIPS)
-
-    render(<OnboardingHub />)
-
-    await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/create-team')
-    })
-    expect(localStorage.getItem('pending_invite_token')).toBeNull()
-  })
-
-  it('redirects to /create-team when token is expired', async () => {
+  it('redirects to /invite-invalid when token is expired (> 30 min)', async () => {
     setToken('old-token', TOKEN_MAX_AGE_MS + 1)
     mockRequest.mockResolvedValue(NO_MEMBERSHIPS)
 
     render(<OnboardingHub />)
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/create-team')
+      expect(mockReplace).toHaveBeenCalledWith('/invite-invalid')
     })
     expect(localStorage.getItem('pending_invite_token')).toBeNull()
   })
+
+  // ── Coach flow (no token) ──────────────────────────────────────────────
 
   it('redirects to /create-team when no token is present', async () => {
     mockRequest.mockResolvedValue(NO_MEMBERSHIPS)
@@ -201,7 +227,7 @@ describe('OnboardingHub', () => {
     })
   })
 
-  it('unexpected error on /v1/me redirects to /create-team', async () => {
+  it('unexpected error on /v1/me without token redirects to /create-team', async () => {
     mockRequest.mockRejectedValue(new Error('network error'))
 
     render(<OnboardingHub />)
@@ -209,5 +235,18 @@ describe('OnboardingHub', () => {
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/create-team')
     })
+  })
+
+  it('unexpected error on /v1/me with token clears token and redirects to /invite-invalid', async () => {
+    setToken()
+    mockRequest.mockRejectedValue(new Error('network error'))
+
+    render(<OnboardingHub />)
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/invite-invalid')
+    })
+    expect(localStorage.getItem('pending_invite_token')).toBeNull()
+    expect(localStorage.getItem('pending_invite_token_at')).toBeNull()
   })
 })

@@ -7,7 +7,7 @@
  *   joined                       → clear token, sessionStorage team name, redirect to /sessions?welcome=1
  *   already_member               → show "already member" screen + buttons
  *   not_eligible                 → show "invite for athletes" screen + buttons
- *   404/410/409/error            → clear token, redirect to /create-team
+ *   404/410/409/error            → clear token, redirect to /invite-invalid
  */
 import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react'
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
@@ -90,13 +90,13 @@ describe('AuthContinuePage — no pending token', () => {
     expect(mockRequest).not.toHaveBeenCalled()
   })
 
-  it('redirects to /sessions when token is older than 30 minutes', async () => {
+  it('redirects to /invite-invalid when token is older than 30 minutes', async () => {
     setToken('old-token', TOKEN_MAX_AGE_MS + 1)
 
     render(<AuthContinuePage />)
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/sessions')
+      expect(mockReplace).toHaveBeenCalledWith('/invite-invalid')
     })
     expect(mockRequest).not.toHaveBeenCalled()
     expect(localStorage.getItem('pending_invite_token')).toBeNull()
@@ -225,7 +225,7 @@ describe('AuthContinuePage — not_eligible', () => {
 })
 
 describe('AuthContinuePage — error states', () => {
-  it('redirects to /create-team on 404', async () => {
+  it('redirects to /invite-invalid on 404', async () => {
     const { NotFoundError } = await import('@/app/_shared/api/httpClient')
     setToken()
     mockRequest.mockRejectedValue(new NotFoundError('not found'))
@@ -233,11 +233,11 @@ describe('AuthContinuePage — error states', () => {
     render(<AuthContinuePage />)
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/create-team')
+      expect(mockReplace).toHaveBeenCalledWith('/invite-invalid')
     })
   })
 
-  it('redirects to /create-team on 410', async () => {
+  it('redirects to /invite-invalid on 410', async () => {
     const { GoneError } = await import('@/app/_shared/api/httpClient')
     setToken()
     mockRequest.mockRejectedValue(new GoneError('gone'))
@@ -245,11 +245,11 @@ describe('AuthContinuePage — error states', () => {
     render(<AuthContinuePage />)
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/create-team')
+      expect(mockReplace).toHaveBeenCalledWith('/invite-invalid')
     })
   })
 
-  it('redirects to /create-team on 409', async () => {
+  it('redirects to /invite-invalid on 409', async () => {
     const { ConflictError } = await import('@/app/_shared/api/httpClient')
     setToken()
     mockRequest.mockRejectedValue(new ConflictError('conflict'))
@@ -257,7 +257,7 @@ describe('AuthContinuePage — error states', () => {
     render(<AuthContinuePage />)
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/create-team')
+      expect(mockReplace).toHaveBeenCalledWith('/invite-invalid')
     })
   })
 
@@ -269,7 +269,7 @@ describe('AuthContinuePage — error states', () => {
     render(<AuthContinuePage />)
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/create-team')
+      expect(mockReplace).toHaveBeenCalledWith('/invite-invalid')
     })
     expect(localStorage.getItem('pending_invite_token')).toBeNull()
     expect(localStorage.getItem('pending_invite_token_at')).toBeNull()
