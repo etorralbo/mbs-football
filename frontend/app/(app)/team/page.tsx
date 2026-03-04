@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { CreateButton } from '@/app/_shared/components/CreateButton'
+import { PageHeader } from '@/app/_shared/components/PageHeader'
 import { useRouter } from 'next/navigation'
 import { request } from '@/app/_shared/api/httpClient'
 import { Button } from '@/app/_shared/components/Button'
@@ -86,17 +87,12 @@ export default function TeamPage() {
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-white">Team</h1>
-        {isCoach && (
-          <Link
-            href="/create-team"
-            className="rounded-md bg-[#4f9cf9]/20 px-3 py-1.5 text-sm font-medium text-[#4f9cf9] hover:bg-[#4f9cf9]/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500"
-          >
-            + New team
-          </Link>
-        )}
-      </div>
+      <PageHeader
+        title="Team"
+        actions={isCoach ? (
+          <CreateButton href="/create-team">New team</CreateButton>
+        ) : undefined}
+      />
 
       <div className="mt-6 rounded-lg border border-white/8 bg-[#131922]">
         {/* Team header */}

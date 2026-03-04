@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { request } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
 import { Button } from '@/app/_shared/components/Button'
+import { CreateButton } from '@/app/_shared/components/CreateButton'
+import { PageHeader } from '@/app/_shared/components/PageHeader'
 import { EmptyState } from '@/app/_shared/components/EmptyState'
 import { SkeletonGrid } from '@/app/_shared/components/Skeleton'
 import { AiDraftPanel } from './AiDraftPanel'
@@ -219,16 +221,11 @@ export default function TemplatesPage() {
 
   return (
     <>
-      {/* Header */}
-      <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Workout Templates</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            Design and manage structured training plans for your athletes.
-          </p>
-        </div>
-        {isCoach && (
-          <div className="flex items-center gap-3">
+      <PageHeader
+        title="Workout Templates"
+        subtitle="Design and manage structured training plans for your athletes."
+        actions={isCoach ? (
+          <>
             <button
               type="button"
               onClick={() => {
@@ -242,18 +239,29 @@ export default function TemplatesPage() {
               </svg>
               {showAiPanel ? 'Close AI' : 'Create with AI'}
             </button>
-            <Button
-              variant={showNewForm ? 'secondary' : 'primary'}
-              onClick={() => {
-                setShowNewForm((v) => !v)
-                setShowAiPanel(false)
-              }}
-            >
-              {showNewForm ? 'Cancel' : 'New Template'}
-            </Button>
-          </div>
-        )}
-      </div>
+            {showNewForm ? (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowNewForm(false)
+                  setShowAiPanel(false)
+                }}
+              >
+                Cancel
+              </Button>
+            ) : (
+              <CreateButton
+                onClick={() => {
+                  setShowNewForm(true)
+                  setShowAiPanel(false)
+                }}
+              >
+                New Template
+              </CreateButton>
+            )}
+          </>
+        ) : undefined}
+      />
 
       {/* Inline forms */}
       {showNewForm && isCoach && (
