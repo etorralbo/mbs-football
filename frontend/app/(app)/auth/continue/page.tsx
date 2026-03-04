@@ -2,19 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  request,
-  NotFoundError,
-  GoneError,
-  ConflictError,
-} from '@/app/_shared/api/httpClient'
+import { request } from '@/app/_shared/api/httpClient'
 import { supabase } from '@/app/_shared/auth/supabaseClient'
 import type { AcceptInviteResponse } from '@/app/_shared/api/types'
 
 // Tokens stored in localStorage expire after 30 minutes to limit exposure.
 export const TOKEN_MAX_AGE_MS = 30 * 60 * 1000
 
-type Phase = 'loading' | 'joining' | 'already_member' | 'not_eligible' | 'error'
+type Phase = 'loading' | 'joining' | 'already_member' | 'not_eligible'
 
 /**
  * /auth/continue
@@ -25,7 +20,7 @@ type Phase = 'loading' | 'joining' | 'already_member' | 'not_eligible' | 'error'
  *   joined         → sessionStorage.welcome_team_name + /sessions?welcome=1
  *   already_member → "Este enlace es para invitar a atletas" screen
  *   not_eligible   → same screen (user is a coach on a different team)
- *   error          → inline error message
+ *   error          → redirect to /create-team
  *
  * RequireAuth (wrapping the (app) group) ensures the user is authenticated
  * before this page renders.  Unauthenticated users are redirected to
@@ -34,7 +29,6 @@ type Phase = 'loading' | 'joining' | 'already_member' | 'not_eligible' | 'error'
 export default function AuthContinuePage() {
   const router = useRouter()
   const [phase, setPhase] = useState<Phase>('loading')
-  const [errorMessage, setErrorMessage] = useState('')
   const [teamName, setTeamName] = useState('')
   const inviteUrl = useRef('')
   const hasRun = useRef(false)
@@ -95,20 +89,10 @@ export default function AuthContinuePage() {
           setTeamName(result.team_name)
           setPhase('not_eligible')
         }
-      } catch (err) {
+      } catch {
         localStorage.removeItem('pending_invite_token')
         localStorage.removeItem('pending_invite_token_at')
-
-        if (err instanceof NotFoundError) {
-          setErrorMessage('El enlace no es válido o ha caducado. Pide uno nuevo al coach.')
-        } else if (err instanceof GoneError) {
-          setErrorMessage('El enlace ha caducado. Pide uno nuevo al coach.')
-        } else if (err instanceof ConflictError) {
-          setErrorMessage('Este enlace ya ha sido utilizado. Pide uno nuevo al coach.')
-        } else {
-          setErrorMessage('Algo ha ido mal. Inténtalo de nuevo o pide un nuevo enlace.')
-        }
-        setPhase('error')
+        router.replace('/create-team')
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -181,18 +165,5 @@ export default function AuthContinuePage() {
     )
   }
 
-  // ── Error ────────────────────────────────────────────────────────────────
-  return (
-    <div className="mx-auto max-w-sm space-y-4 pt-10">
-      <h1 className="text-xl font-semibold text-white">No se pudo unir al equipo</h1>
-      <p role="alert" className="text-sm text-red-400">{errorMessage}</p>
-      <button
-        type="button"
-        onClick={() => router.replace('/sessions')}
-        className="text-sm text-[#4f9cf9] hover:underline"
-      >
-        Ir a mi dashboard
-      </button>
-    </div>
-  )
+  return null
 }

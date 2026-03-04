@@ -7,9 +7,7 @@
  *   joined                       → clear token, sessionStorage team name, redirect to /sessions?welcome=1
  *   already_member               → show "already member" screen + buttons
  *   not_eligible                 → show "invite for athletes" screen + buttons
- *   404 (NotFoundError)          → error: "no es válido"
- *   410 (GoneError)              → error: "caducado"
- *   409 (ConflictError)          → error: "ya ha sido utilizado"
+ *   404/410/409/error            → clear token, redirect to /create-team
  */
 import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react'
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
@@ -227,37 +225,40 @@ describe('AuthContinuePage — not_eligible', () => {
 })
 
 describe('AuthContinuePage — error states', () => {
-  it('shows invalid error on 404', async () => {
+  it('redirects to /create-team on 404', async () => {
     const { NotFoundError } = await import('@/app/_shared/api/httpClient')
     setToken()
     mockRequest.mockRejectedValue(new NotFoundError('not found'))
 
     render(<AuthContinuePage />)
 
-    const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/no es válido/i)
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/create-team')
+    })
   })
 
-  it('shows expired error on 410', async () => {
+  it('redirects to /create-team on 410', async () => {
     const { GoneError } = await import('@/app/_shared/api/httpClient')
     setToken()
     mockRequest.mockRejectedValue(new GoneError('gone'))
 
     render(<AuthContinuePage />)
 
-    const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/caducado/i)
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/create-team')
+    })
   })
 
-  it('shows already-used error on 409', async () => {
+  it('redirects to /create-team on 409', async () => {
     const { ConflictError } = await import('@/app/_shared/api/httpClient')
     setToken()
     mockRequest.mockRejectedValue(new ConflictError('conflict'))
 
     render(<AuthContinuePage />)
 
-    const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/ya ha sido utilizado/i)
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/create-team')
+    })
   })
 
   it('clears token and timestamp from localStorage on error', async () => {
@@ -267,7 +268,9 @@ describe('AuthContinuePage — error states', () => {
 
     render(<AuthContinuePage />)
 
-    await screen.findByRole('alert')
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/create-team')
+    })
     expect(localStorage.getItem('pending_invite_token')).toBeNull()
     expect(localStorage.getItem('pending_invite_token_at')).toBeNull()
   })

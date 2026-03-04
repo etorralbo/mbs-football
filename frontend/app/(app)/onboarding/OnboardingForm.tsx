@@ -1,68 +1,108 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { request, UnauthorizedError } from '@/app/_shared/api/httpClient'
-import type { MeResponse } from '@/app/_shared/api/types'
+import { request, UnauthorizedError, ConflictError } from '@/app/_shared/api/httpClient'
+import { supabase } from '@/app/_shared/auth/supabaseClient'
+import type { MeResponse, AcceptInviteResponse } from '@/app/_shared/api/types'
+
+const TOKEN_MAX_AGE_MS = 30 * 60 * 1000
 
 /**
- * Onboarding hub: checks memberships and routes the user accordingly.
+ * Deterministic onboarding router guard.
  *
- * - Already has membership → redirect to /templates
- * - No membership         → show two CTAs: Create Team (COACH) / Join Team (ATHLETE)
+ * - Has membership          → /sessions
+ * - Pending invite token    → accept invite → /sessions?welcome=1
+ * - No token / expired      → /create-team  (coach path)
+ * - Unauthorized            → /login
  */
 export function OnboardingHub() {
   const router = useRouter()
-  const [checking, setChecking] = useState(true)
+  const hasRun = useRef(false)
 
   useEffect(() => {
+    if (hasRun.current) return
+    hasRun.current = true
+
     request<MeResponse>('/v1/me', { teamScoped: false })
       .then((me) => {
         if (me.memberships.length > 0) {
           router.replace('/sessions')
-        } else {
-          setChecking(false)
+          return
         }
+        handleNoMemberships()
       })
       .catch((err) => {
         if (err instanceof UnauthorizedError) {
           router.replace('/login')
         } else {
-          // On unexpected errors still show the CTAs so the user isn't stuck.
-          setChecking(false)
+          // On unexpected errors fall through to coach path
+          handleNoMemberships()
         }
       })
-  }, [router])
 
-  if (checking) return null
+    async function handleNoMemberships() {
+      const token = localStorage.getItem('pending_invite_token')
+      const tokenAt = localStorage.getItem('pending_invite_token_at')
+
+      // No token → coach path
+      if (!token) {
+        router.replace('/create-team')
+        return
+      }
+
+      // Stale token (no timestamp) or expired (> 30 min) → clear and coach path
+      if (!tokenAt || Date.now() - parseInt(tokenAt, 10) > TOKEN_MAX_AGE_MS) {
+        localStorage.removeItem('pending_invite_token')
+        localStorage.removeItem('pending_invite_token_at')
+        router.replace('/create-team')
+        return
+      }
+
+      // Valid token → accept invite
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        const meta = user?.user_metadata
+        const displayName =
+          (meta?.name ?? meta?.full_name ?? user?.email?.split('@')[0] ?? '').trim()
+
+        const result = await request<AcceptInviteResponse>(
+          `/v1/team-invites/${encodeURIComponent(token)}/accept`,
+          {
+            method: 'POST',
+            body: JSON.stringify({ display_name: displayName }),
+            teamScoped: false,
+          },
+        )
+
+        localStorage.removeItem('pending_invite_token')
+        localStorage.removeItem('pending_invite_token_at')
+
+        if (result.status === 'joined') {
+          sessionStorage.setItem('welcome_team_name', result.team_name)
+          router.replace('/sessions?welcome=1')
+        } else {
+          // already_member or not_eligible — redirect to sessions
+          router.replace('/sessions')
+        }
+      } catch (err) {
+        localStorage.removeItem('pending_invite_token')
+        localStorage.removeItem('pending_invite_token_at')
+        // 409 = invite already used (user already accepted) → dashboard
+        if (err instanceof ConflictError) {
+          router.replace('/sessions')
+        } else {
+          router.replace('/create-team')
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
-    <div className="mt-6 flex flex-col gap-4 sm:flex-row">
-      <button
-        onClick={() => router.push('/create-team')}
-        className="flex flex-1 flex-col items-center gap-3 rounded-lg border-2 border-[#4f9cf9]/30 bg-[#4f9cf9]/8 p-6 text-left transition hover:border-[#4f9cf9]/50 hover:bg-[#4f9cf9]/12"
-      >
-        <span className="text-3xl">🏋️</span>
-        <div>
-          <p className="font-semibold text-white">I&apos;m a Coach</p>
-          <p className="mt-1 text-sm text-slate-400">
-            Create a team and manage your athletes.
-          </p>
-        </div>
-      </button>
-
-      <button
-        onClick={() => router.push('/join')}
-        className="flex flex-1 flex-col items-center gap-3 rounded-lg border-2 border-[#c8f135]/20 bg-[#c8f135]/8 p-6 text-left transition hover:border-[#c8f135]/35 hover:bg-[#c8f135]/12"
-      >
-        <span className="text-3xl">🏃</span>
-        <div>
-          <p className="font-semibold text-white">I&apos;m an Athlete</p>
-          <p className="mt-1 text-sm text-slate-400">
-            Join a team using an invite code from your coach.
-          </p>
-        </div>
-      </button>
+    <div className="flex flex-col items-center gap-3 pt-10" aria-busy="true">
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#4f9cf9] border-t-transparent" />
+      <p className="text-sm text-slate-400">Setting up your account…</p>
     </div>
   )
 }
