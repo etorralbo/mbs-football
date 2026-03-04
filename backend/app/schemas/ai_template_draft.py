@@ -24,3 +24,5 @@ class AiBlockDraft(BaseModel):
 class AiTemplateDraft(BaseModel):
     title: str
     blocks: list[AiBlockDraft]
+    source: str = "ai"  # "ai" | "fallback"
+    fallback_reason: Optional[str] = None  # e.g. "stub_mode", "upstream_error", "missing_api_key"

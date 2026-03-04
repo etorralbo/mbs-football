@@ -28,6 +28,7 @@ vi.mock('next/navigation', () => ({
 
 const MOCK_DRAFT: AiDraftResponse = {
   title: 'Power Training Session',
+  source: 'ai',
   blocks: [
     {
       name: 'Preparation to Movement',
@@ -227,5 +228,46 @@ describe('AiDraftPanel — error states', () => {
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/login')
     })
+  })
+})
+
+describe('AiDraftPanel — fallback banner', () => {
+  const MOCK_FALLBACK: AiDraftResponse = { ...MOCK_DRAFT, source: 'fallback' }
+
+  it('shows fallback banner when source is "fallback"', async () => {
+    mockRequest.mockResolvedValue(MOCK_FALLBACK)
+    render(<AiDraftPanel />)
+
+    fillPromptAndGenerate()
+
+    await waitFor(() => {
+      expect(screen.getByText('AI generation unavailable')).toBeInTheDocument()
+    })
+    expect(screen.getByText(/draft workout template was generated instead/i)).toBeInTheDocument()
+  })
+
+  it('does not show fallback banner when source is "ai"', async () => {
+    mockRequest.mockResolvedValue(MOCK_DRAFT)
+    render(<AiDraftPanel />)
+
+    fillPromptAndGenerate()
+
+    await waitFor(() => {
+      expect(screen.getByText('Power Training Session')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('AI generation unavailable')).toBeNull()
+  })
+
+  it('does not show fallback banner when source is undefined', async () => {
+    const { source: _, ...draftWithoutSource } = MOCK_DRAFT
+    mockRequest.mockResolvedValue(draftWithoutSource)
+    render(<AiDraftPanel />)
+
+    fillPromptAndGenerate()
+
+    await waitFor(() => {
+      expect(screen.getByText('Power Training Session')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('AI generation unavailable')).toBeNull()
   })
 })
