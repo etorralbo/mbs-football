@@ -112,6 +112,7 @@ export interface AiDraftBlock {
 export interface AiDraftResponse {
   title: string
   blocks: AiDraftBlock[]
+  source?: 'ai' | 'fallback'
 }
 
 // ---------------------------------------------------------------------------

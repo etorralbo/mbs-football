@@ -82,14 +82,14 @@ class TestAiTemplateDraftAuth:
 class TestAiTemplateDraftResponse:
     """Response shape and BASE_BLOCKS contract tests."""
 
-    def test_returns_200(
+    def test_returns_200_with_source_ai(
         self,
         client: TestClient,
         mock_jwt,
         mock_llm,
         coach_a: UserProfile,
     ):
-        """Onboarded user gets 200 with a draft."""
+        """Onboarded user gets 200 with a draft and source='ai'."""
         mock_jwt(str(coach_a.supabase_user_id))
 
         response = client.post(
@@ -101,6 +101,8 @@ class TestAiTemplateDraftResponse:
         assert response.status_code == 200
         data = response.json()
         assert data["title"] == "AI Strength Day"
+        assert data["source"] == "ai"
+        assert data["fallback_reason"] is None
         assert "blocks" in data
 
     def test_blocks_count_matches_base_blocks(
@@ -276,14 +278,14 @@ def _stub_settings(*, ai_stub: bool = True) -> MagicMock:
 class TestAiTemplateDraftStub:
     """When AI_STUB=True the endpoint bypasses OpenAI entirely, regardless of ENV."""
 
-    def test_stub_returns_200_without_calling_llm(
+    def test_stub_returns_200_with_fallback_source(
         self,
         client: TestClient,
         mock_jwt,
         mocker,
         coach_a: UserProfile,
     ):
-        """Stub mode must return 200 and must NOT invoke the LLM."""
+        """Stub mode must return 200 with source='fallback' and must NOT invoke the LLM."""
         spy_llm = mocker.patch("app.core.ai_client.call_llm")
         mocker.patch("app.api.v1.endpoints.ai.get_settings", return_value=_stub_settings())
 
@@ -295,6 +297,9 @@ class TestAiTemplateDraftStub:
         )
 
         assert response.status_code == 200
+        data = response.json()
+        assert data["source"] == "fallback"
+        assert data["fallback_reason"] == "stub_mode"
         spy_llm.assert_not_called()
 
     def test_stub_response_matches_schema(
@@ -375,19 +380,18 @@ class TestAiTemplateDraftStub:
 
 
 class TestAiTemplateDraftOpenAIFailure:
-    """When the real LLM path fails, the 502 detail must not leak upstream data."""
+    """When the real LLM path fails, the endpoint falls back to stub draft."""
 
-    def test_openai_error_returns_502_with_safe_detail(
+    def test_openai_error_falls_back_to_stub_draft(
         self,
         client: TestClient,
         mock_jwt,
         mocker,
         coach_a: UserProfile,
     ):
-        """OpenAI errors must be caught and replaced with a generic safe message."""
+        """OpenAI errors must fall back to stub draft with source='fallback'."""
         from openai import OpenAIError
 
-        # Simulate an OpenAI SDK exception whose message contains sensitive content.
         mock_oa_client = MagicMock()
         mock_oa_client.chat.completions.create.side_effect = OpenAIError(
             "Rate limit exceeded. key=sk-proj-VERYSENSITIVE429. retry_after=60"
@@ -401,9 +405,60 @@ class TestAiTemplateDraftOpenAIFailure:
             json={"prompt": "upper body strength"},
         )
 
-        assert response.status_code == 502
-        detail: str = response.json()["detail"]
-        # Raw upstream content must not appear in the response.
-        assert "sk-proj" not in detail
-        assert "VERYSENSITIVE" not in detail
-        assert "retry_after" not in detail
+        assert response.status_code == 200
+        data = response.json()
+        assert data["source"] == "fallback"
+        assert data["fallback_reason"] == "upstream_error"
+        assert len(data["blocks"]) == len(BASE_BLOCKS)
+        assert [b["name"] for b in data["blocks"]] == BASE_BLOCKS
+
+    def test_openai_error_does_not_leak_sensitive_data(
+        self,
+        client: TestClient,
+        mock_jwt,
+        mocker,
+        coach_a: UserProfile,
+    ):
+        """Fallback response must not contain any upstream error details."""
+        from openai import OpenAIError
+
+        mock_oa_client = MagicMock()
+        mock_oa_client.chat.completions.create.side_effect = OpenAIError(
+            "Rate limit exceeded. key=sk-proj-VERYSENSITIVE429. retry_after=60"
+        )
+        mocker.patch("app.core.ai_client._get_client", return_value=mock_oa_client)
+
+        mock_jwt(str(coach_a.supabase_user_id))
+        response = client.post(
+            "/v1/ai/workout-template-draft",
+            headers=HEADERS,
+            json={"prompt": "upper body strength"},
+        )
+
+        body = response.text
+        assert "sk-proj" not in body
+        assert "VERYSENSITIVE" not in body
+        assert "retry_after" not in body
+
+    def test_missing_api_key_falls_back_to_stub(
+        self,
+        client: TestClient,
+        mock_jwt,
+        mocker,
+        coach_a: UserProfile,
+    ):
+        """Missing OPENAI_API_KEY must fall back to stub, not return 503."""
+        mocker.patch("app.core.ai_client.get_settings", return_value=MagicMock(OPENAI_API_KEY=""))
+
+        mock_jwt(str(coach_a.supabase_user_id))
+        response = client.post(
+            "/v1/ai/workout-template-draft",
+            headers=HEADERS,
+            json={"prompt": "upper body strength"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["source"] == "fallback"
+        assert data["fallback_reason"] == "missing_api_key"
+        assert len(data["blocks"]) == len(BASE_BLOCKS)

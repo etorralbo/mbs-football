@@ -159,6 +159,15 @@ export function AiDraftPanel() {
         </Button>
       </form>
 
+      {draft && draft.source === 'fallback' && (
+        <div className="mt-6 rounded-lg border border-amber-700 bg-amber-900/20 p-4">
+          <p className="text-sm font-medium text-amber-400">AI generation unavailable</p>
+          <p className="mt-1 text-sm text-amber-400/70">
+            A draft workout template was generated instead. You can edit it or try again later.
+          </p>
+        </div>
+      )}
+
       {draft && (
         <div className="mt-8 border-t border-white/8 pt-6">
           <h3 className="text-sm font-semibold text-white">{draft.title}</h3>
