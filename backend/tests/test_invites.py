@@ -63,7 +63,7 @@ class TestCreateInvite:
         body = resp.json()
         assert "token" in body
         assert len(body["token"]) >= 43  # secrets.token_urlsafe(32) → 43 chars
-        assert "/join/" in body["join_url"]
+        assert "/join?token=" in body["join_url"]
         assert body["token"] in body["join_url"]
         assert body["team_id"] == str(team.id)
         assert body["expires_at"] is not None  # default 7 days

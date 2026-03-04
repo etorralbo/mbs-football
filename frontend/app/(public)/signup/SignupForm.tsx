@@ -9,7 +9,7 @@ import { Button } from '@/app/_shared/components/Button'
 function getNextParam(): string {
   if (typeof window === 'undefined') return ''
   const next = new URLSearchParams(window.location.search).get('next') ?? ''
-  return next.startsWith('/join/') ? next : ''
+  return next.startsWith('/join') ? next : ''
 }
 
 export function SignupForm() {

@@ -54,7 +54,7 @@ export default function AuthContinuePage() {
     }
 
     // Build invite URL for "Copy link" button (best-effort).
-    inviteUrl.current = `${window.location.origin}/join/${token}`
+    inviteUrl.current = `${window.location.origin}/join?token=${encodeURIComponent(token)}`
 
     setPhase('joining')
 

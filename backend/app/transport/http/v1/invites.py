@@ -7,6 +7,7 @@ Both endpoints use get_auth_user_id (lightweight JWT-only auth) so they work
 before a UserProfile is created in the system.
 """
 import uuid
+from urllib.parse import quote
 from datetime import datetime
 from typing import Annotated, Optional
 
@@ -81,7 +82,7 @@ def create_invite(
 
     return CreateInviteResponse(
         token=result.token,
-        join_url=f"{settings.FRONTEND_URL}/join/{result.token}",
+        join_url=f"{settings.FRONTEND_URL}/join?token={quote(result.token, safe='')}",
         team_id=result.team_id,
         expires_at=result.expires_at,
     )
