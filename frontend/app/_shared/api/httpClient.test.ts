@@ -165,6 +165,20 @@ describe('request', () => {
     mockFetch.mockReturnValue(textResponse(502, 'Bad Gateway'))
     await expect(request('/test')).rejects.toBeInstanceOf(ServerError)
   })
+
+  it('returns undefined on 204 No Content without parsing body', async () => {
+    mockFetch.mockReturnValue(
+      Promise.resolve({
+        ok: true,
+        status: 204,
+        headers: { get: () => null },
+        json: () => Promise.reject(new Error('should not be called')),
+        text: () => Promise.reject(new Error('should not be called')),
+      }),
+    )
+    const result = await request('/v1/sessions/abc/complete', { method: 'PATCH' })
+    expect(result).toBeUndefined()
+  })
 })
 
 // ---------------------------------------------------------------------------
