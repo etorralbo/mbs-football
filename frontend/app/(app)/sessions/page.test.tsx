@@ -195,9 +195,9 @@ describe('SessionsPage empty state', () => {
 
     render(<SessionsPage />)
 
-    await screen.findByText('No sessions assigned yet')
+    await screen.findByText("You're all set")
     expect(
-      screen.getByText("Your coach hasn't assigned a session to you yet. Check back soon."),
+      screen.getByText('Your coach will assign sessions soon.'),
     ).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /assign/i })).toBeNull()
   })

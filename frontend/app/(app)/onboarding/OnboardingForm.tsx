@@ -13,7 +13,8 @@ const TOKEN_MAX_AGE_MS = 30 * 60 * 1000
  *
  * - Has membership          → /sessions
  * - Pending invite token    → accept invite → /sessions?welcome=1
- * - No token / expired      → /create-team  (coach path)
+ * - Token expired/invalid   → /invite-invalid
+ * - No token                → /create-team  (coach path)
  * - Unauthorized            → /login
  */
 export function OnboardingHub() {
@@ -23,6 +24,8 @@ export function OnboardingHub() {
   useEffect(() => {
     if (hasRun.current) return
     hasRun.current = true
+
+    const hasToken = !!localStorage.getItem('pending_invite_token')
 
     request<MeResponse>('/v1/me', { teamScoped: false })
       .then((me) => {
@@ -35,9 +38,13 @@ export function OnboardingHub() {
       .catch((err) => {
         if (err instanceof UnauthorizedError) {
           router.replace('/login')
+        } else if (hasToken) {
+          // Invite flow but can't reach API — clean up token to prevent loop
+          localStorage.removeItem('pending_invite_token')
+          localStorage.removeItem('pending_invite_token_at')
+          router.replace('/invite-invalid')
         } else {
-          // On unexpected errors fall through to coach path
-          handleNoMemberships()
+          router.replace('/create-team')
         }
       })
 
@@ -51,11 +58,12 @@ export function OnboardingHub() {
         return
       }
 
-      // Stale token (no timestamp) or expired (> 30 min) → clear and coach path
-      if (!tokenAt || Date.now() - parseInt(tokenAt, 10) > TOKEN_MAX_AGE_MS) {
+      // Expired token (> 30 min) → clear and invite-invalid
+      // Missing tokenAt is treated as legacy — still try accept.
+      if (tokenAt && Date.now() - parseInt(tokenAt, 10) > TOKEN_MAX_AGE_MS) {
         localStorage.removeItem('pending_invite_token')
         localStorage.removeItem('pending_invite_token_at')
-        router.replace('/create-team')
+        router.replace('/invite-invalid')
         return
       }
 
@@ -92,7 +100,8 @@ export function OnboardingHub() {
         if (err instanceof ConflictError) {
           router.replace('/sessions')
         } else {
-          router.replace('/create-team')
+          // 404/410/other → invite is invalid/expired
+          router.replace('/invite-invalid')
         }
       }
     }

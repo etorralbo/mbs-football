@@ -209,8 +209,8 @@ export default function SessionsPage() {
           )
         ) : (
           <EmptyState
-            title="No sessions assigned yet"
-            description="Your coach hasn't assigned a session to you yet. Check back soon."
+            title="You're all set"
+            description="Your coach will assign sessions soon."
           />
         )
       )}

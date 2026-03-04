@@ -20,7 +20,7 @@ type Phase = 'loading' | 'joining' | 'already_member' | 'not_eligible'
  *   joined         → sessionStorage.welcome_team_name + /sessions?welcome=1
  *   already_member → "Este enlace es para invitar a atletas" screen
  *   not_eligible   → same screen (user is a coach on a different team)
- *   error          → redirect to /create-team
+ *   error          → redirect to /invite-invalid
  *
  * RequireAuth (wrapping the (app) group) ensures the user is authenticated
  * before this page renders.  Unauthenticated users are redirected to
@@ -49,7 +49,7 @@ export default function AuthContinuePage() {
     if (tokenAt && Date.now() - parseInt(tokenAt, 10) > TOKEN_MAX_AGE_MS) {
       localStorage.removeItem('pending_invite_token')
       localStorage.removeItem('pending_invite_token_at')
-      router.replace('/sessions')
+      router.replace('/invite-invalid')
       return
     }
 
@@ -92,7 +92,7 @@ export default function AuthContinuePage() {
       } catch {
         localStorage.removeItem('pending_invite_token')
         localStorage.removeItem('pending_invite_token_at')
-        router.replace('/create-team')
+        router.replace('/invite-invalid')
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
