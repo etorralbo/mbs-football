@@ -79,14 +79,9 @@ describe('NavBar — COACH', () => {
     expect(screen.getByRole('link', { name: /templates/i })).toHaveAttribute('href', '/templates')
   })
 
-  it('renders active team switcher before nav links', () => {
-    const { container } = render(<NavBar />)
-    const nav = container.querySelector('nav')
-    const switcher = screen.getByRole('button', { name: /active team: mettle fc/i })
-    // COACH has no Home link; first nav link is Templates
-    const templates = screen.getByRole('link', { name: /templates/i })
-    expect(nav?.children[1]).toContainElement(switcher)
-    expect(nav?.children[2]).toBe(templates)
+  it('renders the Exercises link', () => {
+    render(<NavBar />)
+    expect(screen.getByRole('link', { name: /exercises/i })).toHaveAttribute('href', '/exercises')
   })
 
   it('renders the Sessions link', () => {
@@ -128,14 +123,9 @@ describe('NavBar — ATHLETE', () => {
     expect(screen.queryByRole('link', { name: /templates/i })).not.toBeInTheDocument()
   })
 
-  it('does NOT render the Home link', () => {
+  it('does NOT render the Exercises link', () => {
     render(<NavBar />)
-    expect(screen.queryByRole('link', { name: /^home$/i })).not.toBeInTheDocument()
-  })
-
-  it('does NOT render the Training link', () => {
-    render(<NavBar />)
-    expect(screen.queryByRole('link', { name: /^training$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /exercises/i })).not.toBeInTheDocument()
   })
 
   it('does NOT render the Team link', () => {

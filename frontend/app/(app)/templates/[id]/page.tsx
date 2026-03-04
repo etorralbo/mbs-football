@@ -25,6 +25,13 @@ const BLOCK_NAME_OPTIONS = [
   'Recovery',
 ]
 
+// Accent colors cycled per block index
+const BLOCK_ACCENT_COLORS = ['#facc15', '#ef4444', '#22c55e', '#3b82f6']
+
+function getAccentColor(index: number) {
+  return BLOCK_ACCENT_COLORS[index % BLOCK_ACCENT_COLORS.length]
+}
+
 // ---------------------------------------------------------------------------
 // AddBlockForm
 // ---------------------------------------------------------------------------
@@ -62,14 +69,14 @@ function AddBlockForm({ templateId, onCreated, onCancel }: AddBlockFormProps) {
   }
 
   return (
-    <div className="rounded-lg border border-dashed border-white/15 bg-[#131922] p-4">
-      <p className="text-sm font-medium text-white">New block</p>
+    <div className="rounded-2xl border border-dashed border-slate-700 bg-[#121d28] p-5">
+      <p className="text-sm font-bold text-white">New block</p>
 
       <div className="mt-3 flex flex-col gap-2">
         <select
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="rounded-md border border-white/10 bg-[#0d1420] px-2.5 py-1.5 text-sm text-white focus:border-[#4f9cf9] focus:outline-none"
+          className="rounded-lg border border-slate-800 bg-[#1a2938] px-3 py-2 text-sm text-white focus:border-[#137fec] focus:outline-none"
         >
           {BLOCK_NAME_OPTIONS.map((n) => (
             <option key={n} value={n}>{n}</option>
@@ -84,24 +91,24 @@ function AddBlockForm({ templateId, onCreated, onCancel }: AddBlockFormProps) {
             onChange={(e) => setCustom(e.target.value)}
             maxLength={255}
             placeholder="Enter block name"
-            className="rounded-md border border-white/10 bg-[#0d1420] px-2.5 py-1.5 text-sm text-white placeholder:text-slate-600 focus:border-[#4f9cf9] focus:outline-none"
+            className="rounded-lg border border-slate-800 bg-[#1a2938] px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:border-[#137fec] focus:outline-none"
           />
         )}
       </div>
 
       {error && <p role="alert" className="mt-2 text-xs text-red-400">{error}</p>}
 
-      <div className="mt-3 flex gap-2">
+      <div className="mt-4 flex gap-2">
         <button
           onClick={handleCreate}
           disabled={creating}
-          className="inline-flex items-center rounded-md bg-[#c8f135] px-3 py-1.5 text-xs font-bold text-[#0a0d14] transition-colors hover:bg-[#d4f755] disabled:opacity-50"
+          className="inline-flex items-center rounded-lg bg-[#c8f135] px-4 py-2 text-sm font-bold text-[#0a0d14] transition-colors hover:bg-[#d4f755] disabled:opacity-50"
         >
           {creating ? 'Creating…' : 'Create block'}
         </button>
         <button
           onClick={onCancel}
-          className="rounded-md px-3 py-1.5 text-xs text-slate-400 hover:bg-white/5 hover:text-slate-300"
+          className="rounded-lg px-4 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-slate-300"
         >
           Cancel
         </button>
@@ -245,87 +252,93 @@ export default function TemplateDetailPage() {
     return <p className="text-sm text-slate-400">Template not found.</p>
 
   return (
-    <>
+    <div className="mx-auto max-w-4xl">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2">
-        <Link href="/templates" className="text-sm text-slate-400 hover:text-slate-300">
+        <Link href="/templates" className="text-xs text-slate-500 hover:text-slate-300">
           Templates
         </Link>
-        <span className="text-slate-600">/</span>
-        <span className="text-sm text-white">{template.title}</span>
+        <span className="text-xs text-slate-600">/</span>
+        <span className="text-xs text-slate-300">{template.title}</span>
       </div>
 
-      {/* Title row */}
-      <div className="mt-4 flex items-center gap-3">
-        {editMode ? (
-          <input
-            type="text"
-            value={titleValue}
-            onChange={(e) => setTitleValue(e.target.value)}
-            onBlur={handleTitleBlur}
-            maxLength={255}
-            className="flex-1 rounded-md border border-white/10 bg-[#0d1420] px-3 py-1.5 text-xl font-semibold text-white focus:border-[#4f9cf9] focus:outline-none"
-          />
-        ) : (
-          <h1 className="flex-1 text-xl font-semibold text-white">{template.title}</h1>
-        )}
+      {/* Title area */}
+      <div className="mt-4 flex items-end justify-between border-b border-slate-800 pb-6">
+        <div className="flex-1 space-y-2">
+          <div className="flex items-center gap-3">
+            {editMode ? (
+              <input
+                type="text"
+                value={titleValue}
+                onChange={(e) => setTitleValue(e.target.value)}
+                onBlur={handleTitleBlur}
+                maxLength={255}
+                className="flex-1 rounded-lg border border-slate-800 bg-[#1a2938] px-3 py-2 text-3xl font-bold text-white focus:border-[#137fec] focus:outline-none"
+              />
+            ) : (
+              <h1 className="text-3xl font-bold text-white">{template.title}</h1>
+            )}
 
-        {/* Status badge */}
-        {template.status === 'draft' && (
-          <span className="shrink-0 rounded-full bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-400">
-            Draft
-          </span>
-        )}
+            {/* Status badge */}
+            {template.status === 'draft' && (
+              <span className="shrink-0 rounded-full bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-400">
+                Draft
+              </span>
+            )}
 
-        {savingTitle && <span className="text-xs text-slate-400">Saving…</span>}
+            {savingTitle && <span className="text-xs text-slate-400">Saving…</span>}
+          </div>
 
-        {/* Publish button (only when draft) */}
-        {template.status === 'draft' && (
-          <button
-            onClick={handlePublish}
-            disabled={publishing}
-            className="shrink-0 rounded-md bg-[#c8f135] px-3 py-1.5 text-xs font-bold text-[#0a0d14] transition-colors hover:bg-[#d4f755] disabled:opacity-50"
-          >
-            {publishing ? 'Publishing…' : 'Publish'}
-          </button>
-        )}
-
-        <button
-          onClick={() => { setEditMode((v) => !v); setShowAddBlock(false) }}
-          className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
-            editMode
-              ? 'border-[#4f9cf9]/30 bg-[#4f9cf9]/10 text-[#4f9cf9] hover:bg-[#4f9cf9]/15'
-              : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
-          }`}
-        >
-          {editMode ? (
-            <>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-              Done editing
-            </>
-          ) : (
-            <>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-              Edit template
-            </>
+          {template.description && (
+            <p className="text-sm text-slate-400">{template.description}</p>
           )}
-        </button>
-      </div>
+        </div>
 
-      {template.description && !editMode && (
-        <p className="mt-1 text-sm text-slate-400">{template.description}</p>
-      )}
+        <div className="ml-4 flex shrink-0 items-center gap-3">
+          {/* Publish button (only when draft) */}
+          {template.status === 'draft' && (
+            <button
+              onClick={handlePublish}
+              disabled={publishing}
+              className="rounded-lg bg-[#c8f135] px-4 py-2 text-sm font-bold text-[#0a0d14] transition-colors hover:bg-[#d4f755] disabled:opacity-50"
+            >
+              {publishing ? 'Publishing…' : 'Publish'}
+            </button>
+          )}
+
+          <button
+            onClick={() => { setEditMode((v) => !v); setShowAddBlock(false) }}
+            className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+              editMode
+                ? 'border-[#137fec]/30 bg-[#137fec]/10 text-[#137fec] hover:bg-[#137fec]/15'
+                : 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            {editMode ? (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                Done editing
+              </>
+            ) : (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                Edit template
+              </>
+            )}
+          </button>
+        </div>
+      </div>
 
       {/* fromAi success banner */}
       {showFromAiBanner && (
         <div
           role="status"
           aria-label="Template saved"
-          className="mt-4 rounded-lg border border-emerald-800/40 bg-emerald-900/20 px-4 py-3"
+          className="mt-6 rounded-2xl border border-emerald-800/40 bg-emerald-900/20 px-5 py-4"
         >
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -337,7 +350,7 @@ export default function TemplateDetailPage() {
             <div className="flex shrink-0 gap-2">
               <Link
                 href="/templates"
-                className="inline-flex items-center rounded-md border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2"
+                className="inline-flex items-center rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2"
               >
                 Back to templates
               </Link>
@@ -346,7 +359,7 @@ export default function TemplateDetailPage() {
                 onClick={() =>
                   document.getElementById('assign')?.scrollIntoView({ behavior: 'smooth' })
                 }
-                className="inline-flex items-center rounded-md bg-[#c8f135] px-3 py-1 text-xs font-bold text-[#0a0d14] transition-colors hover:bg-[#d4f755] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135] focus-visible:ring-offset-2"
+                className="inline-flex items-center rounded-lg bg-[#c8f135] px-3 py-1.5 text-xs font-bold text-[#0a0d14] transition-colors hover:bg-[#d4f755] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135] focus-visible:ring-offset-2"
               >
                 Assign now
               </button>
@@ -361,13 +374,13 @@ export default function TemplateDetailPage() {
       </div>
 
       {/* Blocks */}
-      <div className="mt-8 space-y-4">
+      <div className="mt-8 space-y-8">
         {editMode ? (
           <>
             {template.blocks.map((block, idx) => (
               <div key={block.id} className="flex gap-2">
                 {/* Reorder buttons */}
-                <div className="flex flex-col justify-center gap-1">
+                <div className="flex flex-col justify-center gap-1 pt-5">
                   <button
                     onClick={() => handleReorderBlock(block.id, 'up')}
                     disabled={idx === 0 || reorderingBlockId !== null}
@@ -393,6 +406,7 @@ export default function TemplateDetailPage() {
                 <div className="flex-1">
                   <BlockEditor
                     block={block}
+                    accentColor={getAccentColor(idx)}
                     onDeleted={handleBlockDeleted}
                     onItemAdded={handleBlockItemAdded}
                   />
@@ -409,43 +423,77 @@ export default function TemplateDetailPage() {
             ) : (
               <button
                 onClick={() => setShowAddBlock(true)}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 py-3 text-sm text-slate-400 transition-colors hover:border-white/25 hover:text-slate-300"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-800 py-4 text-sm font-medium text-slate-500 transition-all hover:border-slate-700 hover:bg-slate-900/40 hover:text-slate-400"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Add block
+                Add new block
               </button>
             )}
           </>
         ) : (
-          template.blocks.map((block) => (
-            <section key={block.id} className="rounded-lg border border-white/8 bg-[#131922] p-5">
-              <h2 className="border-l-2 border-[#c8f135] pl-3 text-sm font-semibold text-white">{block.name}</h2>
-              {block.notes && (
-                <p className="mt-1 text-xs text-slate-400">{block.notes}</p>
-              )}
-              {block.items.length > 0 ? (
-                <ul className="mt-3 space-y-1.5">
-                  {block.items.map((item) => (
-                    <li key={item.id} className="flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 rounded-full bg-[#4f9cf9]" aria-hidden="true" />
-                      <span className="text-sm text-white">{item.exercise.name}</span>
-                      {item.sets.length > 0 && (
-                        <span className="text-xs text-slate-500">
-                          {item.sets.length} {item.sets.length === 1 ? 'set' : 'sets'}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-2 text-xs text-slate-500">No exercises assigned.</p>
-              )}
+          template.blocks.map((block, idx) => (
+            <section
+              key={block.id}
+              className="overflow-hidden rounded-2xl border border-slate-800 bg-[#121d28] shadow-xl"
+              style={{ borderLeftWidth: '4px', borderLeftColor: getAccentColor(idx) }}
+            >
+              <div className="border-b border-slate-800/50 p-5">
+                <h2 className="text-lg font-bold text-white">{block.name}</h2>
+                {block.notes && (
+                  <p className="mt-0.5 text-xs text-slate-500">{block.notes}</p>
+                )}
+              </div>
+              <div className="p-5">
+                {block.items.length > 0 ? (
+                  <div className="space-y-4">
+                    {block.items.map((item) => (
+                      <div key={item.id} className="flex items-start gap-4">
+                        <div className="flex-1">
+                          <h4 className="flex items-center gap-2 text-sm font-bold text-white">
+                            <span className="h-2 w-2 shrink-0 rounded-full bg-[#137fec]" aria-hidden="true" />
+                            {item.exercise.name}
+                          </h4>
+                          {item.sets.length > 0 && (
+                            <div className="mt-2 grid grid-cols-3 gap-3">
+                              <div className="space-y-1">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Reps</span>
+                                <div className="rounded-lg border border-slate-800/50 bg-[#1a2938]/60 px-3 py-1.5 text-center text-sm font-semibold text-white">
+                                  {item.sets[0].reps ?? '—'}
+                                </div>
+                              </div>
+                              <div className="space-y-1">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">kg</span>
+                                <div className="rounded-lg border border-slate-800/50 bg-[#1a2938]/60 px-3 py-1.5 text-center text-sm font-semibold text-white">
+                                  {item.sets[0].weight ?? '—'}
+                                </div>
+                              </div>
+                              <div className="space-y-1">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">RPE</span>
+                                <div className="rounded-lg border border-slate-800/50 bg-[#1a2938]/60 px-3 py-1.5 text-center text-sm font-semibold text-white">
+                                  {item.sets[0].rpe ?? '—'}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          {item.sets.length > 1 && (
+                            <p className="mt-1 text-[10px] text-slate-500">
+                              +{item.sets.length - 1} more {item.sets.length - 1 === 1 ? 'set' : 'sets'}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">No exercises assigned.</p>
+                )}
+              </div>
             </section>
           ))
         )}
       </div>
-    </>
+    </div>
   )
 }

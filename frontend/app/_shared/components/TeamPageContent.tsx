@@ -11,8 +11,8 @@ export function TeamPageContent({ children }: { children: React.ReactNode }) {
   const { activeTeamId } = useAuth()
 
   return (
-    <main key={activeTeamId ?? 'no-team'} className="mx-auto max-w-5xl px-6 py-8">
+    <div key={activeTeamId ?? 'no-team'} className="p-8">
       {children}
-    </main>
+    </div>
   )
 }
