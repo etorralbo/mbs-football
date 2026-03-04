@@ -120,8 +120,10 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
     }
   }
 
+  const isTeamEmpty = athletes.length === 0
   const canSubmit =
-    !loading && (mode === 'team' || (mode === 'athletes' && selectedCount > 0))
+    !loading &&
+    (mode === 'team' ? !isTeamEmpty : selectedCount > 0)
 
   return (
     <div className="mt-6 rounded-2xl border border-slate-800/60 bg-[#121d28]/40 p-6 shadow-sm">
@@ -206,6 +208,27 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
             </div>
           </div>
 
+          {/* Empty team warning */}
+          {mode === 'team' && isTeamEmpty && (
+            <div className="mt-4 rounded-xl border border-slate-800 bg-slate-900/40 px-5 py-4">
+              <p className="text-sm text-slate-400">
+                No athletes in your team yet.
+              </p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Add athletes to start assigning workouts.
+              </p>
+              <Link
+                href="/team"
+                className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-[#137fec] hover:underline"
+              >
+                Go to Team
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
+          )}
+
           {/* Athlete checklist */}
           {mode === 'athletes' && (
             <div className="mt-4">
@@ -281,7 +304,7 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
             <button
               onClick={handleAssign}
               disabled={!canSubmit}
-              className="rounded-lg bg-[#c8f135] px-6 py-2 text-sm font-bold text-[#0a0d14] transition-all hover:brightness-105 disabled:opacity-50"
+              className="rounded-lg bg-[#c8f135] px-6 py-2 text-sm font-bold text-[#0a0d14] transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? 'Assigning…' : 'Assign'}
             </button>
