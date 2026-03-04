@@ -3,12 +3,14 @@ import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import date
-from typing import Optional, Union
+from datetime import datetime, timezone
+from typing import Any, Optional, Union
 
 from app.domain.events.models import FunnelEvent
 from app.domain.events.service import AuthContext, ProductEventService
 from app.models.user_profile import Role, UserProfile
 from app.models.workout_assignment import AssignmentTargetType
+from app.models.workout_template import WorkoutTemplate
 from app.persistence.repositories.workout_assignment_repository import (
     AbstractWorkoutAssignmentRepository,
 )
@@ -105,11 +107,46 @@ class CreateWorkoutAssignmentUseCase:
         self._athlete_query_repo = athlete_query_repo
         self._event_service = event_service
 
+    @staticmethod
+    def _snapshot_template(template: WorkoutTemplate) -> dict[str, Any]:
+        """Serialize the *prescribed* template structure into a JSONB dict.
+
+        The snapshot captures blocks, exercises, and prescriptions only — never
+        athlete logs.  Logs are stored separately in workout_session_logs and
+        merged at read time by GetSessionExecutionViewUseCase.
+
+        Includes template_id and snapshotted_at (UTC, ISO-8601 with Z) for
+        debugging and auditing.
+        """
+        sorted_blocks = sorted(template.blocks, key=lambda b: b.order_index)
+        now_utc = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return {
+            "template_id": str(template.id),
+            "snapshotted_at": now_utc,
+            "title": template.title,
+            "blocks": [
+                {
+                    "name": block.name,
+                    "order": block.order_index,
+                    "items": [
+                        {
+                            "exercise_id": str(item.exercise_id),
+                            "exercise_name": item.exercise.name,
+                            "order": item.order_index,
+                            "prescription": item.prescription_json or {},
+                        }
+                        for item in sorted(block.items, key=lambda i: i.order_index)
+                    ],
+                }
+                for block in sorted_blocks
+            ],
+        }
+
     def execute(
         self, command: CreateWorkoutAssignmentCommand
     ) -> CreateWorkoutAssignmentResult:
-        # 1. Verify template belongs to the requesting team
-        template = self._template_repo.get_by_id(
+        # 1. Eager-load template with blocks/items/exercises for snapshot
+        template = self._template_repo.get_by_id_with_blocks(
             command.workout_template_id, command.requesting_team_id
         )
         if template is None:
@@ -138,12 +175,14 @@ class CreateWorkoutAssignmentUseCase:
             target_athlete_id = athlete.id
 
         # 3. Persist assignment (flush) then sessions (commit) — single transaction
+        snapshot = self._snapshot_template(template)
         assignment = self._assignment_repo.create(
             team_id=command.requesting_team_id,
             workout_template_id=command.workout_template_id,
             target_type=target_type,
             target_athlete_id=target_athlete_id,
             scheduled_for=command.scheduled_for,
+            template_snapshot=snapshot,
         )
 
         # Funnel event — added to session before create_bulk() commits, so it

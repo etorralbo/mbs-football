@@ -127,15 +127,9 @@ class GetSessionExecutionViewUseCase:
         if session is None:
             raise NotFoundError(f"Session {query.session_id} not found")
 
-        # 2. Eager-load the full template structure (team-scoped)
-        template = self._template_repo.get_by_id_with_blocks(
-            template_id=session.workout_template_id,
-            team_id=query.requesting_team_id,
-        )
-        if template is None:
-            raise NotFoundError(
-                f"Template {session.workout_template_id} not found for this team"
-            )
+        # 2. Check for snapshot on the assignment (new assignments store one).
+        #    Legacy assignments (NULL snapshot) fall back to the live template.
+        snapshot = session.assignment.template_snapshot if session.assignment else None
 
         # 3. All logs for this session (entries pre-loaded, ordered by set_number)
         logs = self._log_repo.list_by_session(session.id)
@@ -161,7 +155,75 @@ class GetSessionExecutionViewUseCase:
                 for entry in log.entries
             ]
 
-        # 5. Build ordered blocks → items, merging logs
+        if snapshot is not None:
+            # ---- Build blocks from snapshot (immutable view) ----
+            block_results = self._blocks_from_snapshot(snapshot, log_index)
+            template_title = snapshot.get("title", "")
+        else:
+            # ---- Fallback: live template (legacy assignments without snapshot) ----
+            # TODO: remove this branch after backfilling snapshots for existing
+            # assignments (data migration). Once every assignment has a snapshot,
+            # the live-template path is no longer needed.
+            template = self._template_repo.get_by_id_with_blocks(
+                template_id=session.workout_template_id,
+                team_id=query.requesting_team_id,
+            )
+            if template is None:
+                raise NotFoundError(
+                    f"Template {session.workout_template_id} not found for this team"
+                )
+            block_results = self._blocks_from_template(template, log_index)
+            template_title = template.title
+
+        return SessionExecutionResult(
+            session_id=session.id,
+            status="completed" if session.completed_at is not None else "pending",
+            workout_template_id=session.workout_template_id,
+            template_title=template_title,
+            athlete_profile_id=session.athlete_id,
+            scheduled_for=session.scheduled_for,
+            blocks=block_results,
+        )
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _blocks_from_snapshot(
+        snapshot: dict[str, Any],
+        log_index: dict[uuid.UUID, list[SetLogOut]],
+    ) -> list[BlockExecutionOut]:
+        """Build execution blocks from a JSONB snapshot stored on the assignment."""
+        block_results = []
+        for block_data in snapshot.get("blocks", []):
+            exercise_results = []
+            for item_data in block_data.get("items", []):
+                ex_id = uuid.UUID(item_data["exercise_id"])
+                exercise_results.append(
+                    ExerciseExecutionOut(
+                        exercise_id=ex_id,
+                        exercise_name=item_data["exercise_name"],
+                        prescription=item_data.get("prescription", {}),
+                        logs=log_index.get(ex_id, []),
+                    )
+                )
+            block_results.append(
+                BlockExecutionOut(
+                    name=block_data["name"],
+                    key=_block_key(block_data["name"]),
+                    order=block_data["order"],
+                    items=exercise_results,
+                )
+            )
+        return block_results
+
+    @staticmethod
+    def _blocks_from_template(
+        template: Any,
+        log_index: dict[uuid.UUID, list[SetLogOut]],
+    ) -> list[BlockExecutionOut]:
+        """Build execution blocks from the live template (legacy fallback)."""
         sorted_blocks = sorted(template.blocks, key=lambda b: b.order_index)
         block_results = []
         for block in sorted_blocks:
@@ -184,13 +246,4 @@ class GetSessionExecutionViewUseCase:
                     items=exercise_results,
                 )
             )
-
-        return SessionExecutionResult(
-            session_id=session.id,
-            status="completed" if session.completed_at is not None else "pending",
-            workout_template_id=session.workout_template_id,
-            template_title=template.title,
-            athlete_profile_id=session.athlete_id,
-            scheduled_for=session.scheduled_for,
-            blocks=block_results,
-        )
+        return block_results
