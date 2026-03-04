@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { request } from '@/app/_shared/api/httpClient'
+import { request, ValidationError } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
 import { SkeletonList } from '@/app/_shared/components/Skeleton'
 import { AssignPanel } from './AssignPanel'
@@ -134,6 +134,7 @@ export default function TemplateDetailPage() {
   const [titleValue, setTitleValue] = useState('')
   const [savingTitle, setSavingTitle] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  const [publishError, setPublishError] = useState<string | null>(null)
   const [reorderingBlockId, setReorderingBlockId] = useState<string | null>(null)
 
   // Capture on mount so banner stays visible after the URL param is cleaned.
@@ -173,6 +174,7 @@ export default function TemplateDetailPage() {
 
   async function handlePublish() {
     if (!template || template.status === 'published') return
+    setPublishError(null)
     // Optimistic update
     setTemplate((prev) => prev ? { ...prev, status: 'published' } : prev)
     setPublishing(true)
@@ -181,9 +183,14 @@ export default function TemplateDetailPage() {
         method: 'PATCH',
         body: JSON.stringify({ status: 'published' }),
       })
-    } catch {
+    } catch (err) {
       // Revert on error
       setTemplate((prev) => prev ? { ...prev, status: 'draft' } : prev)
+      if (err instanceof ValidationError && typeof err.detail === 'string') {
+        setPublishError(err.detail)
+      } else {
+        setPublishError('Could not publish template. Please try again.')
+      }
     } finally {
       setPublishing(false)
     }
@@ -332,6 +339,13 @@ export default function TemplateDetailPage() {
           </button>
         </div>
       </div>
+
+      {/* Publish error */}
+      {publishError && (
+        <p role="alert" className="mt-4 text-sm text-red-400">
+          {publishError}
+        </p>
+      )}
 
       {/* fromAi success banner */}
       {showFromAiBanner && (
