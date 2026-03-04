@@ -314,10 +314,10 @@ export default function TemplateDetailPage() {
                 onChange={(e) => setTitleValue(e.target.value)}
                 onBlur={handleTitleBlur}
                 maxLength={255}
-                className="flex-1 rounded-lg border border-slate-800 bg-[#1a2938] px-3 py-2 text-3xl font-bold text-white focus:border-[#137fec] focus:outline-none"
+                className="flex-1 border-b border-transparent bg-transparent p-0 text-3xl font-bold leading-tight text-white outline-none focus:border-[#c8f135]"
               />
             ) : (
-              <h1 className="text-3xl font-bold text-white">{template.title}</h1>
+              <h1 className="text-3xl font-bold leading-tight text-white">{template.title}</h1>
             )}
 
           </div>
@@ -361,9 +361,15 @@ export default function TemplateDetailPage() {
 
           <button
             onClick={() => { setEditMode((v) => !v); setShowAddBlock(false) }}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700"
+            disabled={editMode && saveStatus === 'saving'}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {editMode ? (
+            {editMode && saveStatus === 'saving' ? (
+              <>
+                <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-500 border-t-slate-300" />
+                Saving…
+              </>
+            ) : editMode ? (
               <>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
