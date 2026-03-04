@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { request } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
 import { Button } from '@/app/_shared/components/Button'
+import { CreateButton } from '@/app/_shared/components/CreateButton'
 import { EmptyState } from '@/app/_shared/components/EmptyState'
 import { SkeletonGrid } from '@/app/_shared/components/Skeleton'
 import { AiDraftPanel } from './AiDraftPanel'
@@ -242,15 +243,26 @@ export default function TemplatesPage() {
               </svg>
               {showAiPanel ? 'Close AI' : 'Create with AI'}
             </button>
-            <Button
-              variant={showNewForm ? 'secondary' : 'primary'}
-              onClick={() => {
-                setShowNewForm((v) => !v)
-                setShowAiPanel(false)
-              }}
-            >
-              {showNewForm ? 'Cancel' : 'New Template'}
-            </Button>
+            {showNewForm ? (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowNewForm(false)
+                  setShowAiPanel(false)
+                }}
+              >
+                Cancel
+              </Button>
+            ) : (
+              <CreateButton
+                onClick={() => {
+                  setShowNewForm(true)
+                  setShowAiPanel(false)
+                }}
+              >
+                New Template
+              </CreateButton>
+            )}
           </div>
         )}
       </div>

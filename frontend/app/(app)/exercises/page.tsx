@@ -25,6 +25,7 @@ import { SkeletonList } from '@/app/_shared/components/Skeleton'
 import { useAuth } from '@/src/shared/auth/AuthContext'
 import type { Exercise } from '@/app/_shared/api/types'
 
+import { CreateButton } from '@/app/_shared/components/CreateButton'
 import ExerciseForm, { type ExerciseFormValues } from './ExerciseForm'
 import ExerciseCard from './ExerciseCard'
 import { FILTER_CHIPS, useExerciseFilters } from './useExerciseFilters'
@@ -316,15 +317,9 @@ export default function ExercisesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-white">Exercise Library</h1>
-        <button
-          onClick={() => { setShowForm((v) => !v); setEditingExercise(null); setFormError(null) }}
-          className="inline-flex items-center gap-1.5 rounded-md bg-[#c8f135] px-3 py-1.5 text-xs font-bold text-[#0a0d14] transition-colors hover:bg-[#d4f755]"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
+        <CreateButton onClick={() => { setShowForm((v) => !v); setEditingExercise(null); setFormError(null) }}>
           New exercise
-        </button>
+        </CreateButton>
       </div>
 
       {/* Create / Edit form */}
