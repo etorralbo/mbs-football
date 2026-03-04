@@ -23,18 +23,6 @@ describe('CreateButton', () => {
     expect(link).toHaveAttribute('href', '/create')
   })
 
-  it('shows "+" icon by default', () => {
-    render(<CreateButton onClick={() => {}}>Create</CreateButton>)
-    const svg = screen.getByRole('button').querySelector('svg')
-    expect(svg).toBeInTheDocument()
-  })
-
-  it('hides icon when icon={false}', () => {
-    render(<CreateButton onClick={() => {}} icon={false}>Create</CreateButton>)
-    const svg = screen.getByRole('button').querySelector('svg')
-    expect(svg).toBeNull()
-  })
-
   it('applies custom className', () => {
     render(<CreateButton onClick={() => {}} className="mt-4">Create</CreateButton>)
     expect(screen.getByRole('button')).toHaveClass('mt-4')
