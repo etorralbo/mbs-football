@@ -47,7 +47,7 @@ const athleteMe = {
 
 const inviteResponse = {
   token: 'ABC123-token-xyz',
-  join_url: 'https://app.com/join/ABC123-token-xyz',
+  join_url: 'https://app.com/join?token=ABC123-token-xyz',
   team_id: TEAM_A,
   expires_at: '2026-03-10T00:00:00Z',
 }
@@ -245,7 +245,7 @@ describe('TeamPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: /generate invite link/i }))
 
     expect(
-      await screen.findByDisplayValue('https://app.com/join/ABC123-token-xyz'),
+      await screen.findByDisplayValue('https://app.com/join?token=ABC123-token-xyz'),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /copy invite link/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /generate new link/i })).toBeInTheDocument()
@@ -260,7 +260,7 @@ describe('TeamPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: /copy invite link/i }))
 
     await waitFor(() => {
-      expect(mockWriteText).toHaveBeenCalledWith('https://app.com/join/ABC123-token-xyz')
+      expect(mockWriteText).toHaveBeenCalledWith('https://app.com/join?token=ABC123-token-xyz')
     })
     expect(await screen.findByRole('button', { name: /copied/i })).toBeInTheDocument()
   })
