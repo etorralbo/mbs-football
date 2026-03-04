@@ -1,7 +1,7 @@
 import uuid
 from typing import Optional
 
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import ForeignKey, Index, String, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -15,6 +15,9 @@ class WorkoutTemplate(Base, TimestampMixin):
     A template belongs to a team and contains multiple ordered blocks.
     """
     __tablename__ = "workout_templates"
+    __table_args__ = (
+        Index("uix_templates_team_title", "team_id", text("lower(title)"), unique=True),
+    )
 
     team_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

@@ -313,7 +313,7 @@ class TestTemplateCreatedAiEvent:
         from app.domain.events.models import FunnelEvent, ProductEvent
         from app.models import Team
 
-        other_team = Team(id=uuid.uuid4(), name="Other Team")
+        other_team = Team(id=uuid.uuid4(), name="Other Team", created_by_user_id=uuid.uuid4())
         db_session.add(other_team)
         db_session.commit()
 

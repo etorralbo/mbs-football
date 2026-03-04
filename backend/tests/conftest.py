@@ -234,7 +234,7 @@ def mock_jwt(monkeypatch):
 
 @pytest.fixture
 def team_a(db_session: Session) -> Team:
-    team = Team(id=uuid.uuid4(), name="Team Alpha")
+    team = Team(id=uuid.uuid4(), name="Team Alpha", created_by_user_id=uuid.uuid4())
     db_session.add(team)
     db_session.commit()
     db_session.refresh(team)
@@ -243,7 +243,7 @@ def team_a(db_session: Session) -> Team:
 
 @pytest.fixture
 def team_b(db_session: Session) -> Team:
-    team = Team(id=uuid.uuid4(), name="Team Beta")
+    team = Team(id=uuid.uuid4(), name="Team Beta", created_by_user_id=uuid.uuid4())
     db_session.add(team)
     db_session.commit()
     db_session.refresh(team)
@@ -339,12 +339,13 @@ def exercise_team_a(db_session: Session, coach_a: UserProfile) -> Exercise:
 @pytest.fixture
 def onboarded_coach(db_session: Session) -> UserProfile:
     """Coach with their own isolated team (used by from-ai tests)."""
-    team = Team(id=uuid.uuid4(), name="From-AI Team")
+    supabase_uid = uuid.uuid4()
+    team = Team(id=uuid.uuid4(), name="From-AI Team", created_by_user_id=supabase_uid)
     db_session.add(team)
     db_session.flush()
     coach = UserProfile(
         id=uuid.uuid4(),
-        supabase_user_id=uuid.uuid4(),
+        supabase_user_id=supabase_uid,
         team_id=team.id,
         role=Role.COACH,
         name="From-AI Coach",
@@ -388,12 +389,12 @@ def coach_team_exercise_id(db_session: Session, onboarded_coach: UserProfile) ->
 @pytest.fixture
 def foreign_team_exercise_id(db_session: Session) -> uuid.UUID:
     """One exercise belonging to a completely different coach."""
-    other_team = Team(id=uuid.uuid4(), name="Foreign Team")
+    foreign_supabase_id = uuid.uuid4()
+    other_team = Team(id=uuid.uuid4(), name="Foreign Team", created_by_user_id=foreign_supabase_id)
     db_session.add(other_team)
     db_session.flush()
     # Create a foreign coach profile with a membership
     from app.models.membership import Membership as _Membership
-    foreign_supabase_id = uuid.uuid4()
     foreign_coach = UserProfile(
         id=uuid.uuid4(),
         supabase_user_id=foreign_supabase_id,

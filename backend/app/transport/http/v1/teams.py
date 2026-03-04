@@ -8,6 +8,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_auth_user_id
@@ -51,11 +52,15 @@ def create_team(
         result = use_case.execute(
             CreateTeamCommand(supabase_user_id=user_id, team_name=payload.name, name=payload.display_name)
         )
+        db.commit()
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-
-    # user_profile_repo.create() commits; if profile already existed, commit here.
-    db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"You already have a team named '{payload.name}'.",
+        )
 
     return CreateTeamResponse(
         team_id=result.team_id,

@@ -59,7 +59,7 @@ class OnboardUserUseCase:
         if existing_memberships:
             raise ConflictError(f"User {command.supabase_user_id} is already onboarded.")
 
-        team = self._team_repo.create(command.team_name)
+        team = self._team_repo.create(command.team_name, created_by_user_id=command.supabase_user_id)
 
         # Membership is created first — it is the authoritative record for
         # team_id and role used by get_current_user.

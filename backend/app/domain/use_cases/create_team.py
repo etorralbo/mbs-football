@@ -47,7 +47,7 @@ class CreateTeamUseCase:
         self._event_service = event_service
 
     def execute(self, command: CreateTeamCommand) -> CreateTeamResult:
-        team = self._team_repo.create(command.team_name)
+        team = self._team_repo.create(command.team_name, created_by_user_id=command.supabase_user_id)
         membership = self._membership_repo.create(
             user_id=command.supabase_user_id,
             team_id=team.id,
