@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -147,9 +147,25 @@ export default function TemplateDetailPage() {
   const [editMode, setEditMode] = useState(false)
   const [showAddBlock, setShowAddBlock] = useState(false)
   const [titleValue, setTitleValue] = useState('')
-  const [savingTitle, setSavingTitle] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const savingCountRef = useRef(0)
+
+  const markSaving = useCallback(() => {
+    savingCountRef.current += 1
+    clearTimeout(saveTimerRef.current)
+    setSaveStatus('saving')
+  }, [])
+
+  const markSaved = useCallback(() => {
+    savingCountRef.current = Math.max(0, savingCountRef.current - 1)
+    if (savingCountRef.current === 0) {
+      setSaveStatus('saved')
+      saveTimerRef.current = setTimeout(() => setSaveStatus('idle'), 3000)
+    }
+  }, [])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -177,7 +193,7 @@ export default function TemplateDetailPage() {
   async function handleTitleBlur() {
     const value = titleValue.trim()
     if (!value || value === template?.title) return
-    setSavingTitle(true)
+    markSaving()
     try {
       await request(`/v1/workout-templates/${id}`, {
         method: 'PATCH',
@@ -187,7 +203,7 @@ export default function TemplateDetailPage() {
     } catch {
       setTitleValue(template?.title ?? '')
     } finally {
-      setSavingTitle(false)
+      markSaved()
     }
   }
 
@@ -226,6 +242,7 @@ export default function TemplateDetailPage() {
     const newBlocks = arrayMove(template.blocks, oldIndex, newIndex)
     const previousBlocks = template.blocks
     setTemplate((prev) => prev ? { ...prev, blocks: newBlocks } : prev)
+    markSaving()
 
     try {
       await request(`/v1/workout-templates/${id}/blocks/reorder`, {
@@ -236,6 +253,8 @@ export default function TemplateDetailPage() {
       setTemplate((prev) =>
         prev ? { ...prev, blocks: previousBlocks } : prev,
       )
+    } finally {
+      markSaved()
     }
   }
 
@@ -301,8 +320,15 @@ export default function TemplateDetailPage() {
               <h1 className="text-3xl font-bold text-white">{template.title}</h1>
             )}
 
-            {savingTitle && <span className="text-xs text-slate-400">Saving…</span>}
           </div>
+
+          {/* Auto-save indicator (visible in edit mode) */}
+          {editMode && saveStatus === 'saving' && (
+            <p className="text-xs text-slate-400">Saving…</p>
+          )}
+          {editMode && saveStatus === 'saved' && (
+            <p className="text-xs text-emerald-400">Changes saved automatically</p>
+          )}
 
           {template.description && (
             <p className="text-sm text-slate-400">{template.description}</p>
@@ -357,6 +383,22 @@ export default function TemplateDetailPage() {
         <p role="alert" className="mt-4 text-sm text-red-400">
           {publishError}
         </p>
+      )}
+
+      {/* Published template warning — edit mode only */}
+      {editMode && template.status === 'published' && (
+        <div
+          role="note"
+          aria-label="Published template notice"
+          className="mt-4 rounded-2xl border border-amber-800/40 bg-amber-900/20 px-5 py-4"
+        >
+          <p className="text-sm font-medium text-amber-400">
+            This template is already used in athlete sessions.
+          </p>
+          <p className="mt-0.5 text-sm text-amber-400/70">
+            Changes you make will only affect future assignments. Existing sessions will remain unchanged.
+          </p>
+        </div>
       )}
 
       {/* fromAi success banner */}
@@ -420,6 +462,8 @@ export default function TemplateDetailPage() {
                     accentColor={getAccentColor(idx)}
                     onDeleted={handleBlockDeleted}
                     onItemAdded={handleBlockItemAdded}
+                    onSaving={markSaving}
+                    onSaved={markSaved}
                   />
                 ))}
               </SortableContext>

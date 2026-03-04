@@ -281,9 +281,11 @@ export interface BlockEditorProps {
   accentColor?: string
   onDeleted: (blockId: string) => void
   onItemAdded: (blockId: string, item: BlockItem) => void
+  onSaving?: () => void
+  onSaved?: () => void
 }
 
-export function BlockEditor({ block, accentColor = '#facc15', onDeleted, onItemAdded }: BlockEditorProps) {
+export function BlockEditor({ block, accentColor = '#facc15', onDeleted, onItemAdded, onSaving, onSaved }: BlockEditorProps) {
   const [items, setItems] = useState<BlockItem[]>(block.items)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -298,26 +300,32 @@ export function BlockEditor({ block, accentColor = '#facc15', onDeleted, onItemA
       return
     }
     if (value === block.name) return
+    onSaving?.()
     try {
       await request(`/v1/blocks/${block.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ name: value }),
       })
+      onSaved?.()
     } catch {
       if (nameRef.current) nameRef.current.value = block.name
+      onSaved?.()
     }
   }
 
   async function handleNotesBlur() {
     const value = notesRef.current?.value ?? ''
     if (value === (block.notes ?? '')) return
+    onSaving?.()
     try {
       await request(`/v1/blocks/${block.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ notes: value || null }),
       })
+      onSaved?.()
     } catch {
       if (notesRef.current) notesRef.current.value = block.notes ?? ''
+      onSaved?.()
     }
   }
 

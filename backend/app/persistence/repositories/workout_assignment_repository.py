@@ -2,7 +2,7 @@
 import uuid
 from abc import ABC, abstractmethod
 from datetime import date
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
@@ -19,6 +19,7 @@ class AbstractWorkoutAssignmentRepository(ABC):
         target_type: AssignmentTargetType,
         target_athlete_id: Optional[uuid.UUID],
         scheduled_for: Optional[date],
+        template_snapshot: Optional[dict[str, Any]] = None,
     ) -> WorkoutAssignment:
         """Persist a new WorkoutAssignment (flush only) and return the instance."""
         ...
@@ -36,6 +37,7 @@ class SqlAlchemyWorkoutAssignmentRepository(AbstractWorkoutAssignmentRepository)
         target_type: AssignmentTargetType,
         target_athlete_id: Optional[uuid.UUID],
         scheduled_for: Optional[date],
+        template_snapshot: Optional[dict[str, Any]] = None,
     ) -> WorkoutAssignment:
         assignment = WorkoutAssignment(
             id=uuid.uuid4(),
@@ -44,6 +46,7 @@ class SqlAlchemyWorkoutAssignmentRepository(AbstractWorkoutAssignmentRepository)
             target_type=target_type,
             target_athlete_id=target_athlete_id,
             scheduled_for=scheduled_for,
+            template_snapshot=template_snapshot,
         )
         self._db.add(assignment)
         self._db.flush()  # populate .id without committing the transaction

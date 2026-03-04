@@ -2,10 +2,10 @@
 import enum
 import uuid
 from datetime import date
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy import CheckConstraint, Date, ForeignKey, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
@@ -55,6 +55,12 @@ class WorkoutAssignment(Base, TimestampMixin):
         index=True,
     )
     scheduled_for: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+
+    # JSONB snapshot of the template structure at assignment time.
+    # NULL for legacy assignments created before the snapshot feature.
+    template_snapshot: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=True,
+    )
 
     sessions: Mapped[list["WorkoutSession"]] = relationship(
         "WorkoutSession",
