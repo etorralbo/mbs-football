@@ -276,6 +276,20 @@ export default function TemplateDetailPage() {
     })
   }
 
+  function handleBlockItemUpdated(blockId: string, updatedItem: BlockItem) {
+    setTemplate((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        blocks: prev.blocks.map((b) =>
+          b.id === blockId
+            ? { ...b, items: b.items.map((i) => (i.id === updatedItem.id ? updatedItem : i)) }
+            : b,
+        ),
+      }
+    })
+  }
+
   function handleBlockCreated(block: WorkoutBlock) {
     setTemplate((prev) => prev ? { ...prev, blocks: [...prev.blocks, block] } : prev)
     setShowAddBlock(false)
@@ -496,6 +510,7 @@ export default function TemplateDetailPage() {
                       accentColor={getAccentColor(idx)}
                       onDeleted={handleBlockDeleted}
                       onItemAdded={handleBlockItemAdded}
+                      onItemUpdated={handleBlockItemUpdated}
                       onSaving={markSaving}
                       onSaved={markSaved}
                     />

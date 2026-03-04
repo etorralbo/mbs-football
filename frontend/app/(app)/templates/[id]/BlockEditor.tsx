@@ -24,9 +24,10 @@ function withId(s: SetPrescription): SetWithId {
 interface SetTableProps {
   item: BlockItem
   onDeleted: (itemId: string) => void
+  onItemUpdated: (item: BlockItem) => void
 }
 
-function SetTable({ item, onDeleted }: SetTableProps) {
+function SetTable({ item, onDeleted, onItemUpdated }: SetTableProps) {
   const [sets, setSetsState] = useState<SetWithId[]>(() => item.sets.map(withId))
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -75,6 +76,7 @@ function SetTable({ item, onDeleted }: SetTableProps) {
           _cid: cidByOrder.get(s.order) ?? crypto.randomUUID(),
         })),
       )
+      onItemUpdated(result)
     } catch (err) {
       if (ac.signal.aborted) return
       if (err instanceof NotFoundError) {
@@ -281,11 +283,12 @@ export interface BlockEditorProps {
   accentColor?: string
   onDeleted: (blockId: string) => void
   onItemAdded: (blockId: string, item: BlockItem) => void
+  onItemUpdated: (blockId: string, item: BlockItem) => void
   onSaving?: () => void
   onSaved?: () => void
 }
 
-export function BlockEditor({ block, accentColor = '#facc15', onDeleted, onItemAdded, onSaving, onSaved }: BlockEditorProps) {
+export function BlockEditor({ block, accentColor = '#facc15', onDeleted, onItemAdded, onItemUpdated, onSaving, onSaved }: BlockEditorProps) {
   const [items, setItems] = useState<BlockItem[]>(block.items)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -405,6 +408,7 @@ export function BlockEditor({ block, accentColor = '#facc15', onDeleted, onItemA
                   key={item.id}
                   item={item}
                   onDeleted={handleItemDeleted}
+                  onItemUpdated={(updated) => onItemUpdated(block.id, updated)}
                 />
               ))}
             </div>
