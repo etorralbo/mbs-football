@@ -40,6 +40,12 @@ const BLOCK_NAME_OPTIONS = [
   'Recovery',
 ]
 
+// Titles that should trigger autofocus + select when entering edit mode
+function isDefaultTitle(title: string): boolean {
+  const normalized = title.trim().toLowerCase()
+  return !normalized || normalized === 'template' || normalized === 'untitled'
+}
+
 // Accent colors cycled per block index
 const BLOCK_ACCENT_COLORS = ['#facc15', '#ef4444', '#22c55e', '#3b82f6']
 
@@ -147,9 +153,11 @@ export default function TemplateDetailPage() {
   const [editMode, setEditMode] = useState(false)
   const [showAddBlock, setShowAddBlock] = useState(false)
   const [titleValue, setTitleValue] = useState('')
+  const [titleHintVisible, setTitleHintVisible] = useState(true)
   const [publishing, setPublishing] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const titleInputRef = useRef<HTMLInputElement>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const savingCountRef = useRef(0)
 
@@ -189,6 +197,17 @@ export default function TemplateDetailPage() {
     if (!showFromAiBanner) return
     router.replace(pathname)
   }, [showFromAiBanner, router, pathname])
+
+  // Reset hint + conditional autofocus when entering edit mode
+  useEffect(() => {
+    if (!editMode) return
+    setTitleHintVisible(true)
+    if (isDefaultTitle(titleValue) && titleInputRef.current) {
+      titleInputRef.current.focus()
+      titleInputRef.current.select()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editMode])
 
   async function handleTitleBlur() {
     const value = titleValue.trim()
@@ -322,20 +341,37 @@ export default function TemplateDetailPage() {
         {/* Title area */}
         <div className="mt-3 flex items-end justify-between">
           <div className="flex-1 space-y-1">
-            <div className="flex items-center gap-3">
+            <div className={`flex items-center gap-2${editMode ? ' group' : ''}`}>
               {editMode ? (
-                <input
-                  type="text"
-                  value={titleValue}
-                  onChange={(e) => setTitleValue(e.target.value)}
-                  onBlur={handleTitleBlur}
-                  maxLength={255}
-                  className="flex-1 border-b border-transparent bg-transparent p-0 text-3xl font-bold leading-tight text-white outline-none focus:border-[#c8f135]"
-                />
+                <>
+                  <input
+                    ref={titleInputRef}
+                    type="text"
+                    value={titleValue}
+                    onChange={(e) => { setTitleValue(e.target.value); setTitleHintVisible(false) }}
+                    onFocus={() => setTitleHintVisible(false)}
+                    onBlur={handleTitleBlur}
+                    maxLength={255}
+                    className="flex-1 cursor-text border-b border-transparent bg-transparent p-0 text-3xl font-bold leading-tight text-white outline-none transition-colors group-hover:border-slate-600 focus:border-[#c8f135]"
+                  />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 shrink-0 text-slate-500 opacity-0 transition-opacity group-hover:opacity-100"
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </>
               ) : (
                 <h1 className="text-3xl font-bold leading-tight text-white">{template.title}</h1>
               )}
             </div>
+
+            {/* Title hint — disappears on interaction */}
+            {editMode && titleHintVisible && (
+              <p className="text-xs text-slate-500">Click the title to rename</p>
+            )}
 
             {/* Auto-save indicator (visible in edit mode) */}
             {editMode && saveStatus === 'saving' && (
