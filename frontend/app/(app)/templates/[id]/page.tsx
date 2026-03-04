@@ -191,24 +191,24 @@ export default function TemplateDetailPage() {
     }
   }
 
-  async function handlePublish() {
-    if (!template || template.status === 'published') return
+  async function handleToggleStatus() {
+    if (!template) return
+    const newStatus = template.status === 'draft' ? 'published' : 'draft'
+    const previousStatus = template.status
     setPublishError(null)
-    // Optimistic update
-    setTemplate((prev) => prev ? { ...prev, status: 'published' } : prev)
+    setTemplate((prev) => prev ? { ...prev, status: newStatus } : prev)
     setPublishing(true)
     try {
       await request(`/v1/workout-templates/${id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ status: 'published' }),
+        body: JSON.stringify({ status: newStatus }),
       })
     } catch (err) {
-      // Revert on error
-      setTemplate((prev) => prev ? { ...prev, status: 'draft' } : prev)
+      setTemplate((prev) => prev ? { ...prev, status: previousStatus } : prev)
       if (err instanceof ValidationError && typeof err.detail === 'string') {
         setPublishError(err.detail)
       } else {
-        setPublishError('Could not publish template. Please try again.')
+        setPublishError(`Could not ${newStatus === 'published' ? 'publish' : 'unpublish'} template. Please try again.`)
       }
     } finally {
       setPublishing(false)
@@ -301,13 +301,6 @@ export default function TemplateDetailPage() {
               <h1 className="text-3xl font-bold text-white">{template.title}</h1>
             )}
 
-            {/* Status badge */}
-            {template.status === 'draft' && (
-              <span className="shrink-0 rounded-full bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-400">
-                Draft
-              </span>
-            )}
-
             {savingTitle && <span className="text-xs text-slate-400">Saving…</span>}
           </div>
 
@@ -317,16 +310,20 @@ export default function TemplateDetailPage() {
         </div>
 
         <div className="ml-4 flex shrink-0 items-center gap-3">
-          {/* Publish button (only when draft) */}
-          {template.status === 'draft' && (
-            <button
-              onClick={handlePublish}
-              disabled={publishing}
-              className="rounded-lg bg-[#c8f135] px-4 py-2 text-sm font-bold text-[#0a0d14] transition-colors hover:bg-[#d4f755] disabled:opacity-50"
-            >
-              {publishing ? 'Publishing…' : 'Publish'}
-            </button>
-          )}
+          {/* Status toggle */}
+          <button
+            onClick={handleToggleStatus}
+            disabled={publishing}
+            className={`rounded-lg px-4 py-2 text-sm font-bold transition-colors disabled:opacity-50 ${
+              template.status === 'draft'
+                ? 'bg-[#c8f135] text-[#0a0d14] hover:bg-[#d4f755]'
+                : 'border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            {publishing
+              ? (template.status === 'published' ? 'Publishing…' : 'Unpublishing…')
+              : (template.status === 'draft' ? 'Publish' : 'Convert to draft')}
+          </button>
 
           <button
             onClick={() => { setEditMode((v) => !v); setShowAddBlock(false) }}
