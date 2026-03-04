@@ -88,7 +88,7 @@ export default function TeamPage() {
   return (
     <>
       <PageHeader
-        title="Team"
+        title="Teams"
         actions={isCoach ? (
           <CreateButton href="/create-team">New team</CreateButton>
         ) : undefined}

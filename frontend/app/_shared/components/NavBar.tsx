@@ -21,7 +21,7 @@ export function NavBar() {
   }
 
   return (
-    <aside className="flex w-64 flex-shrink-0 flex-col border-r border-slate-800 bg-[#0b1117]">
+    <aside data-testid="app-navbar" className="flex w-64 flex-shrink-0 flex-col border-r border-slate-800 bg-[#0b1117]">
       {/* Branding */}
       <div className="flex items-center gap-3 p-6">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#c8f135] text-black">
@@ -69,7 +69,7 @@ export function NavBar() {
         {isCoach && (
           <SidebarLink href="/team" active={isActive('/team')}>
             <TeamIcon />
-            Team
+            Teams
           </SidebarLink>
         )}
       </nav>
