@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, waitFor, cleanup } from '@testing-library/react'
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import { UnauthorizedError } from '@/app/_shared/api/httpClient'
 import { OnboardingHub } from './OnboardingForm'
@@ -7,10 +7,12 @@ import { OnboardingHub } from './OnboardingForm'
 // Module mocks
 // ---------------------------------------------------------------------------
 
-const { mockRequest, mockPush, mockReplace } = vi.hoisted(() => ({
+const TOKEN_MAX_AGE_MS = 30 * 60 * 1000
+
+const { mockRequest, mockReplace, mockGetUser } = vi.hoisted(() => ({
   mockRequest: vi.fn(),
-  mockPush: vi.fn(),
   mockReplace: vi.fn(),
+  mockGetUser: vi.fn(),
 }))
 
 vi.mock('@/app/_shared/api/httpClient', async (importOriginal) => {
@@ -18,8 +20,16 @@ vi.mock('@/app/_shared/api/httpClient', async (importOriginal) => {
   return { ...actual, request: mockRequest }
 })
 
+vi.mock('@/app/_shared/auth/supabaseClient', () => ({
+  supabase: {
+    auth: {
+      getUser: mockGetUser,
+    },
+  },
+}))
+
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush, replace: mockReplace }),
+  useRouter: () => ({ replace: mockReplace }),
 }))
 
 // ---------------------------------------------------------------------------
@@ -33,79 +43,171 @@ const WITH_MEMBERSHIP = {
   active_team_id: 't1',
 }
 
-afterEach(() => {
-  cleanup()
+const USER = {
+  data: {
+    user: {
+      user_metadata: { name: 'Alice' },
+      email: 'alice@example.com',
+    },
+  },
+}
+
+function setToken(token = 'invite-token-abc', ageMs = 0) {
+  localStorage.setItem('pending_invite_token', token)
+  localStorage.setItem('pending_invite_token_at', String(Date.now() - ageMs))
+}
+
+// ---------------------------------------------------------------------------
+// Setup / teardown
+// ---------------------------------------------------------------------------
+
+beforeEach(() => {
+  localStorage.clear()
+  sessionStorage.clear()
   mockRequest.mockReset()
-  mockPush.mockReset()
   mockReplace.mockReset()
+  mockGetUser.mockReset()
+  mockGetUser.mockResolvedValue(USER)
 })
+
+afterEach(() => cleanup())
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 describe('OnboardingHub', () => {
-  describe('when user already has a membership', () => {
-    it('redirects to /sessions without rendering CTAs', async () => {
-      mockRequest.mockResolvedValue(WITH_MEMBERSHIP)
+  it('shows loading UI while resolving', () => {
+    mockRequest.mockReturnValue(new Promise(() => {})) // never resolves
+    render(<OnboardingHub />)
+    expect(screen.getByText(/setting up your account/i)).toBeInTheDocument()
+  })
+
+  it('redirects to /sessions when user already has a membership', async () => {
+    mockRequest.mockResolvedValue(WITH_MEMBERSHIP)
+    render(<OnboardingHub />)
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/sessions')
+    })
+  })
+
+  it('redirects to /login on UnauthorizedError', async () => {
+    mockRequest.mockRejectedValue(new UnauthorizedError())
+    render(<OnboardingHub />)
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/login')
+    })
+  })
+
+  describe('no memberships, valid token', () => {
+    beforeEach(() => {
+      mockRequest
+        .mockResolvedValueOnce(NO_MEMBERSHIPS)                          // GET /v1/me
+        .mockResolvedValueOnce({                                        // POST accept
+          status: 'joined',
+          team_id: 'team-1',
+          team_name: 'FC Barcelona',
+        })
+      setToken()
+    })
+
+    it('accepts invite and redirects to /sessions?welcome=1', async () => {
+      render(<OnboardingHub />)
+
+      await waitFor(() => {
+        expect(mockReplace).toHaveBeenCalledWith('/sessions?welcome=1')
+      })
+      expect(sessionStorage.getItem('welcome_team_name')).toBe('FC Barcelona')
+      expect(localStorage.getItem('pending_invite_token')).toBeNull()
+    })
+
+    it('passes display_name from user metadata', async () => {
+      render(<OnboardingHub />)
+
+      await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(2))
+
+      const [url, opts] = mockRequest.mock.calls[1] as [string, RequestInit & { body: string }]
+      expect(url).toContain('invite-token-abc')
+      expect(JSON.parse(opts.body)).toMatchObject({ display_name: 'Alice' })
+    })
+  })
+
+  describe('no memberships, valid token, accept fails', () => {
+    it('clears token and redirects to /create-team on 404', async () => {
+      const { NotFoundError } = await import('@/app/_shared/api/httpClient')
+      setToken()
+      mockRequest
+        .mockResolvedValueOnce(NO_MEMBERSHIPS)
+        .mockRejectedValueOnce(new NotFoundError('not found'))
+
+      render(<OnboardingHub />)
+
+      await waitFor(() => {
+        expect(mockReplace).toHaveBeenCalledWith('/create-team')
+      })
+      expect(localStorage.getItem('pending_invite_token')).toBeNull()
+    })
+
+    it('redirects to /sessions on 409 (invite already used)', async () => {
+      const { ConflictError } = await import('@/app/_shared/api/httpClient')
+      setToken()
+      mockRequest
+        .mockResolvedValueOnce(NO_MEMBERSHIPS)
+        .mockRejectedValueOnce(new ConflictError('conflict'))
+
       render(<OnboardingHub />)
 
       await waitFor(() => {
         expect(mockReplace).toHaveBeenCalledWith('/sessions')
       })
-      expect(screen.queryByText(/coach/i)).not.toBeInTheDocument()
+      expect(localStorage.getItem('pending_invite_token')).toBeNull()
     })
   })
 
-  describe('when user has no membership', () => {
-    beforeEach(() => {
-      mockRequest.mockResolvedValue(NO_MEMBERSHIPS)
-    })
+  it('redirects to /create-team when token has no timestamp (stale)', async () => {
+    localStorage.setItem('pending_invite_token', 'stale-token')
+    // no pending_invite_token_at
+    mockRequest.mockResolvedValue(NO_MEMBERSHIPS)
 
-    it('shows the Coach CTA', async () => {
-      render(<OnboardingHub />)
-      await waitFor(() => {
-        expect(screen.getByText(/i'm a coach/i)).toBeInTheDocument()
-      })
-    })
+    render(<OnboardingHub />)
 
-    it('shows the Athlete CTA', async () => {
-      render(<OnboardingHub />)
-      await waitFor(() => {
-        expect(screen.getByText(/i'm an athlete/i)).toBeInTheDocument()
-      })
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/create-team')
     })
+    expect(localStorage.getItem('pending_invite_token')).toBeNull()
+  })
 
-    it('navigates to /create-team when Coach CTA is clicked', async () => {
-      render(<OnboardingHub />)
-      await waitFor(() => screen.getByText(/i'm a coach/i))
-      fireEvent.click(screen.getByText(/i'm a coach/i).closest('button')!)
-      expect(mockPush).toHaveBeenCalledWith('/create-team')
+  it('redirects to /create-team when token is expired', async () => {
+    setToken('old-token', TOKEN_MAX_AGE_MS + 1)
+    mockRequest.mockResolvedValue(NO_MEMBERSHIPS)
+
+    render(<OnboardingHub />)
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/create-team')
     })
+    expect(localStorage.getItem('pending_invite_token')).toBeNull()
+  })
 
-    it('navigates to /join when Athlete CTA is clicked', async () => {
-      render(<OnboardingHub />)
-      await waitFor(() => screen.getByText(/i'm an athlete/i))
-      fireEvent.click(screen.getByText(/i'm an athlete/i).closest('button')!)
-      expect(mockPush).toHaveBeenCalledWith('/join')
+  it('redirects to /create-team when no token is present', async () => {
+    mockRequest.mockResolvedValue(NO_MEMBERSHIPS)
+
+    render(<OnboardingHub />)
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/create-team')
     })
   })
 
-  describe('error handling', () => {
-    it('redirects to /login on UnauthorizedError', async () => {
-      mockRequest.mockRejectedValue(new UnauthorizedError())
-      render(<OnboardingHub />)
-      await waitFor(() => {
-        expect(mockReplace).toHaveBeenCalledWith('/login')
-      })
-    })
+  it('unexpected error on /v1/me redirects to /create-team', async () => {
+    mockRequest.mockRejectedValue(new Error('network error'))
 
-    it('shows CTAs even when /v1/me returns an unexpected error', async () => {
-      mockRequest.mockRejectedValue(new Error('network error'))
-      render(<OnboardingHub />)
-      await waitFor(() => {
-        expect(screen.getByText(/i'm a coach/i)).toBeInTheDocument()
-      })
+    render(<OnboardingHub />)
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/create-team')
     })
   })
 })
