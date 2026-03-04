@@ -111,18 +111,18 @@ describe('TemplatesPage — New Template form', () => {
     return render(<TemplatesPage />)
   }
 
-  it('shows "+ New Template" button for COACH', async () => {
+  it('shows "New Template" button for COACH', async () => {
     renderAsCoach()
     await screen.findByText(/workout templates/i)
-    // EmptyState also renders a "+ New Template" button — target the header one (first)
-    expect(screen.getAllByRole('button', { name: /\+ new template/i })[0]).toBeInTheDocument()
+    // EmptyState also renders a "New Template" button — target the header one (first)
+    expect(screen.getAllByRole('button', { name: /new template/i })[0]).toBeInTheDocument()
   })
 
-  it('toggles inline form when "+ New Template" is clicked', async () => {
+  it('toggles inline form when "New Template" is clicked', async () => {
     renderAsCoach()
     await screen.findByText(/workout templates/i)
 
-    fireEvent.click(screen.getAllByRole('button', { name: /\+ new template/i })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: /new template/i })[0])
 
     expect(screen.getByLabelText(/template title/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^create$/i })).toBeInTheDocument()
@@ -132,7 +132,7 @@ describe('TemplatesPage — New Template form', () => {
     renderAsCoach()
     await screen.findByText(/workout templates/i)
 
-    fireEvent.click(screen.getAllByRole('button', { name: /\+ new template/i })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: /new template/i })[0])
     const input = screen.getByLabelText(/template title/i)
     fireEvent.change(input, { target: { value: 'AB' } })
     fireEvent.submit(input.closest('form')!)
@@ -155,7 +155,7 @@ describe('TemplatesPage — New Template form', () => {
     render(<TemplatesPage />)
 
     await screen.findByText(/workout templates/i)
-    fireEvent.click(screen.getAllByRole('button', { name: /\+ new template/i })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: /new template/i })[0])
 
     const input = screen.getByLabelText(/template title/i)
     fireEvent.change(input, { target: { value: 'Leg Day' } })

@@ -11,9 +11,9 @@ import type { AiDraftResponse, SaveFromAiRequest } from '@/app/_shared/api/types
 // Helpers
 // ---------------------------------------------------------------------------
 
-function toSavePayload(draft: AiDraftResponse): SaveFromAiRequest {
+function toSavePayload(draft: AiDraftResponse, title: string): SaveFromAiRequest {
   return {
-    title: draft.title,
+    title,
     blocks: draft.blocks.map((block) => ({
       name: block.name,
       notes: block.notes || null,
@@ -30,6 +30,7 @@ function toSavePayload(draft: AiDraftResponse): SaveFromAiRequest {
 // ---------------------------------------------------------------------------
 
 export function AiDraftPanel() {
+  const [name, setName] = useState('')
   const [prompt, setPrompt] = useState('')
   const [language, setLanguage] = useState('en')
   const [draft, setDraft] = useState<AiDraftResponse | null>(null)
@@ -78,7 +79,7 @@ export function AiDraftPanel() {
     try {
       const result = await request<{ id: string }>('/v1/workout-templates/from-ai', {
         method: 'POST',
-        body: JSON.stringify(toSavePayload(draft)),
+        body: JSON.stringify(toSavePayload(draft, name.trim())),
       })
       router.push(`/templates/${result.id}?fromAi=1`)
     } catch (err) {
@@ -100,6 +101,23 @@ export function AiDraftPanel() {
       </p>
 
       <form onSubmit={handleGenerate} className="mt-4 space-y-4">
+        <div>
+          <label htmlFor="ai-name" className="block text-sm font-medium text-slate-300">
+            Template name
+          </label>
+          <input
+            id="ai-name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            minLength={3}
+            maxLength={255}
+            className="mt-1.5 w-full rounded-md border border-white/10 bg-[#0d1420] px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:border-[#4f9cf9] focus:outline-none"
+            placeholder="e.g. Power Session A"
+          />
+        </div>
+
         <div>
           <label htmlFor="ai-prompt" className="block text-sm font-medium text-slate-300">
             Describe the workout
@@ -136,7 +154,7 @@ export function AiDraftPanel() {
           </p>
         )}
 
-        <Button type="submit" disabled={!prompt.trim()} loading={draftLoading}>
+        <Button type="submit" disabled={!prompt.trim() || name.trim().length < 3} loading={draftLoading}>
           {draftLoading ? 'Generating…' : 'Generate draft'}
         </Button>
       </form>

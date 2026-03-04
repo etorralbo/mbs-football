@@ -249,7 +249,7 @@ export default function TemplatesPage() {
                 setShowAiPanel(false)
               }}
             >
-              {showNewForm ? 'Cancel' : '+ New Template'}
+              {showNewForm ? 'Cancel' : 'New Template'}
             </Button>
           </div>
         )}
@@ -264,6 +264,9 @@ export default function TemplatesPage() {
       )}
 
       {showAiPanel && <AiDraftPanel />}
+
+      {/* Spacer between forms and grid */}
+      {(showNewForm || showAiPanel) && <div className="mt-8" />}
 
       {/* Loading */}
       {loading && (
@@ -297,7 +300,7 @@ export default function TemplatesPage() {
           <EmptyState
             title="No templates yet"
             description="Create your first template and assign it to your team."
-            primaryAction={{ label: '+ New Template', onClick: () => setShowNewForm(true) }}
+            primaryAction={{ label: 'New Template', onClick: () => setShowNewForm(true) }}
           />
         )
       )}

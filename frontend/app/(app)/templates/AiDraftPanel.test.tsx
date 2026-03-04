@@ -54,7 +54,10 @@ const MOCK_DRAFT: AiDraftResponse = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function fillPromptAndGenerate(promptText = 'explosive power session') {
+function fillPromptAndGenerate(promptText = 'explosive power session', nameText = 'Power Session A') {
+  fireEvent.change(screen.getByLabelText(/template name/i), {
+    target: { value: nameText },
+  })
   fireEvent.change(screen.getByRole('textbox', { name: /describe the workout/i }), {
     target: { value: promptText },
   })
@@ -183,7 +186,7 @@ describe('AiDraftPanel — persist happy path', () => {
     )
     expect(saveCall).toBeDefined()
     const payload = JSON.parse((saveCall![1] as RequestInit).body as string)
-    expect(payload.title).toBe('Power Training Session')
+    expect(payload.title).toBe('Power Session A')
     expect(payload.blocks).toHaveLength(6)
   })
 })
