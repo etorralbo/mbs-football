@@ -119,10 +119,20 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
     }
   }
 
-  const isTeamEmpty = athletes.length === 0
+  const teamCount = athletes.length
+  const isTeamEmpty = teamCount === 0
   const canSubmit =
     !loading &&
     (mode === 'team' ? !isTeamEmpty : selectedCount > 0)
+
+  const targetCount = mode === 'team' ? teamCount : selectedCount
+
+  function getButtonLabel(): string {
+    if (loading) return 'Assigning…'
+    if (mode === 'athletes' && selectedCount === 0) return 'Select athletes to assign'
+    if (targetCount === 0) return 'Assign workout'
+    return `Assign workout to ${targetCount} athlete${targetCount !== 1 ? 's' : ''}`
+  }
 
   return (
     <div className="space-y-6">
@@ -252,13 +262,20 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
         </div>
       )}
 
-      <button
-        onClick={handleAssign}
-        disabled={!canSubmit}
-        className="w-full rounded-lg bg-[#c8f135] px-6 py-2.5 text-sm font-bold text-[#0a0d14] transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {loading ? 'Assigning…' : 'Assign'}
-      </button>
+      <div className="space-y-2">
+        <button
+          onClick={handleAssign}
+          disabled={!canSubmit}
+          className="w-full rounded-lg bg-[#c8f135] px-6 py-2.5 text-sm font-bold text-[#0a0d14] transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {getButtonLabel()}
+        </button>
+        {canSubmit && (
+          <p className="text-center text-xs text-slate-500">
+            {targetCount} workout session{targetCount !== 1 ? 's' : ''} will be created
+          </p>
+        )}
+      </div>
     </div>
   )
 }

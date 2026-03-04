@@ -30,6 +30,11 @@ const ATHLETES = [
 
 const ASSIGNMENT_OK = { assignment_id: 'asgn-1', sessions_created: 3 }
 
+// Helper: find the submit button (its label changes dynamically)
+function getSubmitButton() {
+  return screen.getByRole('button', { name: /assign workout|select athletes to assign/i })
+}
+
 // ---------------------------------------------------------------------------
 // Setup / teardown
 // ---------------------------------------------------------------------------
@@ -64,6 +69,102 @@ describe('AssignPanel — mode selection', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Tests — dynamic button labels
+// ---------------------------------------------------------------------------
+
+describe('AssignPanel — dynamic button labels', () => {
+  it('team mode: shows "Assign workout to N athletes" when team has athletes', async () => {
+    mockRequest.mockResolvedValue(ATHLETES)
+    render(<AssignPanel templateId="tpl-1" />)
+
+    await waitFor(() => {
+      expect(getSubmitButton()).toHaveTextContent('Assign workout to 2 athletes')
+    })
+    expect(getSubmitButton()).not.toBeDisabled()
+  })
+
+  it('team mode: disabled with generic label when team is empty', () => {
+    mockRequest.mockResolvedValue([])
+    render(<AssignPanel templateId="tpl-1" />)
+
+    expect(getSubmitButton()).toBeDisabled()
+    expect(getSubmitButton()).toHaveTextContent('Assign workout')
+  })
+
+  it('team mode: singular label for 1 athlete', async () => {
+    mockRequest.mockResolvedValue([{ athlete_id: 'a-1', display_name: 'Solo' }])
+    render(<AssignPanel templateId="tpl-1" />)
+
+    await waitFor(() => {
+      expect(getSubmitButton()).toHaveTextContent('Assign workout to 1 athlete')
+    })
+    // Should NOT say "athletes" (plural)
+    expect(getSubmitButton().textContent).not.toMatch(/athletes/)
+  })
+
+  it('athletes mode: shows "Select athletes to assign" when none selected', async () => {
+    mockRequest.mockResolvedValue(ATHLETES)
+    render(<AssignPanel templateId="tpl-1" />)
+
+    fireEvent.click(screen.getByRole('button', { name: /select athletes/i }))
+    await waitFor(() => expect(screen.getByLabelText('Alice')).toBeInTheDocument())
+
+    expect(getSubmitButton()).toHaveTextContent('Select athletes to assign')
+    expect(getSubmitButton()).toBeDisabled()
+  })
+
+  it('athletes mode: shows count when athletes are selected', async () => {
+    mockRequest.mockResolvedValue(ATHLETES)
+    render(<AssignPanel templateId="tpl-1" />)
+
+    fireEvent.click(screen.getByRole('button', { name: /select athletes/i }))
+    await waitFor(() => expect(screen.getByLabelText('Alice')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByLabelText('Alice'))
+    expect(getSubmitButton()).toHaveTextContent('Assign workout to 1 athlete')
+    expect(getSubmitButton().textContent).not.toMatch(/athletes/)
+
+    fireEvent.click(screen.getByLabelText('Bob'))
+    expect(getSubmitButton()).toHaveTextContent('Assign workout to 2 athletes')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Tests — helper text
+// ---------------------------------------------------------------------------
+
+describe('AssignPanel — helper text', () => {
+  it('shows session count helper when team mode is submittable', async () => {
+    mockRequest.mockResolvedValue(ATHLETES)
+    render(<AssignPanel templateId="tpl-1" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('2 workout sessions will be created')).toBeInTheDocument()
+    })
+  })
+
+  it('does not show helper when team is empty', () => {
+    mockRequest.mockResolvedValue([])
+    render(<AssignPanel templateId="tpl-1" />)
+
+    expect(screen.queryByText(/workout sessions will be created/i)).toBeNull()
+  })
+
+  it('shows helper for selected athletes', async () => {
+    mockRequest.mockResolvedValue(ATHLETES)
+    render(<AssignPanel templateId="tpl-1" />)
+
+    fireEvent.click(screen.getByRole('button', { name: /select athletes/i }))
+    await waitFor(() => expect(screen.getByLabelText('Alice')).toBeInTheDocument())
+
+    expect(screen.queryByText(/workout sessions will be created/i)).toBeNull()
+
+    fireEvent.click(screen.getByLabelText('Alice'))
+    expect(screen.getByText('1 workout session will be created')).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Tests — selection controls
 // ---------------------------------------------------------------------------
 
@@ -75,11 +176,11 @@ describe('AssignPanel — selection controls', () => {
     fireEvent.click(screen.getByRole('button', { name: /select athletes/i }))
     await waitFor(() => expect(screen.getByLabelText('Alice')).toBeInTheDocument())
 
-    expect(screen.getByRole('button', { name: /^assign$/i })).toBeDisabled()
+    expect(getSubmitButton()).toBeDisabled()
 
     fireEvent.click(screen.getByLabelText('Alice'))
 
-    expect(screen.getByRole('button', { name: /^assign$/i })).not.toBeDisabled()
+    expect(getSubmitButton()).not.toBeDisabled()
   })
 
   it('"Select all" checks every athlete', async () => {
@@ -124,10 +225,10 @@ describe('AssignPanel — team submit', () => {
 
     // Wait for athletes to load so the Assign button becomes enabled
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^assign$/i })).not.toBeDisabled()
+      expect(getSubmitButton()).not.toBeDisabled()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /^assign$/i }))
+    fireEvent.click(getSubmitButton())
 
     await waitFor(() => {
       expect(screen.getByRole('status')).toHaveTextContent(/whole team/i)
@@ -167,7 +268,7 @@ describe('AssignPanel — athletes submit', () => {
 
     fireEvent.click(screen.getByLabelText('Alice'))
     fireEvent.click(screen.getByLabelText('Bob'))
-    fireEvent.click(screen.getByRole('button', { name: /^assign$/i }))
+    fireEvent.click(getSubmitButton())
 
     await waitFor(() => {
       expect(screen.getByRole('status')).toHaveTextContent('2 athletes')
@@ -189,7 +290,7 @@ describe('AssignPanel — athletes submit', () => {
 
     fireEvent.click(screen.getByLabelText('Alice'))
     fireEvent.click(screen.getByLabelText('Bob'))
-    fireEvent.click(screen.getByRole('button', { name: /^assign$/i }))
+    fireEvent.click(getSubmitButton())
 
     await waitFor(() => {
       expect(screen.getByRole('status')).toHaveTextContent('(1 failed)')
@@ -207,7 +308,7 @@ describe('AssignPanel — athletes submit', () => {
     await waitFor(() => expect(screen.getByLabelText('Alice')).toBeInTheDocument())
 
     fireEvent.click(screen.getByLabelText('Alice'))
-    fireEvent.click(screen.getByRole('button', { name: /^assign$/i }))
+    fireEvent.click(getSubmitButton())
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(/all assignments failed/i)
