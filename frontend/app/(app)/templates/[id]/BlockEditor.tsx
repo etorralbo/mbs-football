@@ -1,9 +1,8 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NotFoundError, request } from '@/app/_shared/api/httpClient'
-import type { BlockItem, Exercise, SetPrescription, WorkoutBlock } from '@/app/_shared/api/types'
-import { ExercisePicker } from './ExercisePicker'
+import type { BlockItem, SetPrescription, WorkoutBlock } from '@/app/_shared/api/types'
 
 // ---------------------------------------------------------------------------
 // Local type — SetPrescription augmented with a stable client-side ID.
@@ -284,15 +283,28 @@ export interface BlockEditorProps {
   onDeleted: (blockId: string) => void
   onItemAdded: (blockId: string, item: BlockItem) => void
   onItemUpdated: (blockId: string, item: BlockItem) => void
+  onBrowseLibrary?: () => void
   onSaving?: () => void
   onSaved?: () => void
 }
 
-export function BlockEditor({ block, accentColor = '#facc15', onDeleted, onItemAdded, onItemUpdated, onSaving, onSaved }: BlockEditorProps) {
+export function BlockEditor({ block, accentColor = '#facc15', onDeleted, onItemAdded, onItemUpdated, onBrowseLibrary, onSaving, onSaved }: BlockEditorProps) {
   const [items, setItems] = useState<BlockItem[]>(block.items)
+
+  // Merge-only sync: detect new items added externally (e.g. via the page-level
+  // exercise picker drawer) without clobbering local edits or deletions.
+  // Existing items are NOT updated from parent — local state is authoritative
+  // while the editor is mounted. This avoids reverting in-flight set edits.
+  useEffect(() => {
+    setItems((prev) => {
+      const existingIds = new Set(prev.map((i) => i.id))
+      const added = block.items.filter((i) => !existingIds.has(i.id))
+      return added.length > 0 ? [...prev, ...added] : prev
+    })
+  }, [block.items])
+
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [pickerOpen, setPickerOpen] = useState(false)
   const nameRef = useRef<HTMLInputElement>(null)
   const notesRef = useRef<HTMLTextAreaElement>(null)
 
@@ -348,14 +360,8 @@ export function BlockEditor({ block, accentColor = '#facc15', onDeleted, onItemA
     setItems((prev) => prev.filter((i) => i.id !== itemId))
   }
 
-  function handlePickerSelect(_exercise: Exercise, item: BlockItem) {
-    setItems((prev) => [...prev, item])
-    onItemAdded(block.id, item)
-  }
-
   return (
-    <>
-      <section
+    <section
         aria-label={`Edit block: ${block.name}`}
         className="overflow-hidden rounded-2xl border border-slate-800 bg-[#121d28] shadow-xl"
         style={{ borderLeftWidth: '4px', borderLeftColor: accentColor }}
@@ -418,7 +424,7 @@ export function BlockEditor({ block, accentColor = '#facc15', onDeleted, onItemA
 
           {/* Browse library button */}
           <button
-            onClick={() => setPickerOpen(true)}
+            onClick={onBrowseLibrary}
             className="mt-4 flex items-center gap-2 rounded-lg border border-dashed border-slate-700 px-4 py-2.5 text-sm text-slate-400 transition-colors hover:border-slate-600 hover:text-white"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -427,16 +433,6 @@ export function BlockEditor({ block, accentColor = '#facc15', onDeleted, onItemA
             Browse library
           </button>
         </div>
-      </section>
-
-      {/* ExercisePicker modal — rendered outside the block card so it's full-screen */}
-      {pickerOpen && (
-        <ExercisePicker
-          blockId={block.id}
-          onSelect={handlePickerSelect}
-          onClose={() => setPickerOpen(false)}
-        />
-      )}
-    </>
+    </section>
   )
 }
