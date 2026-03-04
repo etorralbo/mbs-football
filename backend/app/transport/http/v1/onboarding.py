@@ -7,7 +7,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import AliasChoices, BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field, field_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -39,6 +39,11 @@ class OnboardingRequest(BaseModel):
         max_length=255,
         validation_alias=AliasChoices("team_name", "name"),
     )
+
+    @field_validator("team_name")
+    @classmethod
+    def strip_team_name(cls, v: str) -> str:
+        return v.strip()
 
 
 class OnboardingResponse(BaseModel):
@@ -104,7 +109,7 @@ def onboard_user(
         if exc.orig and "uix_teams_creator_name" in str(exc.orig):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"You already have a team named '{payload.team_name}'.",
+                detail=f"You already have a team named '{payload.team_name[:100]}'.",
             )
         raise
 

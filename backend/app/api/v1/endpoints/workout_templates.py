@@ -52,7 +52,7 @@ def create_template(
         if exc.orig and "uix_templates_team_title" in str(exc.orig):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"A template named '{data.title}' already exists in this team.",
+                detail=f"A template named '{data.title[:100]}' already exists in this team.",
             )
         raise
 
@@ -136,7 +136,7 @@ def update_template(
         if exc.orig and "uix_templates_team_title" in str(exc.orig):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"A template named '{data.title}' already exists in this team.",
+                detail=f"A template named '{data.title[:100]}' already exists in this team.",
             )
         raise
     if not template:

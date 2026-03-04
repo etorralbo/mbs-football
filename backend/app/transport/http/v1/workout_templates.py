@@ -7,7 +7,7 @@ import uuid
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -46,6 +46,11 @@ class FromAiBlockIn(BaseModel):
 class FromAiTemplateIn(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
     blocks: list[FromAiBlockIn]
+
+    @field_validator("title")
+    @classmethod
+    def strip_title(cls, v: str) -> str:
+        return v.strip()
 
 
 class WorkoutTemplateCreatedOut(BaseModel):
@@ -115,7 +120,7 @@ def create_from_ai(
         if exc.orig and "uix_templates_team_title" in str(exc.orig):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"A template named '{payload.title}' already exists in this team.",
+                detail=f"A template named '{payload.title[:100]}' already exists in this team.",
             )
         raise
 

@@ -7,7 +7,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -28,6 +28,11 @@ router = APIRouter(tags=["teams"])
 class CreateTeamRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     display_name: str = Field(..., min_length=1, max_length=255)
+
+    @field_validator("name")
+    @classmethod
+    def strip_name(cls, v: str) -> str:
+        return v.strip()
 
 
 class CreateTeamResponse(BaseModel):
@@ -60,7 +65,7 @@ def create_team(
         if exc.orig and "uix_teams_creator_name" in str(exc.orig):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"You already have a team named '{payload.name}'.",
+                detail=f"You already have a team named '{payload.name[:100]}'.",
             )
         raise
 
