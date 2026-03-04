@@ -298,18 +298,6 @@ export default function TemplateDetailPage() {
     )
   }
 
-  function handleBlockItemAdded(blockId: string, item: BlockItem) {
-    setTemplate((prev) => {
-      if (!prev) return prev
-      return {
-        ...prev,
-        blocks: prev.blocks.map((b) =>
-          b.id === blockId ? { ...b, items: [...b.items, item] } : b,
-        ),
-      }
-    })
-  }
-
   function handleBlockItemUpdated(blockId: string, updatedItem: BlockItem) {
     setTemplate((prev) => {
       if (!prev) return prev
@@ -597,12 +585,13 @@ export default function TemplateDetailPage() {
       )}
 
       {/* Exercise picker drawer */}
-      <ExercisePicker
-        open={pickerState.open}
-        blockId={pickerState.open ? pickerState.blockId : null}
-        onClose={() => setPickerState({ open: false })}
-        onExercisesAdded={handleExercisesAdded}
-      />
+      {pickerState.open && (
+        <ExercisePicker
+          blockId={pickerState.blockId}
+          onClose={() => setPickerState({ open: false })}
+          onExercisesAdded={handleExercisesAdded}
+        />
+      )}
 
       {/* Blocks */}
       <div className="mt-8 space-y-8">
@@ -624,7 +613,6 @@ export default function TemplateDetailPage() {
                       block={block}
                       accentColor={getAccentColor(idx)}
                       onDeleted={handleBlockDeleted}
-                      onItemAdded={handleBlockItemAdded}
                       onItemUpdated={handleBlockItemUpdated}
                       onBrowseLibrary={() => { setAssignOpen(false); setPickerState({ open: true, blockId: block.id }) }}
                       onSaving={markSaving}

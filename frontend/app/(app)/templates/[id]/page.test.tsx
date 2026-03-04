@@ -30,12 +30,11 @@ vi.mock('./AssignPanel', () => ({
 }))
 
 vi.mock('./ExercisePicker', () => ({
-  ExercisePicker: ({ open, blockId, onClose }: { open: boolean; blockId: string | null; onClose: () => void }) =>
-    open ? (
-      <div data-testid="exercise-picker" data-block-id={blockId}>
-        <button onClick={onClose}>Close picker</button>
-      </div>
-    ) : null,
+  ExercisePicker: ({ blockId, onClose }: { blockId: string; onClose: () => void }) => (
+    <div data-testid="exercise-picker" data-block-id={blockId}>
+      <button onClick={onClose}>Close picker</button>
+    </div>
+  ),
 }))
 
 vi.mock('next/navigation', () => ({

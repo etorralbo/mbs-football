@@ -2,13 +2,13 @@
  * Tests for ExercisePicker drawer.
  *
  * The component:
- * 1. Renders as a right-side drawer when open=true, returns null when open=false
- * 2. Fetches all exercises when opened and filters client-side
+ * 1. Mounted only when drawer is open (parent handles conditional rendering)
+ * 2. Fetches all exercises on mount and filters client-side
  * 3. Multi-select: toggle exercises, then click "Add N exercises" button
  * 4. POSTs each selected exercise sequentially to /v1/blocks/{blockId}/items
  * 5. Closes on Escape key or backdrop click
  */
-import { render, screen, cleanup, waitFor, fireEvent, within } from '@testing-library/react'
+import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import type { Exercise, BlockItem } from '@/app/_shared/api/types'
 import { ExercisePicker } from './ExercisePicker'
@@ -68,7 +68,6 @@ function makeBlockItem(exerciseId: string, order: number): BlockItem {
 
 function defaultProps(overrides: Partial<Parameters<typeof ExercisePicker>[0]> = {}) {
   return {
-    open: true,
     blockId: 'blk-1',
     onClose: vi.fn(),
     onExercisesAdded: vi.fn(),
@@ -94,12 +93,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('ExercisePicker — open / close', () => {
-  it('returns null when open=false', () => {
-    const { container } = render(<ExercisePicker {...defaultProps({ open: false })} />)
-    expect(container.innerHTML).toBe('')
-  })
-
-  it('renders drawer dialog when open=true', async () => {
+  it('renders drawer dialog when mounted', async () => {
     render(<ExercisePicker {...defaultProps()} />)
     await waitFor(() => {
       expect(screen.getByRole('dialog', { name: /browse exercise library/i })).toBeInTheDocument()

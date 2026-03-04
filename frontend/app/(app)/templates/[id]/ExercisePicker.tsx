@@ -11,20 +11,19 @@ import { FILTER_CHIPS } from '@/app/(app)/exercises/useExerciseFilters'
 // Right-side drawer that lets the coach search, filter by tag, and pick
 // exercises to add to a block. Supports multi-select with a sticky footer.
 //
-// Fetches the exercise list once when opened and filters client-side
-// for instant feedback.
+// Mounted only when the drawer is open (parent controls via conditional
+// rendering). Fetches the exercise list on mount and filters client-side.
 // ---------------------------------------------------------------------------
 
 export interface ExercisePickerProps {
-  open: boolean
-  blockId: string | null
+  blockId: string
   onClose: () => void
   onExercisesAdded: (blockId: string, items: BlockItem[]) => void
 }
 
-export function ExercisePicker({ open, blockId, onClose, onExercisesAdded }: ExercisePickerProps) {
+export function ExercisePicker({ blockId, onClose, onExercisesAdded }: ExercisePickerProps) {
   const [exercises, setExercises] = useState<Exercise[]>([])
-  const [loadingList, setLoadingList] = useState(false)
+  const [loadingList, setLoadingList] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
@@ -33,40 +32,28 @@ export function ExercisePicker({ open, blockId, onClose, onExercisesAdded }: Exe
   const [addError, setAddError] = useState<string | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
-  // Fetch exercises when drawer opens; reset state
+  // Fetch exercises on mount
   useEffect(() => {
-    if (!open) return
-    setQuery('')
-    setSelectedTags([])
-    setSelectedIds(new Set())
-    setAddError(null)
-    setLoadingList(true)
-    setLoadError(null)
-
     request<Exercise[]>('/v1/exercises')
       .then(setExercises)
       .catch(() => setLoadError('Failed to load exercises.'))
       .finally(() => setLoadingList(false))
-  }, [open])
+  }, [])
 
-  // Autofocus search input when drawer opens
+  // Autofocus search input after drawer animation starts
   useEffect(() => {
-    if (open) {
-      // Small delay to allow the drawer animation to start
-      const id = setTimeout(() => searchRef.current?.focus(), 50)
-      return () => clearTimeout(id)
-    }
-  }, [open])
+    const id = setTimeout(() => searchRef.current?.focus(), 50)
+    return () => clearTimeout(id)
+  }, [])
 
   // Close on Escape
   useEffect(() => {
-    if (!open) return
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [open, onClose])
+  }, [onClose])
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) =>
@@ -97,7 +84,7 @@ export function ExercisePicker({ open, blockId, onClose, onExercisesAdded }: Exe
   const coach = filtered.filter((ex) => ex.owner_type !== 'COMPANY' && !favoriteIds.has(ex.id))
 
   async function handleAddSelected() {
-    if (!blockId || selectedIds.size === 0) return
+    if (selectedIds.size === 0) return
     setAdding(true)
     setAddError(null)
 
@@ -128,8 +115,6 @@ export function ExercisePicker({ open, blockId, onClose, onExercisesAdded }: Exe
       onClose()
     }
   }
-
-  if (!open) return null
 
   const selectionCount = selectedIds.size
 
