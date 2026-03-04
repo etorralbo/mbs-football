@@ -5,7 +5,7 @@
  * 1. Block names render from execution response
  * 2. Exercise names + prescription text render within blocks
  * 3. Editing a reps input updates its value
- * 4. "Mark as completed" is disabled when no sets are logged
+ * 4. "Mark as completed" is enabled when no sets are logged
  * 5. "Mark as completed" is enabled after a per-exercise save succeeds
  */
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
@@ -162,7 +162,7 @@ describe('SessionExecutionPage — CompletionBar gating', () => {
 
     await waitFor(() => {
       const btn = screen.getByRole('button', { name: /mark as completed/i })
-      expect(btn).toBeDisabled()
+      expect(btn).not.toBeDisabled()
     })
   })
 

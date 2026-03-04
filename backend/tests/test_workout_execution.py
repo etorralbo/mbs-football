@@ -602,17 +602,17 @@ class TestSessionDetail:
 class TestSessionComplete:
     """PATCH /{session_id}/complete — completion + COACH admin access."""
 
-    def test_complete_without_logs_returns_422(
+    def test_complete_without_logs_returns_204(
         self,
         client: TestClient,
         mock_jwt,
         athlete_a: UserProfile,
         session_a: WorkoutSession,
     ):
-        """Completing with no logged sets → 422 (server-side validation)."""
+        """Completing with no logged sets is allowed → 204."""
         mock_jwt(str(athlete_a.supabase_user_id))
         response = client.patch(_complete_url(session_a.id), headers=HEADERS)
-        assert response.status_code == 422
+        assert response.status_code == 204
 
     def test_athlete_can_complete_own_session(
         self,

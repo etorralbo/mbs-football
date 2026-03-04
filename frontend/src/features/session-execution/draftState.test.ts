@@ -194,9 +194,9 @@ describe('progressFromDraft', () => {
 // ---------------------------------------------------------------------------
 
 describe('canMarkCompleted', () => {
-  it('returns false when all sets are undone', () => {
+  it('returns true when all sets are undone', () => {
     const draft = draftFromExecution(EXECUTION_EMPTY)
-    expect(canMarkCompleted(draft)).toBe(false)
+    expect(canMarkCompleted(draft)).toBe(true)
   })
 
   it('returns true when at least one set is done', () => {

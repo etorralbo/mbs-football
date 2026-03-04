@@ -94,11 +94,14 @@ export function progressFromDraft(
   return { completedExercises, totalExercises, completedSets, totalSets }
 }
 
-/** Returns true if at least one set is marked done (CTA gate). */
-export function canMarkCompleted(draft: DraftState): boolean {
-  return Object.values(draft).some((sets) =>
-    Object.values(sets).some((s) => s.done),
-  )
+/**
+ * Completion CTA is always available for athletes.
+ *
+ * Athletes may need to mark a session complete even when they could not
+ * perform some (or all) prescribed work.
+ */
+export function canMarkCompleted(_draft: DraftState): boolean {
+  return true
 }
 
 // ---------------------------------------------------------------------------
