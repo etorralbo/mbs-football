@@ -159,7 +159,7 @@ describe('TemplateDetailPage — status badge and publish', () => {
   })
 })
 
-describe('TemplateDetailPage — block reorder', () => {
+describe('TemplateDetailPage — block reorder (drag-and-drop)', () => {
   const TEMPLATE_WITH_BLOCKS: WorkoutTemplateDetail = {
     ...MOCK_TEMPLATE,
     blocks: [
@@ -168,7 +168,7 @@ describe('TemplateDetailPage — block reorder', () => {
     ],
   }
 
-  it('shows reorder buttons in edit mode', async () => {
+  it('shows drag handles in edit mode', async () => {
     mockRequest.mockResolvedValueOnce(TEMPLATE_WITH_BLOCKS)
 
     render(<TemplateDetailPage />)
@@ -179,20 +179,17 @@ describe('TemplateDetailPage — block reorder', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit template' }))
 
-    // Each block has ↑ and ↓ buttons
-    expect(screen.getByRole('button', { name: /move warmup up/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /move warmup down/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/drag to reorder warmup/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/drag to reorder main/i)).toBeInTheDocument()
   })
 
-  it('first block ↑ is disabled, last block ↓ is disabled', async () => {
+  it('does not show drag handles in view mode', async () => {
     mockRequest.mockResolvedValueOnce(TEMPLATE_WITH_BLOCKS)
 
     render(<TemplateDetailPage />)
 
     await screen.findByText('Warmup')
-    fireEvent.click(screen.getByRole('button', { name: 'Edit template' }))
 
-    expect(screen.getByRole('button', { name: /move warmup up/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /move main down/i })).toBeDisabled()
+    expect(screen.queryByLabelText(/drag to reorder/i)).not.toBeInTheDocument()
   })
 })

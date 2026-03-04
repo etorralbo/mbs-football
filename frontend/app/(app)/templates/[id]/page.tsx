@@ -3,11 +3,26 @@
 import { useEffect, useState } from 'react'
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  sortableKeyboardCoordinates,
+  arrayMove,
+} from '@dnd-kit/sortable'
 import { request, ValidationError } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
 import { SkeletonList } from '@/app/_shared/components/Skeleton'
 import { AssignPanel } from './AssignPanel'
-import { BlockEditor } from './BlockEditor'
+import { SortableBlock } from './SortableBlock'
 import type {
   BlockItem,
   WorkoutBlock,
@@ -135,7 +150,11 @@ export default function TemplateDetailPage() {
   const [savingTitle, setSavingTitle] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
-  const [reorderingBlockId, setReorderingBlockId] = useState<string | null>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
 
   // Capture on mount so banner stays visible after the URL param is cleaned.
   const [showFromAiBanner] = useState(() => searchParams.get('fromAi') === '1')
@@ -196,18 +215,17 @@ export default function TemplateDetailPage() {
     }
   }
 
-  async function handleReorderBlock(blockId: string, direction: 'up' | 'down') {
-    if (!template) return
-    const idx = template.blocks.findIndex((b) => b.id === blockId)
-    if (idx === -1) return
-    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
-    if (swapIdx < 0 || swapIdx >= template.blocks.length) return
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id || !template) return
 
-    // Optimistic reorder
-    const newBlocks = [...template.blocks]
-    ;[newBlocks[idx], newBlocks[swapIdx]] = [newBlocks[swapIdx], newBlocks[idx]]
+    const oldIndex = template.blocks.findIndex((b) => b.id === active.id)
+    const newIndex = template.blocks.findIndex((b) => b.id === over.id)
+    if (oldIndex === -1 || newIndex === -1) return
+
+    const newBlocks = arrayMove(template.blocks, oldIndex, newIndex)
+    const previousBlocks = template.blocks
     setTemplate((prev) => prev ? { ...prev, blocks: newBlocks } : prev)
-    setReorderingBlockId(blockId)
 
     try {
       await request(`/v1/workout-templates/${id}/blocks/reorder`, {
@@ -215,12 +233,9 @@ export default function TemplateDetailPage() {
         body: JSON.stringify({ block_ids: newBlocks.map((b) => b.id) }),
       })
     } catch {
-      // Revert on error
       setTemplate((prev) =>
-        prev ? { ...prev, blocks: template.blocks } : prev,
+        prev ? { ...prev, blocks: previousBlocks } : prev,
       )
-    } finally {
-      setReorderingBlockId(null)
     }
   }
 
@@ -391,42 +406,27 @@ export default function TemplateDetailPage() {
       <div className="mt-8 space-y-8">
         {editMode ? (
           <>
-            {template.blocks.map((block, idx) => (
-              <div key={block.id} className="flex gap-2">
-                {/* Reorder buttons */}
-                <div className="flex flex-col justify-center gap-1 pt-5">
-                  <button
-                    onClick={() => handleReorderBlock(block.id, 'up')}
-                    disabled={idx === 0 || reorderingBlockId !== null}
-                    aria-label={`Move ${block.name} up`}
-                    className="rounded p-1 text-slate-600 transition-colors hover:bg-white/5 hover:text-slate-300 disabled:opacity-30"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => handleReorderBlock(block.id, 'down')}
-                    disabled={idx === template.blocks.length - 1 || reorderingBlockId !== null}
-                    aria-label={`Move ${block.name} down`}
-                    className="rounded p-1 text-slate-600 transition-colors hover:bg-white/5 hover:text-slate-300 disabled:opacity-30"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                </div>
-
-                <div className="flex-1">
-                  <BlockEditor
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={template.blocks.map((b) => b.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {template.blocks.map((block, idx) => (
+                  <SortableBlock
+                    key={block.id}
+                    id={block.id}
                     block={block}
                     accentColor={getAccentColor(idx)}
                     onDeleted={handleBlockDeleted}
                     onItemAdded={handleBlockItemAdded}
                   />
-                </div>
-              </div>
-            ))}
+                ))}
+              </SortableContext>
+            </DndContext>
 
             {showAddBlock ? (
               <AddBlockForm
