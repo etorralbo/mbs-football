@@ -22,9 +22,11 @@ function sameDay(a: Date, b: Date): boolean {
 
 interface Props {
   sessions: WorkoutSessionSummary[]
+  role?: string | null
+  onUnassign?: (session: WorkoutSessionSummary) => void
 }
 
-export function CalendarView({ sessions }: Props) {
+export function CalendarView({ sessions, role, onUnassign }: Props) {
   const today = new Date()
   const [cursor, setCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
 
@@ -113,18 +115,29 @@ export function CalendarView({ sessions }: Props) {
                   </span>
                   <div className="mt-1 space-y-0.5">
                     {daySessions.map((s) => (
-                      <Link
-                        key={s.id}
-                        href={`/sessions/${s.id}`}
-                        className={`block truncate rounded px-1 py-0.5 text-xs leading-tight ${
-                          s.completed_at
-                            ? 'bg-emerald-900/40 text-emerald-400 hover:bg-emerald-900/60'
-                            : 'bg-[#4f9cf9]/15 text-[#4f9cf9] hover:bg-[#4f9cf9]/25'
-                        }`}
-                        title={s.template_title}
-                      >
-                        {s.template_title}
-                      </Link>
+                      <div key={s.id} className="group relative flex items-center">
+                        <Link
+                          href={`/sessions/${s.id}`}
+                          className={`block min-w-0 flex-1 truncate rounded px-1 py-0.5 text-xs leading-tight ${
+                            s.completed_at
+                              ? 'bg-emerald-900/40 text-emerald-400 hover:bg-emerald-900/60'
+                              : 'bg-[#4f9cf9]/15 text-[#4f9cf9] hover:bg-[#4f9cf9]/25'
+                          }`}
+                          title={s.template_title}
+                        >
+                          {s.template_title}
+                        </Link>
+                        {role === 'COACH' && !s.completed_at && onUnassign && (
+                          <button
+                            onClick={() => onUnassign(s)}
+                            className="absolute -right-1 -top-1 hidden h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] leading-none text-white hover:bg-red-500 group-hover:flex"
+                            aria-label={`Unassign ${s.template_title}`}
+                            title="Unassign"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </>

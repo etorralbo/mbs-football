@@ -688,6 +688,38 @@ class TestSessionComplete:
         assert client.patch(url, headers=HEADERS).status_code == 204
         assert client.patch(url, headers=HEADERS).status_code == 204
 
+    def test_cannot_complete_cancelled_session(
+        self,
+        client: TestClient,
+        mock_jwt,
+        db_session: Session,
+        coach_a: UserProfile,
+        session_a: WorkoutSession,
+    ):
+        """Completing a cancelled session → 409, no partial mutation."""
+        from datetime import datetime, timezone
+
+        # Coach cancels the session
+        mock_jwt(str(coach_a.supabase_user_id))
+        cancel_resp = client.patch(
+            f"{SESSIONS_ENDPOINT}/{session_a.id}/cancel", headers=HEADERS
+        )
+        assert cancel_resp.status_code == 204
+
+        db_session.refresh(session_a)
+        original_cancelled_at = session_a.cancelled_at
+        assert original_cancelled_at is not None
+
+        # Attempt to complete → 409
+        resp = client.patch(_complete_url(session_a.id), headers=HEADERS)
+        assert resp.status_code == 409
+        assert "cancelled" in resp.json()["detail"].lower()
+
+        # No partial mutation: completed_at remains NULL, cancelled_at unchanged
+        db_session.refresh(session_a)
+        assert session_a.completed_at is None
+        assert session_a.cancelled_at == original_cancelled_at
+
 
 # ===========================================================================
 # 4) SESSION_COMPLETED product event tracking

@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { request } from '@/app/_shared/api/httpClient'
+import { request, ConflictError } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
 import { Badge } from '@/app/_shared/components/Badge'
 import { EmptyState } from '@/app/_shared/components/EmptyState'
@@ -79,6 +79,9 @@ export default function SessionsPage() {
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('calendar')
   const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(null)
+  const [confirmCancel, setConfirmCancel] = useState<WorkoutSessionSummary | null>(null)
+  const [cancelError, setCancelError] = useState<string | null>(null)
+  const [cancelling, setCancelling] = useState(false)
   const router = useRouter()
   const { role, steps, isLoading: activationLoading } = useActivationState()
   const hasTemplates = steps.find((s) => s.key === 'create_template')?.completed ?? false
@@ -104,6 +107,25 @@ export default function SessionsPage() {
       })
       .finally(() => setLoading(false))
   }, [router])
+
+  async function handleUnassign() {
+    if (!confirmCancel) return
+    setCancelError(null)
+    setCancelling(true)
+    try {
+      await request(`/v1/workout-sessions/${confirmCancel.id}/cancel`, { method: 'PATCH' })
+      setSessions((prev) => prev.filter((s) => s.id !== confirmCancel.id))
+      setConfirmCancel(null)
+    } catch (err) {
+      if (err instanceof ConflictError) {
+        setCancelError("This session can't be unassigned because it has activity or logs.")
+      } else {
+        setCancelError('Failed to unassign. Please try again.')
+      }
+    } finally {
+      setCancelling(false)
+    }
+  }
 
   return (
     <>
@@ -194,7 +216,11 @@ export default function SessionsPage() {
       )}
 
       {!loading && visibleSessions.length > 0 && viewMode === 'calendar' && (
-        <CalendarView sessions={visibleSessions} />
+        <CalendarView
+          sessions={visibleSessions}
+          role={role}
+          onUnassign={(s) => { setCancelError(null); setConfirmCancel(s) }}
+        />
       )}
 
       {/* COACH — grouped by athlete */}
@@ -216,6 +242,14 @@ export default function SessionsPage() {
                       <Badge variant={s.completed_at ? 'completed' : 'pending'}>
                         {s.completed_at ? 'Completed' : 'Pending'}
                       </Badge>
+                      {!s.completed_at && (
+                        <button
+                          onClick={() => { setCancelError(null); setConfirmCancel(s) }}
+                          className="text-xs text-red-400 hover:text-red-300"
+                        >
+                          Unassign
+                        </button>
+                      )}
                       <Link
                         href={`/sessions/${s.id}`}
                         className="text-sm text-slate-400 hover:text-white"
@@ -228,6 +262,46 @@ export default function SessionsPage() {
               </ul>
             </section>
           ))}
+        </div>
+      )}
+
+      {/* Unassign confirmation dialog */}
+      {confirmCancel && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => { if (!cancelling) setConfirmCancel(null) }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Confirm unassign"
+        >
+          <div
+            className="w-full max-w-sm rounded-xl border border-white/10 bg-[#131922] p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-semibold text-white">Unassign session?</h3>
+            <p className="mt-2 text-sm text-slate-400">
+              The athlete will no longer see this session.
+            </p>
+            {cancelError && (
+              <p role="alert" className="mt-3 text-sm text-red-400">{cancelError}</p>
+            )}
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmCancel(null)}
+                disabled={cancelling}
+                className="rounded-md px-3 py-1.5 text-sm text-slate-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUnassign}
+                disabled={cancelling}
+                className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
+              >
+                {cancelling ? 'Unassigning…' : 'Unassign'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

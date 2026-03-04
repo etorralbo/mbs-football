@@ -5,11 +5,12 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
 from app.models.user_profile import UserProfile
 from app.models.workout_session import WorkoutSession
+from app.models.workout_session_log import WorkoutSessionLog
 from app.models.workout_template import WorkoutTemplate
 
 
@@ -90,6 +91,16 @@ class AbstractWorkoutSessionRepository(ABC):
         """Stamp completed_at with the current UTC time and commit."""
         ...
 
+    @abstractmethod
+    def has_logs(self, session_id: uuid.UUID) -> bool:
+        """Return True if the session has any log records."""
+        ...
+
+    @abstractmethod
+    def cancel(self, session: WorkoutSession) -> None:
+        """Stamp cancelled_at with the current UTC time and commit."""
+        ...
+
 
 class SqlAlchemyWorkoutSessionRepository(AbstractWorkoutSessionRepository):
 
@@ -125,6 +136,7 @@ class SqlAlchemyWorkoutSessionRepository(AbstractWorkoutSessionRepository):
             .join(UserProfile, WorkoutSession.athlete_id == UserProfile.id)
             .join(WorkoutTemplate, WorkoutSession.workout_template_id == WorkoutTemplate.id)
             .where(UserProfile.team_id == team_id)
+            .where(WorkoutSession.cancelled_at.is_(None))
         )
         return [
             WorkoutSessionRow(
@@ -153,6 +165,7 @@ class SqlAlchemyWorkoutSessionRepository(AbstractWorkoutSessionRepository):
                 WorkoutSession.athlete_id == athlete_id,
                 UserProfile.team_id == team_id,
             )
+            .where(WorkoutSession.cancelled_at.is_(None))
         )
         return [
             WorkoutSessionRow(
@@ -200,5 +213,16 @@ class SqlAlchemyWorkoutSessionRepository(AbstractWorkoutSessionRepository):
 
     def mark_complete(self, session: WorkoutSession) -> None:
         session.completed_at = datetime.now(tz=timezone.utc)
+        self._db.add(session)
+        self._db.commit()
+
+    def has_logs(self, session_id: uuid.UUID) -> bool:
+        stmt = select(
+            exists().where(WorkoutSessionLog.session_id == session_id)
+        )
+        return bool(self._db.execute(stmt).scalar())
+
+    def cancel(self, session: WorkoutSession) -> None:
+        session.cancelled_at = datetime.now(tz=timezone.utc)
         self._db.add(session)
         self._db.commit()

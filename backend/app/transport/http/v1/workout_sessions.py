@@ -12,13 +12,20 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import CurrentUser, require_any_role
+from app.core.dependencies import CurrentUser, require_any_role, require_coach
 from app.db.session import get_db
 from app.domain.events.service import ProductEventService
+from app.domain.use_cases.cancel_workout_session import (
+    CancelWorkoutSessionCommand,
+    CancelWorkoutSessionUseCase,
+    NotFoundError as CancelNotFoundError,
+    SessionHasActivityError,
+)
 from app.domain.use_cases.complete_workout_session import (
     CompleteWorkoutSessionCommand,
     CompleteWorkoutSessionUseCase,
-    NotFoundError
+    NotFoundError,
+    SessionCancelledError,
 )
 from app.domain.use_cases.list_workout_sessions import (
     ListWorkoutSessionsQuery,
@@ -128,3 +135,37 @@ def complete_session(
         use_case.execute(command)
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except SessionCancelledError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+
+
+# ---------------------------------------------------------------------------
+# Cancel (unassign) — COACH only
+# ---------------------------------------------------------------------------
+
+def _build_cancel_use_case(db: Session) -> CancelWorkoutSessionUseCase:
+    return CancelWorkoutSessionUseCase(
+        session_repo=SqlAlchemyWorkoutSessionRepository(db),
+        event_service=ProductEventService(db),
+    )
+
+
+@router.patch("/{session_id}/cancel", status_code=status.HTTP_204_NO_CONTENT)
+def cancel_session(
+    session_id: uuid.UUID,
+    current_user: Annotated[CurrentUser, Depends(require_coach)],
+    db: Session = Depends(get_db),
+) -> None:
+    use_case = _build_cancel_use_case(db)
+    command = CancelWorkoutSessionCommand(
+        session_id=session_id,
+        requesting_user_id=current_user.supabase_user_id,
+        requesting_team_id=current_user.team_id,
+    )
+
+    try:
+        use_case.execute(command)
+    except CancelNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except SessionHasActivityError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))

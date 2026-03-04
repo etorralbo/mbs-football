@@ -140,6 +140,7 @@ export interface WorkoutSessionSummary {
   athlete_name: string
   scheduled_for: string | null
   completed_at: string | null
+  cancelled_at: string | null
 }
 
 export interface SessionLogEntry {
