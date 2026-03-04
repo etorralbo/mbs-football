@@ -266,14 +266,14 @@ describe('SessionsPage — Unassign (calendar)', () => {
   it('shows unassign button for coach on pending session in calendar', async () => {
     setupCoach([CAL_SESSION])
     render(<SessionsPage />)
-    expect(await screen.findByRole('button', { name: /unassign strength block a/i })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /unassign alice johnson/i })).toBeInTheDocument()
   })
 
   it('does not show unassign button for athlete in calendar', async () => {
     setupAthlete([CAL_SESSION])
     render(<SessionsPage />)
     await waitFor(() => screen.getByText(/strength block a/i))
-    expect(screen.queryByRole('button', { name: /unassign strength block a/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /unassign alice johnson/i })).not.toBeInTheDocument()
   })
 
   it('does not show unassign button for completed session in calendar', async () => {
@@ -286,10 +286,20 @@ describe('SessionsPage — Unassign (calendar)', () => {
   it('opens confirmation dialog from calendar unassign button', async () => {
     setupCoach([CAL_SESSION])
     render(<SessionsPage />)
-    fireEvent.click(await screen.findByRole('button', { name: /unassign strength block a/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /unassign alice johnson/i }))
 
     expect(screen.getByRole('dialog', { name: /confirm unassign/i })).toBeInTheDocument()
     expect(screen.getByText(/the athlete will no longer see this session/i)).toBeInTheDocument()
+  })
+
+  it('confirmation dialog shows athlete name and template title', async () => {
+    setupCoach([CAL_SESSION])
+    render(<SessionsPage />)
+    fireEvent.click(await screen.findByRole('button', { name: /unassign alice johnson/i }))
+
+    const dialog = screen.getByRole('dialog', { name: /confirm unassign/i })
+    expect(within(dialog).getByText('Alice Johnson')).toBeInTheDocument()
+    expect(within(dialog).getByText('Strength Block A')).toBeInTheDocument()
   })
 })
 
@@ -375,7 +385,7 @@ describe('SessionsPage — Unassign (list)', () => {
         /can't be unassigned because it has activity or logs/i,
       )
     })
-    // Session still visible
-    expect(screen.getByText(/strength block a/i)).toBeInTheDocument()
+    // Session still visible (text appears in list row + dialog template title)
+    expect(screen.getAllByText(/strength block a/i).length).toBeGreaterThanOrEqual(1)
   })
 })

@@ -280,6 +280,8 @@ export default function SessionsPage() {
           >
             <h3 className="text-base font-semibold text-white">Unassign session?</h3>
             <p className="mt-2 text-sm text-slate-400">
+              Unassign <span className="font-medium text-white">{confirmCancel.athlete_name}</span> from{' '}
+              <span className="font-medium text-white">{confirmCancel.template_title}</span>?
               The athlete will no longer see this session.
             </p>
             {cancelError && (
