@@ -339,7 +339,7 @@ describe('ExercisePicker — submit', () => {
 
     // Two POSTs should have been made (after the initial GET)
     const postCalls = mockRequest.mock.calls.filter(
-      ([url, opts]: [string, { method?: string }]) => url.startsWith('/v1/blocks/') && opts?.method === 'POST',
+      (args: unknown[]) => typeof args[0] === 'string' && (args[0] as string).startsWith('/v1/blocks/') && (args[1] as { method?: string })?.method === 'POST',
     )
     expect(postCalls).toHaveLength(2)
   })
