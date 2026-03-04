@@ -160,7 +160,7 @@ describe('TemplateDetailPage — block reorder (drag-and-drop)', () => {
     render(<TemplateDetailPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Warmup')).toBeInTheDocument()
+      expect(screen.getAllByText('Warmup').length).toBeGreaterThan(0)
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit template' }))
@@ -174,7 +174,9 @@ describe('TemplateDetailPage — block reorder (drag-and-drop)', () => {
 
     render(<TemplateDetailPage />)
 
-    await screen.findByText('Warmup')
+    await waitFor(() => {
+      expect(screen.getAllByText('Warmup').length).toBeGreaterThan(0)
+    })
 
     expect(screen.queryByLabelText(/drag to reorder/i)).not.toBeInTheDocument()
   })

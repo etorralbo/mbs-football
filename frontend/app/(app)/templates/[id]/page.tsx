@@ -40,6 +40,12 @@ const BLOCK_NAME_OPTIONS = [
   'Recovery',
 ]
 
+// Titles that should trigger autofocus + select when entering edit mode
+function isDefaultTitle(title: string): boolean {
+  const normalized = title.trim().toLowerCase()
+  return !normalized || normalized === 'template' || normalized === 'untitled'
+}
+
 // Accent colors cycled per block index
 const BLOCK_ACCENT_COLORS = ['#facc15', '#ef4444', '#22c55e', '#3b82f6']
 
@@ -147,9 +153,11 @@ export default function TemplateDetailPage() {
   const [editMode, setEditMode] = useState(false)
   const [showAddBlock, setShowAddBlock] = useState(false)
   const [titleValue, setTitleValue] = useState('')
+  const [titleHintVisible, setTitleHintVisible] = useState(true)
   const [publishing, setPublishing] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const titleInputRef = useRef<HTMLInputElement>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const savingCountRef = useRef(0)
 
@@ -189,6 +197,17 @@ export default function TemplateDetailPage() {
     if (!showFromAiBanner) return
     router.replace(pathname)
   }, [showFromAiBanner, router, pathname])
+
+  // Reset hint + conditional autofocus when entering edit mode
+  useEffect(() => {
+    if (!editMode) return
+    setTitleHintVisible(true)
+    if (isDefaultTitle(titleValue) && titleInputRef.current) {
+      titleInputRef.current.focus()
+      titleInputRef.current.select()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editMode])
 
   async function handleTitleBlur() {
     const value = titleValue.trim()
@@ -276,6 +295,20 @@ export default function TemplateDetailPage() {
     })
   }
 
+  function handleBlockItemUpdated(blockId: string, updatedItem: BlockItem) {
+    setTemplate((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        blocks: prev.blocks.map((b) =>
+          b.id === blockId
+            ? { ...b, items: b.items.map((i) => (i.id === updatedItem.id ? updatedItem : i)) }
+            : b,
+        ),
+      }
+    })
+  }
+
   function handleBlockCreated(block: WorkoutBlock) {
     setTemplate((prev) => prev ? { ...prev, blocks: [...prev.blocks, block] } : prev)
     setShowAddBlock(false)
@@ -294,112 +327,163 @@ export default function TemplateDetailPage() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2">
-        <Link href="/templates" className="text-xs text-slate-500 hover:text-slate-300">
-          Templates
-        </Link>
-        <span className="text-xs text-slate-600">/</span>
-        <span className="text-xs text-slate-300">{template.title}</span>
-      </div>
-
-      {/* Title area */}
-      <div className="mt-4 flex items-end justify-between border-b border-slate-800 pb-6">
-        <div className="flex-1 space-y-2">
-          <div className="flex items-center gap-3">
-            {editMode ? (
-              <input
-                type="text"
-                value={titleValue}
-                onChange={(e) => setTitleValue(e.target.value)}
-                onBlur={handleTitleBlur}
-                maxLength={255}
-                className="flex-1 rounded-lg border border-slate-800 bg-[#1a2938] px-3 py-2 text-3xl font-bold text-white focus:border-[#137fec] focus:outline-none"
-              />
-            ) : (
-              <h1 className="text-3xl font-bold text-white">{template.title}</h1>
-            )}
-
-          </div>
-
-          {/* Auto-save indicator (visible in edit mode) */}
-          {editMode && saveStatus === 'saving' && (
-            <p className="text-xs text-slate-400">Saving…</p>
-          )}
-          {editMode && saveStatus === 'saved' && (
-            <p className="text-xs text-emerald-400">Changes saved automatically</p>
-          )}
-
-          {template.description && (
-            <p className="text-sm text-slate-400">{template.description}</p>
-          )}
+      {/* ── Sticky header ── */}
+      <div className="sticky top-0 z-30 -mx-4 border-b border-slate-800 bg-slate-950/80 px-4 pb-4 pt-4 backdrop-blur">
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-2">
+          <Link href="/templates" className="text-xs text-slate-500 hover:text-slate-300">
+            Templates
+          </Link>
+          <span className="text-xs text-slate-600">/</span>
+          <span className="text-xs text-slate-300">{template.title}</span>
         </div>
 
-        <div className="ml-4 flex shrink-0 items-center gap-3">
-          {/* Status toggle */}
-          <button
-            onClick={handleToggleStatus}
-            disabled={publishing}
-            className={`rounded-lg px-4 py-2 text-sm font-bold transition-colors disabled:opacity-50 ${
-              template.status === 'draft'
-                ? 'bg-[#c8f135] text-[#0a0d14] hover:bg-[#d4f755]'
-                : 'border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700'
-            }`}
-          >
-            {publishing
-              ? (template.status === 'published' ? 'Publishing…' : 'Unpublishing…')
-              : (template.status === 'draft' ? 'Publish' : 'Convert to draft')}
-          </button>
+        {/* Title area */}
+        <div className="mt-3 flex items-end justify-between">
+          <div className="flex-1 space-y-1">
+            <div className={`flex items-center gap-2${editMode ? ' group' : ''}`}>
+              {editMode ? (
+                <>
+                  <input
+                    ref={titleInputRef}
+                    type="text"
+                    value={titleValue}
+                    onChange={(e) => { setTitleValue(e.target.value); setTitleHintVisible(false) }}
+                    onFocus={() => setTitleHintVisible(false)}
+                    onBlur={handleTitleBlur}
+                    maxLength={255}
+                    className="flex-1 cursor-text border-b border-transparent bg-transparent p-0 text-3xl font-bold leading-tight text-white outline-none transition-colors group-hover:border-slate-600 focus:border-[#c8f135]"
+                  />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 shrink-0 text-slate-500 opacity-0 transition-opacity group-hover:opacity-100"
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </>
+              ) : (
+                <h1 className="text-3xl font-bold leading-tight text-white">{template.title}</h1>
+              )}
+            </div>
 
-          <button
-            onClick={() => { setEditMode((v) => !v); setShowAddBlock(false) }}
-            className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
-              editMode
-                ? 'border-[#137fec]/30 bg-[#137fec]/10 text-[#137fec] hover:bg-[#137fec]/15'
-                : 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700'
-            }`}
-          >
-            {editMode ? (
-              <>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            {/* Title hint — disappears on interaction */}
+            {editMode && titleHintVisible && (
+              <p className="text-xs text-slate-500">Click the title to rename</p>
+            )}
+
+            {/* Auto-save indicator (visible in edit mode) */}
+            {editMode && saveStatus === 'saving' && (
+              <p className="text-sm text-slate-400">
+                <span className="mr-1.5 inline-block h-2 w-2 animate-pulse rounded-full bg-slate-400" />
+                Saving…
+              </p>
+            )}
+            {editMode && saveStatus !== 'saving' && (
+              <p className="text-sm text-emerald-400/70">
+                <svg xmlns="http://www.w3.org/2000/svg" className="mr-1.5 -mt-0.5 inline h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
-                Done editing
-              </>
-            ) : (
-              <>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-                Edit template
-              </>
+                All changes saved
+              </p>
             )}
-          </button>
+
+            {!editMode && template.description && (
+              <p className="text-sm text-slate-400">{template.description}</p>
+            )}
+          </div>
+
+          <div className="ml-4 flex shrink-0 items-center gap-3">
+            {/* Status toggle */}
+            <button
+              onClick={handleToggleStatus}
+              disabled={publishing}
+              className={`rounded-lg px-4 py-2 text-sm font-bold transition-colors disabled:opacity-50 ${
+                template.status === 'draft'
+                  ? 'bg-[#c8f135] text-[#0a0d14] hover:bg-[#d4f755]'
+                  : 'border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              {publishing
+                ? (template.status === 'published' ? 'Publishing…' : 'Unpublishing…')
+                : (template.status === 'draft' ? 'Publish' : 'Convert to draft')}
+            </button>
+
+            <button
+              onClick={() => { setEditMode((v) => !v); setShowAddBlock(false) }}
+              disabled={editMode && saveStatus === 'saving'}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {editMode && saveStatus === 'saving' ? (
+                <>
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-500 border-t-slate-300" />
+                  Saving…
+                </>
+              ) : editMode ? (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Close editor
+                </>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                  Edit template
+                </>
+              )}
+            </button>
+          </div>
         </div>
+
+        {/* Publish error */}
+        {publishError && (
+          <p role="alert" className="mt-3 text-sm text-red-400">
+            {publishError}
+          </p>
+        )}
+
+        {/* Published template warning — edit mode only */}
+        {editMode && template.status === 'published' && (
+          <div
+            role="note"
+            aria-label="Published template notice"
+            className="mt-3 rounded-2xl border border-amber-800/40 bg-amber-900/20 px-5 py-3"
+          >
+            <p className="text-sm font-medium text-amber-400">
+              This template is already used in athlete sessions.
+            </p>
+            <p className="mt-0.5 text-sm text-amber-400/70">
+              Changes you make will only affect future assignments. Existing sessions will remain unchanged.
+            </p>
+          </div>
+        )}
+
+        {/* Block jump navigation chips */}
+        {template.blocks.length > 0 && (
+          <nav aria-label="Block navigation" className="mt-3 flex gap-2 overflow-x-auto">
+            {template.blocks.map((block, idx) => (
+              <button
+                key={block.id}
+                onClick={() =>
+                  document.getElementById(`block-${block.id}`)?.scrollIntoView({ behavior: 'smooth' })
+                }
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800/60 px-3 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
+              >
+                <span
+                  className="inline-block h-2 w-2 rounded-full"
+                  style={{ backgroundColor: getAccentColor(idx) }}
+                  aria-hidden="true"
+                />
+                {block.name || `Block ${idx + 1}`}
+              </button>
+            ))}
+          </nav>
+        )}
       </div>
-
-      {/* Publish error */}
-      {publishError && (
-        <p role="alert" className="mt-4 text-sm text-red-400">
-          {publishError}
-        </p>
-      )}
-
-      {/* Published template warning — edit mode only */}
-      {editMode && template.status === 'published' && (
-        <div
-          role="note"
-          aria-label="Published template notice"
-          className="mt-4 rounded-2xl border border-amber-800/40 bg-amber-900/20 px-5 py-4"
-        >
-          <p className="text-sm font-medium text-amber-400">
-            This template is already used in athlete sessions.
-          </p>
-          <p className="mt-0.5 text-sm text-amber-400/70">
-            Changes you make will only affect future assignments. Existing sessions will remain unchanged.
-          </p>
-        </div>
-      )}
 
       {/* fromAi success banner */}
       {showFromAiBanner && (
@@ -455,16 +539,18 @@ export default function TemplateDetailPage() {
                 strategy={verticalListSortingStrategy}
               >
                 {template.blocks.map((block, idx) => (
-                  <SortableBlock
-                    key={block.id}
-                    id={block.id}
-                    block={block}
-                    accentColor={getAccentColor(idx)}
-                    onDeleted={handleBlockDeleted}
-                    onItemAdded={handleBlockItemAdded}
-                    onSaving={markSaving}
-                    onSaved={markSaved}
-                  />
+                  <div key={block.id} id={`block-${block.id}`} className="scroll-mt-48">
+                    <SortableBlock
+                      id={block.id}
+                      block={block}
+                      accentColor={getAccentColor(idx)}
+                      onDeleted={handleBlockDeleted}
+                      onItemAdded={handleBlockItemAdded}
+                      onItemUpdated={handleBlockItemUpdated}
+                      onSaving={markSaving}
+                      onSaved={markSaved}
+                    />
+                  </div>
                 ))}
               </SortableContext>
             </DndContext>
@@ -491,7 +577,8 @@ export default function TemplateDetailPage() {
           template.blocks.map((block, idx) => (
             <section
               key={block.id}
-              className="overflow-hidden rounded-2xl border border-slate-800 bg-[#121d28] shadow-xl"
+              id={`block-${block.id}`}
+              className="scroll-mt-48 overflow-hidden rounded-2xl border border-slate-800 bg-[#121d28] shadow-xl"
               style={{ borderLeftWidth: '4px', borderLeftColor: getAccentColor(idx) }}
             >
               <div className="border-b border-slate-800/50 p-5">
@@ -511,31 +598,39 @@ export default function TemplateDetailPage() {
                             {item.exercise.name}
                           </h4>
                           {item.sets.length > 0 && (
-                            <div className="mt-2 grid grid-cols-3 gap-3">
-                              <div className="space-y-1">
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Reps</span>
-                                <div className="rounded-lg border border-slate-800/50 bg-[#1a2938]/60 px-3 py-1.5 text-center text-sm font-semibold text-white">
-                                  {item.sets[0].reps ?? '—'}
+                            <div className="mt-2 space-y-2">
+                              {item.sets.map((s, sIdx) => (
+                                <div key={s.order} className="flex items-end gap-3">
+                                  <span className="mb-1.5 text-xs font-bold text-slate-600">{sIdx + 1}</span>
+                                  <div className="grid flex-1 grid-cols-3 gap-3">
+                                    <div className="space-y-1">
+                                      {sIdx === 0 && (
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Reps</span>
+                                      )}
+                                      <div className="rounded-lg border border-slate-800/50 bg-[#1a2938]/60 px-3 py-1.5 text-center text-sm font-semibold text-white">
+                                        {s.reps ?? '—'}
+                                      </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                      {sIdx === 0 && (
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">kg</span>
+                                      )}
+                                      <div className="rounded-lg border border-slate-800/50 bg-[#1a2938]/60 px-3 py-1.5 text-center text-sm font-semibold text-white">
+                                        {s.weight ?? '—'}
+                                      </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                      {sIdx === 0 && (
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">RPE</span>
+                                      )}
+                                      <div className="rounded-lg border border-slate-800/50 bg-[#1a2938]/60 px-3 py-1.5 text-center text-sm font-semibold text-white">
+                                        {s.rpe ?? '—'}
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="space-y-1">
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">kg</span>
-                                <div className="rounded-lg border border-slate-800/50 bg-[#1a2938]/60 px-3 py-1.5 text-center text-sm font-semibold text-white">
-                                  {item.sets[0].weight ?? '—'}
-                                </div>
-                              </div>
-                              <div className="space-y-1">
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">RPE</span>
-                                <div className="rounded-lg border border-slate-800/50 bg-[#1a2938]/60 px-3 py-1.5 text-center text-sm font-semibold text-white">
-                                  {item.sets[0].rpe ?? '—'}
-                                </div>
-                              </div>
+                              ))}
                             </div>
-                          )}
-                          {item.sets.length > 1 && (
-                            <p className="mt-1 text-[10px] text-slate-500">
-                              +{item.sets.length - 1} more {item.sets.length - 1 === 1 ? 'set' : 'sets'}
-                            </p>
                           )}
                         </div>
                       </div>

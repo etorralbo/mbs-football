@@ -122,6 +122,11 @@ describe('AssignPanel — team submit', () => {
 
     render(<AssignPanel templateId="tpl-1" />)
 
+    // Wait for athletes to load so the Assign button becomes enabled
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^assign$/i })).not.toBeDisabled()
+    })
+
     fireEvent.click(screen.getByRole('button', { name: /^assign$/i }))
 
     await waitFor(() => {

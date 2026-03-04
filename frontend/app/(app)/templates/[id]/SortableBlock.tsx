@@ -57,6 +57,7 @@ export function SortableBlock({ id, accentColor, ...blockProps }: SortableBlockP
           accentColor={accentColor}
           onDeleted={blockProps.onDeleted}
           onItemAdded={blockProps.onItemAdded}
+          onItemUpdated={blockProps.onItemUpdated}
           onSaving={blockProps.onSaving}
           onSaved={blockProps.onSaved}
         />
