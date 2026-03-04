@@ -106,16 +106,7 @@ describe('TemplateDetailPage — fromAi banner', () => {
   })
 })
 
-describe('TemplateDetailPage — status badge and publish', () => {
-  it('shows "Draft" badge when status is draft', async () => {
-    render(<TemplateDetailPage />)
-
-    await waitFor(() => {
-      expect(screen.getByText('Draft')).toBeInTheDocument()
-    })
-    expect(screen.queryByText('Published')).toBeNull()
-  })
-
+describe('TemplateDetailPage — status toggle', () => {
   it('shows "Publish" button when status is draft', async () => {
     render(<TemplateDetailPage />)
 
@@ -124,21 +115,18 @@ describe('TemplateDetailPage — status badge and publish', () => {
     })
   })
 
-  it('hides Draft badge and Publish button when status is published', async () => {
+  it('shows "Convert to draft" button when status is published', async () => {
     mockRequest.mockResolvedValueOnce({ ...MOCK_TEMPLATE, status: 'published' })
 
     render(<TemplateDetailPage />)
 
-    // Wait for the template to load
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Power Session' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Convert to draft' })).toBeInTheDocument()
     })
-    // No Draft badge, no Publish button when already published
-    expect(screen.queryByText('Draft')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Publish' })).toBeNull()
   })
 
-  it('publishes optimistically when Publish is clicked', async () => {
+  it('toggles to "Convert to draft" after publishing', async () => {
     mockRequest
       .mockResolvedValueOnce(MOCK_TEMPLATE)  // GET
       .mockResolvedValueOnce({ ...MOCK_TEMPLATE, status: 'published' })  // PATCH
@@ -151,15 +139,13 @@ describe('TemplateDetailPage — status badge and publish', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Publish' }))
 
-    // Optimistic update: Draft badge and Publish button disappear immediately
     await waitFor(() => {
-      expect(screen.queryByText('Draft')).toBeNull()
-      expect(screen.queryByRole('button', { name: 'Publish' })).toBeNull()
+      expect(screen.getByRole('button', { name: 'Convert to draft' })).toBeInTheDocument()
     })
   })
 })
 
-describe('TemplateDetailPage — block reorder', () => {
+describe('TemplateDetailPage — block reorder (drag-and-drop)', () => {
   const TEMPLATE_WITH_BLOCKS: WorkoutTemplateDetail = {
     ...MOCK_TEMPLATE,
     blocks: [
@@ -168,7 +154,7 @@ describe('TemplateDetailPage — block reorder', () => {
     ],
   }
 
-  it('shows reorder buttons in edit mode', async () => {
+  it('shows drag handles in edit mode', async () => {
     mockRequest.mockResolvedValueOnce(TEMPLATE_WITH_BLOCKS)
 
     render(<TemplateDetailPage />)
@@ -179,20 +165,17 @@ describe('TemplateDetailPage — block reorder', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit template' }))
 
-    // Each block has ↑ and ↓ buttons
-    expect(screen.getByRole('button', { name: /move warmup up/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /move warmup down/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/drag to reorder warmup/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/drag to reorder main/i)).toBeInTheDocument()
   })
 
-  it('first block ↑ is disabled, last block ↓ is disabled', async () => {
+  it('does not show drag handles in view mode', async () => {
     mockRequest.mockResolvedValueOnce(TEMPLATE_WITH_BLOCKS)
 
     render(<TemplateDetailPage />)
 
     await screen.findByText('Warmup')
-    fireEvent.click(screen.getByRole('button', { name: 'Edit template' }))
 
-    expect(screen.getByRole('button', { name: /move warmup up/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /move main down/i })).toBeDisabled()
+    expect(screen.queryByLabelText(/drag to reorder/i)).not.toBeInTheDocument()
   })
 })

@@ -9,9 +9,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <RequireAuth>
       <AuthProvider>
         <TeamSelectGuard>
-          <div className="min-h-screen bg-[#0a0d14]">
+          <div className="flex h-screen overflow-hidden bg-[#0d141c]">
             <NavBar />
-            <TeamPageContent>{children}</TeamPageContent>
+            <main className="flex-1 overflow-y-auto">
+              <TeamPageContent>{children}</TeamPageContent>
+            </main>
           </div>
         </TeamSelectGuard>
       </AuthProvider>

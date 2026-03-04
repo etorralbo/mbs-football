@@ -18,7 +18,7 @@ function withId(s: SetPrescription): SetWithId {
 }
 
 // ---------------------------------------------------------------------------
-// SetTable — per-set row editor for one exercise item
+// SetTable — per-set grid editor for one exercise item
 // ---------------------------------------------------------------------------
 
 interface SetTableProps {
@@ -142,71 +142,123 @@ function SetTable({ item, onDeleted }: SetTableProps) {
   }
 
   return (
-    <li className="border-b border-white/8 py-3 last:border-0">
+    <div className="py-4 first:pt-0 last:pb-0">
       {/* Exercise name row */}
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#4f9cf9]" aria-hidden="true" />
-          <span className="text-sm font-medium text-white">{item.exercise.name}</span>
-          {saving && <span className="text-xs text-slate-500">Saving…</span>}
-        </div>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h4 className="flex items-center gap-2 text-sm font-bold text-white">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-[#137fec]" aria-hidden="true" />
+          {item.exercise.name}
+          {saving && <span className="text-xs font-normal text-slate-500">Saving…</span>}
+        </h4>
         <button
           onClick={handleDeleteItem}
           disabled={deleting}
           aria-label={`Remove ${item.exercise.name}`}
-          className="shrink-0 rounded p-1 text-slate-600 transition-colors hover:bg-red-900/30 hover:text-red-400 disabled:opacity-40"
+          className="shrink-0 rounded p-1 text-slate-600 transition-colors hover:text-slate-400"
         >
-          {deleting ? '…' : '×'}
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
 
-      {/* Sets table */}
-      <table className="w-full table-fixed text-xs" aria-label={`Sets for ${item.exercise.name}`}>
-        <thead>
-          <tr className="text-slate-500">
-            <th className="w-8 pb-1 text-center font-normal">#</th>
-            <th className="pb-1 text-center font-normal">Reps</th>
-            <th className="pb-1 text-center font-normal">kg</th>
-            <th className="pb-1 text-center font-normal">RPE</th>
-            <th className="w-6" />
-          </tr>
-        </thead>
-        <tbody>
-          {sets.map((s, idx) => (
-            <tr key={s._cid}>
-              <td className="py-0.5 text-center text-slate-500">{idx + 1}</td>
-              {(['reps', 'weight', 'rpe'] as const).map((field) => (
-                <td key={field} className="px-1 py-0.5">
+      {/* Sets as grid cards */}
+      <div className="space-y-3">
+        {sets.map((s, idx) => (
+          <div key={s._cid} className="flex items-end gap-3">
+            {/* Set number */}
+            <span className="mb-2 text-xs font-bold text-slate-600">{idx + 1}</span>
+
+            <div className="grid flex-1 grid-cols-3 gap-3">
+              {/* Reps */}
+              <div className="space-y-1.5">
+                {idx === 0 && (
+                  <div className="flex items-center gap-1.5 px-1">
+                    <svg className="h-3.5 w-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 14.652" />
+                    </svg>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Reps</span>
+                  </div>
+                )}
+                <div className="rounded-lg border border-slate-800/50 bg-[#1a2938]/60 p-2">
                   <input
                     type="number"
-                    min={field === 'reps' ? '1' : '0'}
-                    defaultValue={s[field] != null ? String(s[field]) : ''}
-                    onBlur={(e) => handleCellBlur(idx, field, e.target.value)}
-                    aria-label={`Set ${idx + 1} ${field} for ${item.exercise.name}`}
-                    className="w-full rounded border border-white/10 bg-[#0d1420] px-1 py-0.5 text-center text-xs text-white focus:border-[#4f9cf9] focus:outline-none"
+                    min="1"
+                    defaultValue={s.reps != null ? String(s.reps) : ''}
+                    onBlur={(e) => handleCellBlur(idx, 'reps', e.target.value)}
+                    aria-label={`Set ${idx + 1} reps for ${item.exercise.name}`}
+                    className="w-full border-none bg-transparent p-0 text-center text-sm font-semibold text-white focus:ring-0"
                     placeholder="—"
                   />
-                </td>
-              ))}
-              <td className="py-0.5 text-center">
-                <button
-                  onClick={() => deleteSet(idx)}
-                  disabled={saving || sets.length <= 1}
-                  aria-label={`Delete set ${idx + 1}`}
-                  className="rounded p-0.5 text-slate-600 transition-colors hover:text-red-400 disabled:opacity-20"
-                >
-                  ×
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                </div>
+              </div>
+
+              {/* Weight */}
+              <div className="space-y-1.5">
+                {idx === 0 && (
+                  <div className="flex items-center gap-1.5 px-1">
+                    <svg className="h-3.5 w-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.97zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.97z" />
+                    </svg>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">kg</span>
+                  </div>
+                )}
+                <div className="rounded-lg border border-slate-800/50 bg-[#1a2938]/60 p-2">
+                  <input
+                    type="number"
+                    min="0"
+                    defaultValue={s.weight != null ? String(s.weight) : ''}
+                    onBlur={(e) => handleCellBlur(idx, 'weight', e.target.value)}
+                    aria-label={`Set ${idx + 1} weight for ${item.exercise.name}`}
+                    className="w-full border-none bg-transparent p-0 text-center text-sm font-semibold text-white focus:ring-0"
+                    placeholder="--"
+                  />
+                </div>
+              </div>
+
+              {/* RPE */}
+              <div className="space-y-1.5">
+                {idx === 0 && (
+                  <div className="flex items-center gap-1.5 px-1">
+                    <svg className="h-3.5 w-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                    </svg>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">RPE</span>
+                  </div>
+                )}
+                <div className="rounded-lg border border-slate-800/50 bg-[#1a2938]/60 p-2">
+                  <input
+                    type="number"
+                    min="0"
+                    defaultValue={s.rpe != null ? String(s.rpe) : ''}
+                    onBlur={(e) => handleCellBlur(idx, 'rpe', e.target.value)}
+                    aria-label={`Set ${idx + 1} rpe for ${item.exercise.name}`}
+                    className="w-full border-none bg-transparent p-0 text-center text-sm font-semibold text-white focus:ring-0"
+                    placeholder="—"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Delete set */}
+            <button
+              onClick={() => deleteSet(idx)}
+              disabled={saving || sets.length <= 1}
+              aria-label={`Delete set ${idx + 1}`}
+              className="mb-2 rounded p-0.5 text-slate-700 transition-colors hover:text-red-400 disabled:opacity-20"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        ))}
+      </div>
 
       <button
         onClick={addSet}
         disabled={saving}
-        className="mt-1.5 flex items-center gap-1 text-xs text-slate-500 transition-colors hover:text-slate-300 disabled:opacity-40"
+        className="mt-2 flex items-center gap-1 text-xs text-slate-500 transition-colors hover:text-slate-300 disabled:opacity-40"
         aria-label={`Add set to ${item.exercise.name}`}
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -216,7 +268,7 @@ function SetTable({ item, onDeleted }: SetTableProps) {
       </button>
 
       {error && <p role="alert" className="mt-1 text-xs text-red-400">{error}</p>}
-    </li>
+    </div>
   )
 }
 
@@ -226,11 +278,12 @@ function SetTable({ item, onDeleted }: SetTableProps) {
 
 export interface BlockEditorProps {
   block: WorkoutBlock
+  accentColor?: string
   onDeleted: (blockId: string) => void
   onItemAdded: (blockId: string, item: BlockItem) => void
 }
 
-export function BlockEditor({ block, onDeleted, onItemAdded }: BlockEditorProps) {
+export function BlockEditor({ block, accentColor = '#facc15', onDeleted, onItemAdded }: BlockEditorProps) {
   const [items, setItems] = useState<BlockItem[]>(block.items)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -293,10 +346,11 @@ export function BlockEditor({ block, onDeleted, onItemAdded }: BlockEditorProps)
     <>
       <section
         aria-label={`Edit block: ${block.name}`}
-        className="rounded-lg border border-white/8 bg-[#131922] p-5"
+        className="overflow-hidden rounded-2xl border border-slate-800 bg-[#121d28] shadow-xl"
+        style={{ borderLeftWidth: '4px', borderLeftColor: accentColor }}
       >
-        {/* Block header row */}
-        <div className="flex items-start gap-3">
+        {/* Block header */}
+        <div className="flex items-start justify-between border-b border-slate-800/50 p-5">
           <div className="flex-1 space-y-1.5">
             <input
               ref={nameRef}
@@ -305,7 +359,7 @@ export function BlockEditor({ block, onDeleted, onItemAdded }: BlockEditorProps)
               onBlur={handleNameBlur}
               maxLength={255}
               placeholder="Block name"
-              className="w-full rounded-md border border-white/10 bg-[#0d1420] px-2.5 py-1.5 text-sm font-semibold text-white focus:border-[#4f9cf9] focus:outline-none"
+              className="w-full rounded-lg border border-slate-800 bg-[#1a2938] px-3 py-2 text-lg font-bold text-white focus:border-[#137fec] focus:outline-none"
             />
             <textarea
               ref={notesRef}
@@ -313,17 +367,17 @@ export function BlockEditor({ block, onDeleted, onItemAdded }: BlockEditorProps)
               onBlur={handleNotesBlur}
               rows={1}
               placeholder="Notes (optional)"
-              className="w-full resize-none rounded-md border border-white/10 bg-[#0d1420] px-2.5 py-1.5 text-xs text-slate-400 placeholder:text-slate-600 focus:border-[#4f9cf9] focus:outline-none"
+              className="w-full resize-none rounded-lg border border-slate-800 bg-[#1a2938] px-3 py-1.5 text-xs text-slate-400 placeholder:text-slate-600 focus:border-[#137fec] focus:outline-none"
             />
           </div>
           <button
             onClick={handleDeleteBlock}
             disabled={deleting}
             aria-label={`Delete block ${block.name}`}
-            className="mt-0.5 shrink-0 rounded p-1.5 text-slate-600 transition-colors hover:bg-red-900/30 hover:text-red-400 disabled:opacity-40"
+            className="ml-3 mt-1 shrink-0 rounded p-2 text-slate-500 transition-colors hover:text-red-400"
           >
             {deleting ? '…' : (
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             )}
@@ -331,34 +385,36 @@ export function BlockEditor({ block, onDeleted, onItemAdded }: BlockEditorProps)
         </div>
 
         {deleteError && (
-          <p role="alert" className="mt-1 text-xs text-red-400">{deleteError}</p>
+          <p role="alert" className="px-5 pt-2 text-xs text-red-400">{deleteError}</p>
         )}
 
-        {/* Exercise items with per-set table */}
-        {items.length > 0 ? (
-          <ul className="mt-3">
-            {items.map((item) => (
-              <SetTable
-                key={item.id}
-                item={item}
-                onDeleted={handleItemDeleted}
-              />
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-2 text-xs text-slate-500">No exercises yet.</p>
-        )}
+        {/* Exercise items */}
+        <div className="p-5">
+          {items.length > 0 ? (
+            <div className="divide-y divide-slate-800/50">
+              {items.map((item) => (
+                <SetTable
+                  key={item.id}
+                  item={item}
+                  onDeleted={handleItemDeleted}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500">No exercises yet.</p>
+          )}
 
-        {/* Browse library button */}
-        <button
-          onClick={() => setPickerOpen(true)}
-          className="mt-3 flex items-center gap-1.5 rounded-md border border-dashed border-white/15 px-3 py-2 text-sm text-slate-400 transition-colors hover:border-white/25 hover:text-white"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          Browse library
-        </button>
+          {/* Browse library button */}
+          <button
+            onClick={() => setPickerOpen(true)}
+            className="mt-4 flex items-center gap-2 rounded-lg border border-dashed border-slate-700 px-4 py-2.5 text-sm text-slate-400 transition-colors hover:border-slate-600 hover:text-white"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Browse library
+          </button>
+        </div>
       </section>
 
       {/* ExercisePicker modal — rendered outside the block card so it's full-screen */}
