@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { request, UnauthorizedError, ConflictError } from '@/app/_shared/api/httpClient'
 import { supabase } from '@/app/_shared/auth/supabaseClient'
+import { useAuth } from '@/src/shared/auth/AuthContext'
 import type { MeResponse, AcceptInviteResponse } from '@/app/_shared/api/types'
 
 const TOKEN_MAX_AGE_MS = 30 * 60 * 1000
@@ -19,7 +20,14 @@ const TOKEN_MAX_AGE_MS = 30 * 60 * 1000
  */
 export function OnboardingHub() {
   const router = useRouter()
+  const { setOnboardingResolving } = useAuth()
   const hasRun = useRef(false)
+
+  // Signal that post-login bootstrap is in progress.
+  useEffect(() => {
+    setOnboardingResolving(true)
+    return () => setOnboardingResolving(false)
+  }, [setOnboardingResolving])
 
   useEffect(() => {
     if (hasRun.current) return

@@ -41,9 +41,14 @@ export interface AuthContextValue {
   activeTeamId: string | null
   loading: boolean
   error: Error | null
+  /** True while /v1/me is loading OR onboarding logic is resolving. */
+  isAppBootstrapping: boolean
   refreshMe: () => void
   setActiveTeamId: (teamId: string) => void
   clearActiveTeam: () => void
+  /** Called by router-guard pages (OnboardingHub, AuthContinue) to signal
+   *  that post-login resolution is still in progress. */
+  setOnboardingResolving: (v: boolean) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -82,9 +87,11 @@ const AuthContext = createContext<AuthContextValue>({
   activeTeamId: null,
   loading: true,
   error: null,
+  isAppBootstrapping: true,
   refreshMe: () => {},
   setActiveTeamId: () => {},
   clearActiveTeam: () => {},
+  setOnboardingResolving: () => {},
 })
 
 // ---------------------------------------------------------------------------
@@ -102,6 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [localTeamId, setLocalTeamId] = useState<string | null>(
     safeGetLocalTeamId,
   )
+  const [onboardingResolving, setOnboardingResolving] = useState(false)
 
   const refreshMe = useCallback(() => setRefreshToken((t) => t + 1), [])
 
@@ -194,15 +202,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const role = me ? deriveRole(me, resolvedActiveTeamId) : null
 
+  const isAppBootstrapping = loading || onboardingResolving
+
   const value: AuthContextValue = {
     me,
     role,
     activeTeamId: resolvedActiveTeamId,
     loading,
     error,
+    isAppBootstrapping,
     refreshMe,
     setActiveTeamId,
     clearActiveTeam,
+    setOnboardingResolving,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
