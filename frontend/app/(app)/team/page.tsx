@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { CreateButton } from '@/app/_shared/components/CreateButton'
+import { PageHeader } from '@/app/_shared/components/PageHeader'
 import { useRouter } from 'next/navigation'
 import { request } from '@/app/_shared/api/httpClient'
 import { Button } from '@/app/_shared/components/Button'
@@ -86,12 +87,12 @@ export default function TeamPage() {
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-white">Team</h1>
-        {isCoach && (
+      <PageHeader
+        title="Team"
+        actions={isCoach ? (
           <CreateButton href="/create-team">New team</CreateButton>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       <div className="mt-6 rounded-lg border border-white/8 bg-[#131922]">
         {/* Team header */}

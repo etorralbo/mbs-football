@@ -26,6 +26,7 @@ import { useAuth } from '@/src/shared/auth/AuthContext'
 import type { Exercise } from '@/app/_shared/api/types'
 
 import { CreateButton } from '@/app/_shared/components/CreateButton'
+import { PageHeader } from '@/app/_shared/components/PageHeader'
 import ExerciseForm, { type ExerciseFormValues } from './ExerciseForm'
 import ExerciseCard from './ExerciseCard'
 import { FILTER_CHIPS, useExerciseFilters } from './useExerciseFilters'
@@ -314,13 +315,14 @@ export default function ExercisesPage() {
 
   return (
     <>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-white">Exercise Library</h1>
-        <CreateButton onClick={() => { setShowForm((v) => !v); setEditingExercise(null); setFormError(null) }}>
-          New exercise
-        </CreateButton>
-      </div>
+      <PageHeader
+        title="Exercise Library"
+        actions={
+          <CreateButton onClick={() => { setShowForm((v) => !v); setEditingExercise(null); setFormError(null) }}>
+            New exercise
+          </CreateButton>
+        }
+      />
 
       {/* Create / Edit form */}
       {showForm && (
