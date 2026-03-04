@@ -1,12 +1,12 @@
 /**
- * Tests for ExercisePicker modal.
+ * Tests for ExercisePicker drawer.
  *
  * The component:
- * 1. Fetches all exercises on mount
- * 2. Filters client-side by search query and selected tag chips
- * 3. Shows a Favorites section when exercises have is_favorite=true
- * 4. On exercise click: calls POST /v1/blocks/{blockId}/items, then onSelect, then onClose
- * 5. Closes on Escape key press
+ * 1. Mounted only when drawer is open (parent handles conditional rendering)
+ * 2. Fetches all exercises on mount and filters client-side
+ * 3. Multi-select: toggle exercises, then click "Add N exercises" button
+ * 4. POSTs each selected exercise sequentially to /v1/blocks/{blockId}/items
+ * 5. Closes on Escape key or backdrop click
  */
 import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
@@ -51,12 +51,15 @@ const PLANK = makeExercise({ id: 'ex-plank', name: 'Plank', tags: ['core'], is_f
 
 const MOCK_EXERCISES: Exercise[] = [SQUAT, PUSHUP, PLANK]
 
-const MOCK_ITEM: BlockItem = {
-  id: 'item-1',
-  workout_block_id: 'blk-1',
-  order: 0,
-  sets: [{ order: 0, reps: null, weight: null, rpe: null }],
-  exercise: SQUAT,
+function makeBlockItem(exerciseId: string, order: number): BlockItem {
+  const ex = MOCK_EXERCISES.find((e) => e.id === exerciseId) ?? SQUAT
+  return {
+    id: `item-${exerciseId}`,
+    workout_block_id: 'blk-1',
+    order,
+    sets: [{ order: 0, reps: null, weight: null, rpe: null }],
+    exercise: ex,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -66,8 +69,8 @@ const MOCK_ITEM: BlockItem = {
 function defaultProps(overrides: Partial<Parameters<typeof ExercisePicker>[0]> = {}) {
   return {
     blockId: 'blk-1',
-    onSelect: vi.fn(),
     onClose: vi.fn(),
+    onExercisesAdded: vi.fn(),
     ...overrides,
   }
 }
@@ -77,7 +80,7 @@ function defaultProps(overrides: Partial<Parameters<typeof ExercisePicker>[0]> =
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
-  mockRequest.mockResolvedValue(MOCK_EXERCISES)  // GET /v1/exercises
+  mockRequest.mockResolvedValue(MOCK_EXERCISES) // GET /v1/exercises
 })
 
 afterEach(() => {
@@ -88,6 +91,53 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+describe('ExercisePicker — open / close', () => {
+  it('renders drawer dialog when mounted', async () => {
+    render(<ExercisePicker {...defaultProps()} />)
+    await waitFor(() => {
+      expect(screen.getByRole('dialog', { name: /browse exercise library/i })).toBeInTheDocument()
+    })
+  })
+
+  it('calls onClose when Escape is pressed', async () => {
+    const onClose = vi.fn()
+    render(<ExercisePicker {...defaultProps({ onClose })} />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('calls onClose when backdrop is clicked', async () => {
+    const onClose = vi.fn()
+    render(<ExercisePicker {...defaultProps({ onClose })} />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
+
+    // Backdrop is the element with aria-hidden="true"
+    const backdrop = screen.getByRole('dialog').parentElement!.querySelector('[aria-hidden="true"]')!
+    fireEvent.click(backdrop)
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('calls onClose when close button is clicked', async () => {
+    const onClose = vi.fn()
+    render(<ExercisePicker {...defaultProps({ onClose })} />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /close exercise picker/i })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /close exercise picker/i }))
+    expect(onClose).toHaveBeenCalled()
+  })
+})
 
 describe('ExercisePicker — rendering', () => {
   it('renders search input and filter chips', async () => {
@@ -105,9 +155,9 @@ describe('ExercisePicker — rendering', () => {
     render(<ExercisePicker {...defaultProps()} />)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /add back squat/i })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /add push up/i })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /add plank/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /select back squat/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /select push up/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /select plank/i })).toBeInTheDocument()
     })
   })
 
@@ -117,7 +167,6 @@ describe('ExercisePicker — rendering', () => {
     await waitFor(() => {
       expect(screen.getByRole('region', { name: /favorites/i })).toBeInTheDocument()
     })
-    // Plank is the only favourite
     const favSection = screen.getByRole('region', { name: /favorites/i })
     expect(favSection).toHaveTextContent('Plank')
   })
@@ -130,7 +179,7 @@ describe('ExercisePicker — rendering', () => {
     render(<ExercisePicker {...defaultProps()} />)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /add push up/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /select push up/i })).toBeInTheDocument()
     })
     expect(screen.queryByRole('region', { name: /favorites/i })).toBeNull()
   })
@@ -139,9 +188,8 @@ describe('ExercisePicker — rendering', () => {
     render(<ExercisePicker {...defaultProps()} />)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /add back squat/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /select back squat/i })).toBeInTheDocument()
     })
-    // COMPANY exercises are in the "Official" section
     const officialSection = screen.getByRole('region', { name: /official exercises/i })
     expect(officialSection).toHaveTextContent('Official')
   })
@@ -152,22 +200,22 @@ describe('ExercisePicker — search filter', () => {
     render(<ExercisePicker {...defaultProps()} />)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /add push up/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /select push up/i })).toBeInTheDocument()
     })
 
     const searchInput = screen.getByRole('searchbox', { name: /search exercises/i })
     fireEvent.change(searchInput, { target: { value: 'squat' } })
 
-    expect(screen.getByRole('button', { name: /add back squat/i })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /add push up/i })).toBeNull()
-    expect(screen.queryByRole('button', { name: /add plank/i })).toBeNull()
+    expect(screen.getByRole('button', { name: /select back squat/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /select push up/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /select plank/i })).toBeNull()
   })
 
   it('shows empty state when no matches', async () => {
     render(<ExercisePicker {...defaultProps()} />)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /add push up/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /select push up/i })).toBeInTheDocument()
     })
 
     fireEvent.change(screen.getByRole('searchbox', { name: /search exercises/i }), {
@@ -183,16 +231,14 @@ describe('ExercisePicker — tag filters', () => {
     render(<ExercisePicker {...defaultProps()} />)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /add push up/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /select push up/i })).toBeInTheDocument()
     })
 
-    // Click the "Core" chip
     fireEvent.click(screen.getByRole('button', { name: /^core$/i }))
 
-    // Only Plank has tag 'core'
-    expect(screen.getByRole('button', { name: /add plank/i })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /add push up/i })).toBeNull()
-    expect(screen.queryByRole('button', { name: /add back squat/i })).toBeNull()
+    expect(screen.getByRole('button', { name: /select plank/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /select push up/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /select back squat/i })).toBeNull()
   })
 
   it('chip shows aria-pressed=true when active', async () => {
@@ -210,65 +256,138 @@ describe('ExercisePicker — tag filters', () => {
   })
 })
 
-describe('ExercisePicker — exercise selection', () => {
-  it('calls POST /v1/blocks/{blockId}/items then onSelect and onClose', async () => {
-    const onSelect = vi.fn()
+describe('ExercisePicker — multi-select', () => {
+  it('footer button is disabled when nothing is selected', async () => {
+    render(<ExercisePicker {...defaultProps()} />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /select exercises/i })).toBeInTheDocument()
+    })
+
+    expect(screen.getByRole('button', { name: /select exercises/i })).toBeDisabled()
+  })
+
+  it('toggling exercises updates selection count in footer button', async () => {
+    render(<ExercisePicker {...defaultProps()} />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /select back squat/i })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /select back squat/i }))
+    expect(screen.getByText('Add 1 exercise')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /select push up/i }))
+    expect(screen.getByText('Add 2 exercises')).toBeInTheDocument()
+
+    // Deselect one
+    fireEvent.click(screen.getByRole('button', { name: /deselect back squat/i }))
+    expect(screen.getByText('Add 1 exercise')).toBeInTheDocument()
+  })
+
+  it('exercise row shows aria-pressed=true when selected', async () => {
+    render(<ExercisePicker {...defaultProps()} />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /select back squat/i })).toBeInTheDocument()
+    })
+
+    const btn = screen.getByRole('button', { name: /select back squat/i })
+    expect(btn).toHaveAttribute('aria-pressed', 'false')
+
+    fireEvent.click(btn)
+    expect(screen.getByRole('button', { name: /deselect back squat/i })).toHaveAttribute('aria-pressed', 'true')
+  })
+})
+
+describe('ExercisePicker — submit', () => {
+  it('POSTs each selected exercise and calls onExercisesAdded', async () => {
+    const onExercisesAdded = vi.fn()
     const onClose = vi.fn()
+
+    const item1 = makeBlockItem('ex-squat', 0)
+    const item2 = makeBlockItem('ex-push', 1)
 
     mockRequest
       .mockResolvedValueOnce(MOCK_EXERCISES)  // GET /v1/exercises
-      .mockResolvedValueOnce(MOCK_ITEM)       // POST /v1/blocks/blk-1/items
+      .mockResolvedValueOnce(item1)           // POST item 1
+      .mockResolvedValueOnce(item2)           // POST item 2
 
-    render(<ExercisePicker blockId="blk-1" onSelect={onSelect} onClose={onClose} />)
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /add back squat/i })).toBeInTheDocument()
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: /add back squat/i }))
+    render(<ExercisePicker {...defaultProps({ onExercisesAdded, onClose })} />)
 
     await waitFor(() => {
-      expect(mockRequest).toHaveBeenCalledWith(
-        '/v1/blocks/blk-1/items',
-        expect.objectContaining({ method: 'POST' }),
-      )
+      expect(screen.getByRole('button', { name: /select back squat/i })).toBeInTheDocument()
     })
-    expect(onSelect).toHaveBeenCalledWith(SQUAT, MOCK_ITEM)
+
+    // Select two exercises
+    fireEvent.click(screen.getByRole('button', { name: /select back squat/i }))
+    fireEvent.click(screen.getByRole('button', { name: /select push up/i }))
+
+    // Click "Add 2 exercises"
+    fireEvent.click(screen.getByText('Add 2 exercises'))
+
+    await waitFor(() => {
+      expect(onExercisesAdded).toHaveBeenCalledWith('blk-1', [item1, item2])
+    })
     expect(onClose).toHaveBeenCalled()
+
+    // Two POSTs should have been made (after the initial GET)
+    const postCalls = mockRequest.mock.calls.filter(
+      (args: unknown[]) => typeof args[0] === 'string' && (args[0] as string).startsWith('/v1/blocks/') && (args[1] as { method?: string })?.method === 'POST',
+    )
+    expect(postCalls).toHaveLength(2)
   })
 
-  it('shows inline error and keeps modal open if POST fails', async () => {
+  it('shows error and keeps drawer open when a POST fails mid-batch', async () => {
     const onClose = vi.fn()
+    const onExercisesAdded = vi.fn()
+
+    const item1 = makeBlockItem('ex-squat', 0)
 
     mockRequest
-      .mockResolvedValueOnce(MOCK_EXERCISES)
-      .mockRejectedValueOnce(new Error('Server error'))
+      .mockResolvedValueOnce(MOCK_EXERCISES)         // GET
+      .mockResolvedValueOnce(item1)                   // POST item 1 succeeds
+      .mockRejectedValueOnce(new Error('Server error')) // POST item 2 fails
 
-    render(<ExercisePicker blockId="blk-1" onSelect={vi.fn()} onClose={onClose} />)
+    render(<ExercisePicker {...defaultProps({ onClose, onExercisesAdded })} />)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /add push up/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /select back squat/i })).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /add push up/i }))
+    fireEvent.click(screen.getByRole('button', { name: /select back squat/i }))
+    fireEvent.click(screen.getByRole('button', { name: /select push up/i }))
+    fireEvent.click(screen.getByText('Add 2 exercises'))
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeInTheDocument()
     })
+    // Partial success: first item was added
+    expect(onExercisesAdded).toHaveBeenCalledWith('blk-1', [item1])
+    // Drawer stays open (onClose not called because there was an error)
     expect(onClose).not.toHaveBeenCalled()
   })
-})
 
-describe('ExercisePicker — keyboard close', () => {
-  it('calls onClose when Escape is pressed', async () => {
-    const onClose = vi.fn()
-    render(<ExercisePicker blockId="blk-1" onSelect={vi.fn()} onClose={onClose} />)
+  it('prevents double submit — button is disabled while adding', async () => {
+    // Use a never-resolving promise so the POST stays in-flight
+    mockRequest
+      .mockResolvedValueOnce(MOCK_EXERCISES) // GET
+      .mockReturnValueOnce(new Promise(() => {})) // POST hangs
+
+    render(<ExercisePicker {...defaultProps()} />)
 
     await waitFor(() => {
-      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /select back squat/i })).toBeInTheDocument()
     })
 
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(onClose).toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: /select back squat/i }))
+
+    const addBtn = screen.getByText('Add 1 exercise')
+    fireEvent.click(addBtn)
+
+    // Button should now show "Adding…" and be disabled
+    await waitFor(() => {
+      expect(screen.getByText('Adding…')).toBeDisabled()
+    })
   })
 })

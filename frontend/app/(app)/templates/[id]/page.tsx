@@ -22,6 +22,7 @@ import { request, ValidationError } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
 import { SkeletonList } from '@/app/_shared/components/Skeleton'
 import { AssignPanel } from './AssignPanel'
+import { ExercisePicker } from './ExercisePicker'
 import { SortableBlock } from './SortableBlock'
 import type {
   BlockItem,
@@ -155,6 +156,9 @@ export default function TemplateDetailPage() {
   const [titleValue, setTitleValue] = useState('')
   const [titleHintVisible, setTitleHintVisible] = useState(true)
   const [assignOpen, setAssignOpen] = useState(false)
+  const [pickerState, setPickerState] = useState<
+    { open: false } | { open: true; blockId: string }
+  >({ open: false })
   const [publishing, setPublishing] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
@@ -294,18 +298,6 @@ export default function TemplateDetailPage() {
     )
   }
 
-  function handleBlockItemAdded(blockId: string, item: BlockItem) {
-    setTemplate((prev) => {
-      if (!prev) return prev
-      return {
-        ...prev,
-        blocks: prev.blocks.map((b) =>
-          b.id === blockId ? { ...b, items: [...b.items, item] } : b,
-        ),
-      }
-    })
-  }
-
   function handleBlockItemUpdated(blockId: string, updatedItem: BlockItem) {
     setTemplate((prev) => {
       if (!prev) return prev
@@ -317,6 +309,23 @@ export default function TemplateDetailPage() {
             : b,
         ),
       }
+    })
+  }
+
+  function handleExercisesAdded(blockId: string, items: BlockItem[]) {
+    setTemplate((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        blocks: prev.blocks.map((b) =>
+          b.id === blockId ? { ...b, items: [...b.items, ...items] } : b,
+        ),
+      }
+    })
+    setPickerState({ open: false })
+    // Scroll to the block so the newly added exercises are visible
+    requestAnimationFrame(() => {
+      document.getElementById(`block-${blockId}`)?.scrollIntoView({ behavior: 'smooth' })
     })
   }
 
@@ -575,6 +584,15 @@ export default function TemplateDetailPage() {
         </div>
       )}
 
+      {/* Exercise picker drawer */}
+      {pickerState.open && (
+        <ExercisePicker
+          blockId={pickerState.blockId}
+          onClose={() => setPickerState({ open: false })}
+          onExercisesAdded={handleExercisesAdded}
+        />
+      )}
+
       {/* Blocks */}
       <div className="mt-8 space-y-8">
         {editMode ? (
@@ -595,8 +613,8 @@ export default function TemplateDetailPage() {
                       block={block}
                       accentColor={getAccentColor(idx)}
                       onDeleted={handleBlockDeleted}
-                      onItemAdded={handleBlockItemAdded}
                       onItemUpdated={handleBlockItemUpdated}
+                      onBrowseLibrary={() => { setAssignOpen(false); setPickerState({ open: true, blockId: block.id }) }}
                       onSaving={markSaving}
                       onSaved={markSaved}
                     />

@@ -29,6 +29,14 @@ vi.mock('./AssignPanel', () => ({
   AssignPanel: () => <div data-testid="assign-panel" />,
 }))
 
+vi.mock('./ExercisePicker', () => ({
+  ExercisePicker: ({ blockId, onClose }: { blockId: string; onClose: () => void }) => (
+    <div data-testid="exercise-picker" data-block-id={blockId}>
+      <button onClick={onClose}>Close picker</button>
+    </div>
+  ),
+}))
+
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'tpl-123' }),
   usePathname: () => '/templates/tpl-123',
@@ -179,5 +187,65 @@ describe('TemplateDetailPage — block reorder (drag-and-drop)', () => {
     })
 
     expect(screen.queryByLabelText(/drag to reorder/i)).not.toBeInTheDocument()
+  })
+})
+
+describe('TemplateDetailPage — exercise picker drawer', () => {
+  const TEMPLATE_WITH_BLOCK: WorkoutTemplateDetail = {
+    ...MOCK_TEMPLATE,
+    blocks: [
+      { id: 'b1', workout_template_id: 'tpl-123', order: 0, name: 'Warmup', notes: null, items: [] },
+    ],
+  }
+
+  it('opens exercise picker drawer when Browse library is clicked in edit mode', async () => {
+    mockRequest.mockResolvedValueOnce(TEMPLATE_WITH_BLOCK)
+
+    render(<TemplateDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Warmup').length).toBeGreaterThan(0)
+    })
+
+    // Enter edit mode
+    fireEvent.click(screen.getByRole('button', { name: 'Edit template' }))
+
+    // Click "Browse library" button
+    fireEvent.click(screen.getByRole('button', { name: /browse library/i }))
+
+    // Exercise picker drawer should appear with correct blockId
+    expect(screen.getByTestId('exercise-picker')).toBeInTheDocument()
+    expect(screen.getByTestId('exercise-picker')).toHaveAttribute('data-block-id', 'b1')
+  })
+
+  it('does not show exercise picker drawer by default', async () => {
+    mockRequest.mockResolvedValueOnce(TEMPLATE_WITH_BLOCK)
+
+    render(<TemplateDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Warmup').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.queryByTestId('exercise-picker')).not.toBeInTheDocument()
+  })
+
+  it('closes exercise picker drawer when close is triggered', async () => {
+    mockRequest.mockResolvedValueOnce(TEMPLATE_WITH_BLOCK)
+
+    render(<TemplateDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Warmup').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit template' }))
+    fireEvent.click(screen.getByRole('button', { name: /browse library/i }))
+
+    expect(screen.getByTestId('exercise-picker')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /close picker/i }))
+
+    expect(screen.queryByTestId('exercise-picker')).not.toBeInTheDocument()
   })
 })

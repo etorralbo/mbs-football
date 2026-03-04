@@ -56,8 +56,8 @@ export function SortableBlock({ id, accentColor, ...blockProps }: SortableBlockP
           block={blockProps.block}
           accentColor={accentColor}
           onDeleted={blockProps.onDeleted}
-          onItemAdded={blockProps.onItemAdded}
           onItemUpdated={blockProps.onItemUpdated}
+          onBrowseLibrary={blockProps.onBrowseLibrary}
           onSaving={blockProps.onSaving}
           onSaved={blockProps.onSaved}
         />
