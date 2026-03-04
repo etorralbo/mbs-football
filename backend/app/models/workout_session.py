@@ -50,6 +50,9 @@ class WorkoutSession(Base, TimestampMixin):
     completed_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    cancelled_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     assignment: Mapped["WorkoutAssignment"] = relationship(
         "WorkoutAssignment",

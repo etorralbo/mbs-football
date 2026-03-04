@@ -23,6 +23,10 @@ class NotFoundError(Exception):
     """
 
 
+class SessionCancelledError(Exception):
+    """Session has been cancelled and cannot be completed."""
+
+
 # ---------------------------------------------------------------------------
 # Command DTO
 # ---------------------------------------------------------------------------
@@ -70,6 +74,10 @@ class CompleteWorkoutSessionUseCase:
         # Idempotent: already completed — nothing to do, no duplicate event.
         if session.completed_at is not None:
             return
+
+        # Guard: cancelled sessions cannot be completed.
+        if session.cancelled_at is not None:
+            raise SessionCancelledError("Cancelled sessions cannot be completed.")
 
         # Track before mark_complete so both land in the same commit.
         # team_id comes from the command: resolve_session already enforced that

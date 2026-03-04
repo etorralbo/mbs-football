@@ -29,6 +29,7 @@ class FunnelEvent(str, enum.Enum):
     ASSIGNMENT_CREATED = "assignment_created"
     SESSION_FIRST_LOG_ADDED = "session_first_log_added"
     SESSION_COMPLETED = "session_completed"
+    SESSION_CANCELLED = "session_cancelled"
 
 
 class ProductEvent(Base):

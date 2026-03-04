@@ -47,6 +47,7 @@ const ALICE_SESSION: WorkoutSessionSummary = {
   template_title: 'Strength Block A',
   scheduled_for: '2025-03-01',
   completed_at: null,
+  cancelled_at: null,
 }
 
 const BOB_SESSION: WorkoutSessionSummary = {
@@ -58,6 +59,7 @@ const BOB_SESSION: WorkoutSessionSummary = {
   template_title: 'Cardio Day',
   scheduled_for: '2025-03-02',
   completed_at: null,
+  cancelled_at: null,
 }
 
 // ---------------------------------------------------------------------------
@@ -241,5 +243,139 @@ describe('SessionsPage — COACH grouped view', () => {
     fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
     await waitFor(() => screen.getByText(/strength block a/i))
     expect(screen.queryByRole('combobox', { name: /filter by athlete/i })).not.toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Unassign (cancel) sessions — COACH only
+// ---------------------------------------------------------------------------
+
+const COMPLETED_SESSION: WorkoutSessionSummary = {
+  ...ALICE_SESSION,
+  id: 'sess-done',
+  completed_at: '2025-03-01T10:00:00Z',
+}
+
+describe('SessionsPage — Unassign (calendar)', () => {
+  // Calendar defaults to the current month — sessions must have a date in this month
+  const now = new Date()
+  const THIS_MONTH = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-15`
+  const CAL_SESSION: WorkoutSessionSummary = { ...ALICE_SESSION, scheduled_for: THIS_MONTH }
+  const CAL_COMPLETED: WorkoutSessionSummary = { ...COMPLETED_SESSION, scheduled_for: THIS_MONTH }
+
+  it('shows unassign button for coach on pending session in calendar', async () => {
+    setupCoach([CAL_SESSION])
+    render(<SessionsPage />)
+    expect(await screen.findByRole('button', { name: /unassign strength block a/i })).toBeInTheDocument()
+  })
+
+  it('does not show unassign button for athlete in calendar', async () => {
+    setupAthlete([CAL_SESSION])
+    render(<SessionsPage />)
+    await waitFor(() => screen.getByText(/strength block a/i))
+    expect(screen.queryByRole('button', { name: /unassign strength block a/i })).not.toBeInTheDocument()
+  })
+
+  it('does not show unassign button for completed session in calendar', async () => {
+    setupCoach([CAL_COMPLETED])
+    render(<SessionsPage />)
+    await waitFor(() => screen.getByText(/strength block a/i))
+    expect(screen.queryByRole('button', { name: /unassign/i })).not.toBeInTheDocument()
+  })
+
+  it('opens confirmation dialog from calendar unassign button', async () => {
+    setupCoach([CAL_SESSION])
+    render(<SessionsPage />)
+    fireEvent.click(await screen.findByRole('button', { name: /unassign strength block a/i }))
+
+    expect(screen.getByRole('dialog', { name: /confirm unassign/i })).toBeInTheDocument()
+    expect(screen.getByText(/the athlete will no longer see this session/i)).toBeInTheDocument()
+  })
+})
+
+describe('SessionsPage — Unassign (list)', () => {
+  it('shows Unassign button for coach on pending session', async () => {
+    setupCoach([ALICE_SESSION])
+    render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+    expect(await screen.findByRole('button', { name: /unassign/i })).toBeInTheDocument()
+  })
+
+  it('does not show Unassign button for athlete', async () => {
+    setupAthlete([ALICE_SESSION])
+    render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+    await waitFor(() => screen.getByText(/strength block a/i))
+    expect(screen.queryByRole('button', { name: /unassign/i })).not.toBeInTheDocument()
+  })
+
+  it('does not show Unassign button for completed session', async () => {
+    setupCoach([COMPLETED_SESSION])
+    render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+    await waitFor(() => screen.getByText(/strength block a/i))
+    expect(screen.queryByRole('button', { name: /unassign/i })).not.toBeInTheDocument()
+  })
+
+  it('shows confirmation dialog when Unassign is clicked', async () => {
+    setupCoach([ALICE_SESSION])
+    render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /unassign/i }))
+
+    expect(screen.getByRole('dialog', { name: /confirm unassign/i })).toBeInTheDocument()
+    expect(screen.getByText(/the athlete will no longer see this session/i)).toBeInTheDocument()
+  })
+
+  it('removes session from list after successful unassign', async () => {
+    mockActivation.mockReturnValue(COACH_STATE)
+    // After cancel, list re-fetch should exclude Alice
+    let cancelled = false
+    mockRequest.mockImplementation((url: string) => {
+      if (url.endsWith('/cancel')) { cancelled = true; return Promise.resolve(undefined) }
+      return Promise.resolve(cancelled ? [BOB_SESSION] : [ALICE_SESSION, BOB_SESSION])
+    })
+
+    render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+
+    // Click unassign on Alice's session
+    const aliceUnassign = await screen.findAllByRole('button', { name: /unassign/i })
+    fireEvent.click(aliceUnassign[0])
+
+    // Confirm
+    const dialog = screen.getByRole('dialog', { name: /confirm unassign/i })
+    fireEvent.click(within(dialog).getByRole('button', { name: /^unassign$/i }))
+
+    await waitFor(() => {
+      expect(screen.queryByText(/strength block a/i)).not.toBeInTheDocument()
+    })
+    // Bob's session still there
+    expect(screen.getByText(/cardio day/i)).toBeInTheDocument()
+  })
+
+  it('shows error message on 409 conflict', async () => {
+    mockActivation.mockReturnValue(COACH_STATE)
+    const { ConflictError } = await import('@/app/_shared/api/httpClient')
+    // Mock: first call = list, second call = cancel (409)
+    mockRequest.mockImplementation((url: string) => {
+      if (url === '/v1/workout-sessions') return Promise.resolve([ALICE_SESSION])
+      return Promise.reject(new ConflictError('Session has activity'))
+    })
+
+    render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /unassign/i }))
+
+    const dialog = screen.getByRole('dialog', { name: /confirm unassign/i })
+    fireEvent.click(within(dialog).getByRole('button', { name: /^unassign$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        /can't be unassigned because it has activity or logs/i,
+      )
+    })
+    // Session still visible
+    expect(screen.getByText(/strength block a/i)).toBeInTheDocument()
   })
 })
