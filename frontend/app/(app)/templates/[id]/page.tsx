@@ -154,6 +154,7 @@ export default function TemplateDetailPage() {
   const [showAddBlock, setShowAddBlock] = useState(false)
   const [titleValue, setTitleValue] = useState('')
   const [titleHintVisible, setTitleHintVisible] = useState(true)
+  const [assignOpen, setAssignOpen] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
@@ -208,6 +209,16 @@ export default function TemplateDetailPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editMode])
+
+  // Close assign drawer on Escape
+  useEffect(() => {
+    if (!assignOpen) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setAssignOpen(false)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [assignOpen])
 
   async function handleTitleBlur() {
     const value = titleValue.trim()
@@ -395,6 +406,17 @@ export default function TemplateDetailPage() {
           </div>
 
           <div className="ml-4 flex shrink-0 items-center gap-3">
+            {/* Assign button */}
+            <button
+              onClick={() => setAssignOpen(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+              Assign
+            </button>
+
             {/* Status toggle */}
             <button
               onClick={handleToggleStatus}
@@ -508,9 +530,7 @@ export default function TemplateDetailPage() {
               </Link>
               <button
                 type="button"
-                onClick={() =>
-                  document.getElementById('assign')?.scrollIntoView({ behavior: 'smooth' })
-                }
+                onClick={() => setAssignOpen(true)}
                 className="inline-flex items-center rounded-lg bg-[#c8f135] px-3 py-1.5 text-xs font-bold text-[#0a0d14] transition-colors hover:bg-[#d4f755] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135] focus-visible:ring-offset-2"
               >
                 Assign now
@@ -520,10 +540,40 @@ export default function TemplateDetailPage() {
         </div>
       )}
 
-      {/* Assign panel */}
-      <div id="assign">
-        <AssignPanel templateId={id} />
-      </div>
+      {/* Assign drawer */}
+      {assignOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setAssignOpen(false)}
+            aria-hidden="true"
+          />
+          {/* Panel */}
+          <div
+            role="dialog"
+            aria-label="Assign workout"
+            className="relative w-full max-w-md animate-[slideIn_200ms_ease-out] overflow-y-auto bg-slate-950 shadow-2xl"
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+              <h2 className="text-base font-bold text-white">Assign workout</h2>
+              <button
+                type="button"
+                onClick={() => setAssignOpen(false)}
+                className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200"
+                aria-label="Close assign panel"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-6">
+              <AssignPanel templateId={id} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Blocks */}
       <div className="mt-8 space-y-8">
