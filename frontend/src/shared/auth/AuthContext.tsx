@@ -43,7 +43,7 @@ export interface AuthContextValue {
   error: Error | null
   /** True while /v1/me is loading OR onboarding logic is resolving. */
   isAppBootstrapping: boolean
-  refreshMe: () => void
+  refreshMe: () => Promise<MeResponse>
   setActiveTeamId: (teamId: string) => void
   clearActiveTeam: () => void
   /** Called by router-guard pages (OnboardingHub, AuthContinue) to signal
@@ -88,7 +88,7 @@ const AuthContext = createContext<AuthContextValue>({
   loading: true,
   error: null,
   isAppBootstrapping: true,
-  refreshMe: () => {},
+  refreshMe: () => Promise.resolve(null as unknown as MeResponse),
   setActiveTeamId: () => {},
   clearActiveTeam: () => {},
   setOnboardingResolving: () => {},
@@ -102,8 +102,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<MeResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
-  // Incrementing this triggers the fetch effect.
-  const [refreshToken, setRefreshToken] = useState(0)
   // Persisted team selection (for multi-team coaches). Initialised from
   // localStorage on first render; updated via setActiveTeamId / clearActiveTeam.
   const [localTeamId, setLocalTeamId] = useState<string | null>(
@@ -111,8 +109,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
   const [onboardingResolving, setOnboardingResolving] = useState(false)
 
-  const refreshMe = useCallback(() => setRefreshToken((t) => t + 1), [])
+  const fetchMe = useCallback(
+    async (signal?: AbortSignal): Promise<MeResponse> => {
+      const data = await request<MeResponse>('/v1/me', {
+        signal,
+        teamScoped: false,
+      } as RequestInit & { teamScoped: boolean })
+      setMe(data)
+      return data
+    },
+    [],
+  )
 
+  const refreshMe = useCallback(async (): Promise<MeResponse> => {
+    return fetchMe()
+  }, [fetchMe])
+
+  // Initial bootstrap fetch on mount.
   useEffect(() => {
     const controller = new AbortController()
 
@@ -120,13 +133,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true)
     setError(null)
 
-    // teamScoped: false — bootstrap call, no team context available yet.
-    request<MeResponse>('/v1/me', {
-      signal: controller.signal,
-      teamScoped: false,
-    } as RequestInit & { teamScoped: boolean })
-      .then((data) => {
-        setMe(data)
+    fetchMe(controller.signal)
+      .then(() => {
         setLoading(false)
       })
       .catch((err) => {
@@ -136,7 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
 
     return () => controller.abort()
-  }, [refreshToken])
+  }, [fetchMe])
 
   // Resolved team: server value → validated localStorage → null.
   const resolvedActiveTeamId = useMemo<string | null>(() => {
