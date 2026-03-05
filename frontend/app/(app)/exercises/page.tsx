@@ -249,16 +249,23 @@ export default function ExercisesPage() {
   // All exercises (filtered, regardless of favorite)
   const allFiltered = filtered
 
-  // Tag counts from full list (not filtered — so chips show total availability)
+  // Scope-filtered list (before text query + tag filters, so chip counts reflect scope)
+  const scoped = useMemo(() => {
+    if (filters.scope === 'official') return exercises.filter((e) => e.owner_type === 'COMPANY')
+    if (filters.scope === 'mine') return exercises.filter((e) => e.owner_type === 'COACH')
+    return exercises
+  }, [exercises, filters.scope])
+
+  // Tag counts from scoped list (reflects current scope, not text/tag filters)
   const tagCounts = useMemo(() => {
     const counts: Record<string, number> = {}
-    for (const ex of exercises) {
+    for (const ex of scoped) {
       for (const tag of ex.tags) {
         counts[tag] = (counts[tag] ?? 0) + 1
       }
     }
     return counts
-  }, [exercises])
+  }, [scoped])
 
   // ---------------------------------------------------------------------------
   // Actions
@@ -403,10 +410,13 @@ export default function ExercisesPage() {
               type="button"
               onClick={() => toggleTag(value)}
               aria-pressed={active}
+              disabled={count === 0 && !active}
               className={`rounded-full border px-3 py-1 text-xs font-medium transition-all duration-150 ${
                 active
                   ? 'border-[#c8f135] bg-[#c8f135]/10 text-[#c8f135]'
-                  : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-slate-300'
+                  : count === 0
+                    ? 'border-white/5 text-slate-600 cursor-not-allowed opacity-50'
+                    : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-slate-300'
               }`}
             >
               {label}

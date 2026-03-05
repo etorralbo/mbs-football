@@ -882,6 +882,84 @@ describe('ExercisesPage — editor drawer', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Tag counts respect scope
+// ---------------------------------------------------------------------------
+
+describe('ExercisesPage — tag counts respect scope', () => {
+  beforeEach(() => {
+    mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
+  })
+
+  const COMPANY_STRENGTH: Exercise = {
+    ...COMPANY_EX,
+    id: 'ex-comp-str',
+    name: 'Bench Press',
+    tags: ['strength', 'upper-body'],
+  }
+  const COACH_MOBILITY: Exercise = {
+    ...COACH_EX,
+    id: 'ex-coach-mob',
+    name: 'Hip Opener',
+    tags: ['mobility'],
+  }
+
+  it('shows counts from all exercises when scope is "All"', async () => {
+    // COMPANY_EX has ['strength','lower-body'], COACH_EX has ['strength'], COACH_MOBILITY has ['mobility']
+    mockRequest.mockResolvedValue([COMPANY_EX, COACH_EX, COACH_MOBILITY])
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('Back Squat')
+    // strength: COMPANY_EX + COACH_EX = 2
+    const strengthChip = screen.getByRole('button', { name: /^strength/i })
+    expect(strengthChip).toHaveTextContent('(2)')
+    // mobility: 1
+    const mobilityChip = screen.getByRole('button', { name: /^mobility/i })
+    expect(mobilityChip).toHaveTextContent('(1)')
+  })
+
+  it('counts change when switching to "Official" scope', async () => {
+    mockRequest.mockResolvedValue([COMPANY_EX, COACH_EX, COACH_MOBILITY])
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('Back Squat')
+    fireEvent.click(screen.getByRole('button', { name: /^Official$/i }))
+
+    await waitFor(() => {
+      // Only COMPANY_EX has 'strength' → (1)
+      const strengthChip = screen.getByRole('button', { name: /^strength/i })
+      expect(strengthChip).toHaveTextContent('(1)')
+    })
+    // mobility: 0 → chip should be disabled (no count shown)
+    const mobilityChip = screen.getByRole('button', { name: /^mobility/i })
+    expect(mobilityChip).not.toHaveTextContent('(1)')
+    expect(mobilityChip).toBeDisabled()
+  })
+
+  it('"Mine" scope shows only counts from COACH exercises', async () => {
+    mockRequest.mockResolvedValue([COMPANY_STRENGTH, COACH_EX, COACH_MOBILITY])
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('Bench Press')
+    fireEvent.click(screen.getByRole('button', { name: /^Mine$/i }))
+
+    await waitFor(() => {
+      // COACH_EX has 'strength' → (1)
+      const strengthChip = screen.getByRole('button', { name: /^strength/i })
+      expect(strengthChip).toHaveTextContent('(1)')
+    })
+    // upper-body: only COMPANY_STRENGTH has it, not in scope → disabled
+    const upperChip = screen.getByRole('button', { name: /^upper body/i })
+    expect(upperChip).toBeDisabled()
+    // mobility: COACH_MOBILITY has it → (1)
+    const mobilityChip = screen.getByRole('button', { name: /^mobility/i })
+    expect(mobilityChip).toHaveTextContent('(1)')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Athlete redirect
 // ---------------------------------------------------------------------------
 
