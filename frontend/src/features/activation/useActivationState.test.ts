@@ -19,7 +19,7 @@ const mockRequest = vi.mocked(request)
 function makeMeCoach(): MeResponse {
   return {
     user_id: 'user-coach',
-    memberships: [{ team_id: 'team-1', team_name: 'Alpha FC', role: 'COACH' }],
+    memberships: [{ team_id: 'team-1', team_name: 'Alpha FC', role: 'COACH', is_owner: true }],
     active_team_id: 'team-1',
   }
 }
@@ -27,7 +27,7 @@ function makeMeCoach(): MeResponse {
 function makeMeAthlete(): MeResponse {
   return {
     user_id: 'user-athlete',
-    memberships: [{ team_id: 'team-1', team_name: 'Alpha FC', role: 'ATHLETE' }],
+    memberships: [{ team_id: 'team-1', team_name: 'Alpha FC', role: 'ATHLETE', is_owner: false }],
     active_team_id: 'team-1',
   }
 }

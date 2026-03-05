@@ -37,8 +37,8 @@ it('renders for coach and switches team', () => {
     setActiveTeamId,
     me: {
       memberships: [
-        { team_id: TEAM_A, team_name: 'Mettle FC', role: 'COACH' },
-        { team_id: TEAM_B, team_name: 'Elite FC', role: 'COACH' },
+        { team_id: TEAM_A, team_name: 'Mettle FC', role: 'COACH', is_owner: true },
+        { team_id: TEAM_B, team_name: 'Elite FC', role: 'COACH', is_owner: true },
       ],
     },
   })
@@ -59,7 +59,7 @@ it('does not render for athlete', () => {
     role: 'ATHLETE',
     activeTeamId: TEAM_A,
     setActiveTeamId: vi.fn(),
-    me: { memberships: [{ team_id: TEAM_A, team_name: 'Mettle FC', role: 'ATHLETE' }] },
+    me: { memberships: [{ team_id: TEAM_A, team_name: 'Mettle FC', role: 'ATHLETE', is_owner: false }] },
   })
 
   const { container } = render(<TeamSwitcher />)

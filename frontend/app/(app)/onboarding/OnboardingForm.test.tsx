@@ -39,7 +39,7 @@ vi.mock('next/navigation', () => ({
 const NO_MEMBERSHIPS = { user_id: 'u1', memberships: [], active_team_id: null }
 const WITH_MEMBERSHIP = {
   user_id: 'u1',
-  memberships: [{ team_id: 't1', team_name: 'FC Test', role: 'COACH' as const }],
+  memberships: [{ team_id: 't1', team_name: 'FC Test', role: 'COACH' as const, is_owner: true }],
   active_team_id: 't1',
 }
 

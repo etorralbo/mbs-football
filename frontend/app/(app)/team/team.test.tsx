@@ -1,6 +1,7 @@
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within, cleanup } from '@testing-library/react'
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import TeamPage from './page'
+import { ForbiddenError } from '@/app/_shared/api/httpClient'
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -35,13 +36,19 @@ const TEAM_A = 't1'
 
 const coachMe = {
   user_id: 'u1',
-  memberships: [{ team_id: TEAM_A, team_name: 'Mettle FC', role: 'COACH' }],
+  memberships: [{ team_id: TEAM_A, team_name: 'Mettle FC', role: 'COACH', is_owner: true }],
+  active_team_id: TEAM_A,
+}
+
+const coachNotOwnerMe = {
+  user_id: 'u1',
+  memberships: [{ team_id: TEAM_A, team_name: 'Mettle FC', role: 'COACH', is_owner: false }],
   active_team_id: TEAM_A,
 }
 
 const athleteMe = {
   user_id: 'u2',
-  memberships: [{ team_id: TEAM_A, team_name: 'Mettle FC', role: 'ATHLETE' }],
+  memberships: [{ team_id: TEAM_A, team_name: 'Mettle FC', role: 'ATHLETE', is_owner: false }],
   active_team_id: TEAM_A,
 }
 
@@ -62,7 +69,7 @@ const athletesList = [
 // ---------------------------------------------------------------------------
 
 function authAs(
-  me: typeof coachMe | typeof athleteMe | null,
+  me: typeof coachMe | typeof athleteMe | typeof coachNotOwnerMe | null,
   role: 'COACH' | 'ATHLETE' | null,
   overrides?: Record<string, unknown>,
 ) {
@@ -83,13 +90,15 @@ function authAs(
  * Routes mockRequest by URL so tests can control each endpoint independently.
  *  GET /v1/athletes      → athletes (default: [])
  *  POST /v1/team-invites → invite (default: rejected)
+ *  DELETE /v1/teams/:id  → deleteResult (default: rejected)
  */
 function setupRequest({
   athletes = [] as typeof athletesList,
   invite = null as typeof inviteResponse | null,
   athletesError = false,
+  deleteResult = null as 'success' | { error: string; status: number } | null,
 } = {}) {
-  mockRequest.mockImplementation((url: string) => {
+  mockRequest.mockImplementation((url: string, opts?: { method?: string }) => {
     if (url === '/v1/athletes') {
       return athletesError
         ? Promise.reject(new Error('network error'))
@@ -99,6 +108,13 @@ function setupRequest({
       return invite
         ? Promise.resolve(invite)
         : Promise.reject(new Error('invite not configured'))
+    }
+    if (url.startsWith('/v1/teams/') && opts?.method === 'DELETE') {
+      if (deleteResult === 'success') return Promise.resolve(undefined)
+      if (deleteResult && typeof deleteResult === 'object') {
+        return Promise.reject(new ForbiddenError(deleteResult.error))
+      }
+      return Promise.reject(new Error('delete not configured'))
     }
     return Promise.reject(new Error(`unexpected: ${url}`))
   })
@@ -289,5 +305,124 @@ describe('TeamPage', () => {
         }),
       )
     })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Delete Team
+  // ---------------------------------------------------------------------------
+
+  it('shows danger zone only for team owner', async () => {
+    authAs(coachMe, 'COACH')
+    render(<TeamPage />)
+    expect(await screen.findByText(/danger zone/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /delete team/i })).toBeInTheDocument()
+  })
+
+  it('does not show danger zone for coach who is not owner', async () => {
+    authAs(coachNotOwnerMe, 'COACH')
+    render(<TeamPage />)
+    await screen.findByText('Mettle FC')
+    expect(screen.queryByText(/danger zone/i)).not.toBeInTheDocument()
+  })
+
+  it('does not show danger zone for athlete', async () => {
+    authAs(athleteMe, 'ATHLETE')
+    render(<TeamPage />)
+    await screen.findByText('Mettle FC')
+    expect(screen.queryByText(/danger zone/i)).not.toBeInTheDocument()
+  })
+
+  it('opens confirmation modal on delete button click', async () => {
+    authAs(coachMe, 'COACH')
+    render(<TeamPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /delete team/i }))
+
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toBeInTheDocument()
+    expect(within(dialog).getByText(/this action cannot be undone/i)).toBeInTheDocument()
+  })
+
+  it('delete button disabled until team name typed', async () => {
+    authAs(coachMe, 'COACH')
+    render(<TeamPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /delete team/i }))
+
+    const dialog = screen.getByRole('dialog')
+    const confirmBtn = dialog.querySelector('button')!
+    // The "Delete team" button inside the modal
+    const deleteBtn = screen.getAllByRole('button', { name: /delete team/i })[1]
+    expect(deleteBtn).toBeDisabled()
+
+    // Type wrong name
+    const input = screen.getByPlaceholderText(/type the team name/i)
+    fireEvent.change(input, { target: { value: 'Wrong Name' } })
+    expect(deleteBtn).toBeDisabled()
+
+    // Type correct name
+    fireEvent.change(input, { target: { value: 'Mettle FC' } })
+    expect(deleteBtn).toBeEnabled()
+  })
+
+  it('successful delete redirects to /team/select', async () => {
+    const mockClearActiveTeam = vi.fn()
+    const mockRefreshMe = vi.fn().mockResolvedValue({
+      user_id: 'u1',
+      memberships: [{ team_id: 't2', team_name: 'Other Team', role: 'COACH', is_owner: true }],
+      active_team_id: null,
+    })
+    authAs(coachMe, 'COACH', { clearActiveTeam: mockClearActiveTeam, refreshMe: mockRefreshMe })
+    setupRequest({ deleteResult: 'success' })
+    render(<TeamPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /delete team/i }))
+    const input = screen.getByPlaceholderText(/type the team name/i)
+    fireEvent.change(input, { target: { value: 'Mettle FC' } })
+    fireEvent.click(screen.getAllByRole('button', { name: /delete team/i })[1])
+
+    await waitFor(() => {
+      expect(mockClearActiveTeam).toHaveBeenCalled()
+      expect(mockRefreshMe).toHaveBeenCalled()
+      expect(mockRouter.replace).toHaveBeenCalledWith('/team/select')
+    })
+  })
+
+  it('successful delete redirects to /create-team when no teams left', async () => {
+    const mockClearActiveTeam = vi.fn()
+    const mockRefreshMe = vi.fn().mockResolvedValue({
+      user_id: 'u1',
+      memberships: [],
+      active_team_id: null,
+    })
+    authAs(coachMe, 'COACH', { clearActiveTeam: mockClearActiveTeam, refreshMe: mockRefreshMe })
+    setupRequest({ deleteResult: 'success' })
+    render(<TeamPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /delete team/i }))
+    const input = screen.getByPlaceholderText(/type the team name/i)
+    fireEvent.change(input, { target: { value: 'Mettle FC' } })
+    fireEvent.click(screen.getAllByRole('button', { name: /delete team/i })[1])
+
+    await waitFor(() => {
+      expect(mockRouter.replace).toHaveBeenCalledWith('/create-team')
+    })
+  })
+
+  it('shows 403 error message when backend blocks deletion', async () => {
+    authAs(coachMe, 'COACH')
+    setupRequest({
+      deleteResult: { error: 'Cannot delete team: remove all athletes first.', status: 403 },
+    })
+    render(<TeamPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /delete team/i }))
+    const input = screen.getByPlaceholderText(/type the team name/i)
+    fireEvent.change(input, { target: { value: 'Mettle FC' } })
+    fireEvent.click(screen.getAllByRole('button', { name: /delete team/i })[1])
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /remove all athletes first/i,
+    )
   })
 })
