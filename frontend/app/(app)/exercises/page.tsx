@@ -27,9 +27,16 @@ import type { Exercise } from '@/app/_shared/api/types'
 
 import { CreateButton } from '@/app/_shared/components/CreateButton'
 import { PageHeader } from '@/app/_shared/components/PageHeader'
-import ExerciseForm, { type ExerciseFormValues } from './ExerciseForm'
+import { type ExerciseFormValues } from './ExerciseForm'
+import { ExerciseEditorDrawer } from './ExerciseEditorDrawer'
 import ExerciseCard from './ExerciseCard'
-import { FILTER_CHIPS, useExerciseFilters } from './useExerciseFilters'
+import { FILTER_CHIPS, useExerciseFilters, type Scope } from './useExerciseFilters'
+
+const SCOPE_OPTIONS: { label: string; value: Scope }[] = [
+  { label: 'All', value: 'all' },
+  { label: 'Official', value: 'official' },
+  { label: 'Mine', value: 'mine' },
+]
 
 // ---------------------------------------------------------------------------
 // Normalise helper (mirrors ExerciseSelector normalisation for search)
@@ -56,6 +63,35 @@ function ConfirmDeleteModal({
   onConfirm: () => void
   onCancel: () => void
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+
+  // Focus trap + Escape key
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+
+    // Focus the first focusable element (Cancel is safest default)
+    const focusable = dialog.querySelectorAll<HTMLElement>('button, [tabindex]')
+    if (focusable.length > 0) focusable[focusable.length - 1].focus()
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') { onCancel(); return }
+      if (e.key !== 'Tab' || !dialog) return
+      const els = dialog.querySelectorAll<HTMLElement>('button, [tabindex]')
+      if (els.length === 0) return
+      const first = els[0]
+      const last = els[els.length - 1]
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onCancel])
+
   return (
     <div
       role="dialog"
@@ -63,7 +99,7 @@ function ConfirmDeleteModal({
       aria-labelledby="delete-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
     >
-      <div className="w-full max-w-sm rounded-xl border border-white/10 bg-[#131922] p-6 shadow-2xl">
+      <div ref={dialogRef} className="w-full max-w-sm rounded-xl border border-white/10 bg-[#131922] p-6 shadow-2xl">
         <h2 id="delete-modal-title" className="text-sm font-semibold text-white">
           Delete exercise?
         </h2>
@@ -130,12 +166,16 @@ export default function ExercisesPage() {
   // Delete modal
   const [deletingExercise, setDeletingExercise] = useState<Exercise | null>(null)
 
+  // Highlight newly created / duplicated exercise
+  const [highlightedId, setHighlightedId] = useState<string | null>(null)
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Toast
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Filters (URL-synced)
-  const { filters, setQuery, toggleTag, clearFilters, hasActiveFilters } = useExerciseFilters()
+  const { filters, setQuery, toggleTag, setScope, clearFilters, hasActiveFilters } = useExerciseFilters()
 
   // UX guard: athletes should not access this page
   useEffect(() => {
@@ -144,6 +184,14 @@ export default function ExercisesPage() {
 
   useEffect(() => {
     document.title = 'Exercise Library | Mettle Performance'
+  }, [])
+
+  // Clean up timers on unmount to avoid setState-after-unmount
+  useEffect(() => {
+    return () => {
+      if (highlightTimer.current) clearTimeout(highlightTimer.current)
+      if (toastTimer.current) clearTimeout(toastTimer.current)
+    }
   }, [])
 
   // ---------------------------------------------------------------------------
@@ -170,6 +218,15 @@ export default function ExercisesPage() {
   }, [])
 
   // ---------------------------------------------------------------------------
+  // Highlight helper
+  // ---------------------------------------------------------------------------
+  function highlightExercise(id: string) {
+    if (highlightTimer.current) clearTimeout(highlightTimer.current)
+    setHighlightedId(id)
+    highlightTimer.current = setTimeout(() => setHighlightedId(null), 2500)
+  }
+
+  // ---------------------------------------------------------------------------
   // Toast helper
   // ---------------------------------------------------------------------------
   function showToast(message: string, type: 'success' | 'error') {
@@ -183,6 +240,12 @@ export default function ExercisesPage() {
   // ---------------------------------------------------------------------------
   const filtered = useMemo(() => {
     let list = exercises
+
+    if (filters.scope === 'official') {
+      list = list.filter((e) => e.owner_type === 'COMPANY')
+    } else if (filters.scope === 'mine') {
+      list = list.filter((e) => e.owner_type === 'COACH')
+    }
 
     if (filters.query) {
       const q = normalise(filters.query)
@@ -207,16 +270,29 @@ export default function ExercisesPage() {
   // All exercises (filtered, regardless of favorite)
   const allFiltered = filtered
 
-  // Tag counts from full list (not filtered — so chips show total availability)
+  // Section title adapts to scope
+  const sectionTitle =
+    filters.scope === 'official' ? 'Official exercises'
+      : filters.scope === 'mine' ? 'My exercises'
+        : 'All exercises'
+
+  // Scope-filtered list (before text query + tag filters, so chip counts reflect scope)
+  const scoped = useMemo(() => {
+    if (filters.scope === 'official') return exercises.filter((e) => e.owner_type === 'COMPANY')
+    if (filters.scope === 'mine') return exercises.filter((e) => e.owner_type === 'COACH')
+    return exercises
+  }, [exercises, filters.scope])
+
+  // Tag counts from scoped list (reflects current scope, not text/tag filters)
   const tagCounts = useMemo(() => {
     const counts: Record<string, number> = {}
-    for (const ex of exercises) {
+    for (const ex of scoped) {
       for (const tag of ex.tags) {
         counts[tag] = (counts[tag] ?? 0) + 1
       }
     }
     return counts
-  }, [exercises])
+  }, [scoped])
 
   // ---------------------------------------------------------------------------
   // Actions
@@ -241,6 +317,7 @@ export default function ExercisesPage() {
           body: JSON.stringify(values),
         })
         setExercises((prev) => [created, ...prev])
+        highlightExercise(created.id)
         showToast('Exercise created', 'success')
       }
       setShowForm(false)
@@ -285,6 +362,7 @@ export default function ExercisesPage() {
         }),
       })
       setExercises((prev) => [copy, ...prev])
+      highlightExercise(copy.id)
       showToast('Exercise duplicated', 'success')
     } catch {
       showToast('Could not duplicate exercise', 'error')
@@ -309,39 +387,38 @@ export default function ExercisesPage() {
   // ---------------------------------------------------------------------------
   if (authLoading) return null
 
-  const formInitial = editingExercise
-    ? { name: editingExercise.name, description: editingExercise.description, tags: editingExercise.tags }
-    : undefined
-
   return (
     <>
       <PageHeader
         title="Exercise Library"
         actions={
-          <CreateButton onClick={() => { setShowForm((v) => !v); setEditingExercise(null); setFormError(null) }}>
+          <CreateButton onClick={() => { setShowForm(true); setEditingExercise(null); setFormError(null) }}>
             New exercise
           </CreateButton>
         }
       />
 
-      {/* Create / Edit form */}
-      {showForm && (
-        <div className="mt-4 rounded-lg border border-white/8 bg-[#131922] p-4">
-          <p className="mb-3 text-sm font-medium text-white">
-            {editingExercise ? `Edit: ${editingExercise.name}` : 'New exercise'}
-          </p>
-          <ExerciseForm
-            initial={formInitial}
-            onSubmit={handleFormSubmit}
-            onCancel={() => { setShowForm(false); setEditingExercise(null) }}
-            submitting={formSubmitting}
-            submitError={formError}
-          />
-        </div>
-      )}
+      {/* Scope selector */}
+      <div className="mt-4 flex gap-1">
+        {SCOPE_OPTIONS.map(({ label, value }) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={filters.scope === value}
+            onClick={() => setScope(value)}
+            className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+              filters.scope === value
+                ? 'bg-white/10 text-white'
+                : 'text-slate-400 hover:bg-white/5 hover:text-slate-300'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       {/* Search */}
-      <div className="mt-4">
+      <div className="mt-3">
         <input
           type="search"
           value={filters.query}
@@ -362,10 +439,13 @@ export default function ExercisesPage() {
               type="button"
               onClick={() => toggleTag(value)}
               aria-pressed={active}
+              disabled={count === 0 && !active}
               className={`rounded-full border px-3 py-1 text-xs font-medium transition-all duration-150 ${
                 active
                   ? 'border-[#c8f135] bg-[#c8f135]/10 text-[#c8f135]'
-                  : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-slate-300'
+                  : count === 0
+                    ? 'border-white/5 text-slate-600 cursor-not-allowed opacity-50'
+                    : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-slate-300'
               }`}
             >
               {label}
@@ -412,12 +492,20 @@ export default function ExercisesPage() {
       {!loading && exercises.length > 0 && allFiltered.length === 0 && (
         <div className="mt-6 rounded-lg border border-dashed border-white/10 p-10 text-center">
           <p className="text-sm text-slate-500">No exercises match your filters.</p>
-          <button
-            onClick={clearFilters}
-            className="mt-2 text-xs text-[#4f9cf9] hover:underline"
-          >
-            Clear filters
-          </button>
+          <div className="mt-3 flex items-center justify-center gap-3">
+            <button
+              onClick={clearFilters}
+              className="text-xs text-[#4f9cf9] hover:underline"
+            >
+              Clear filters
+            </button>
+            <button
+              onClick={() => { setShowForm(true); setEditingExercise(null); setFormError(null) }}
+              className="rounded-md bg-[#c8f135] px-3 py-1.5 text-xs font-bold text-[#0a0d14] hover:bg-[#d4f755] transition-colors"
+            >
+              Create exercise
+            </button>
+          </div>
         </div>
       )}
 
@@ -438,6 +526,7 @@ export default function ExercisesPage() {
                   <ExerciseCard
                     key={ex.id}
                     exercise={ex}
+                    highlighted={ex.id === highlightedId}
                     onFavoriteToggle={handleFavoriteToggle}
                     onEdit={handleEdit}
                     onDuplicate={handleDuplicate}
@@ -449,9 +538,9 @@ export default function ExercisesPage() {
           )}
 
           {/* All exercises */}
-          <section aria-label="All exercises">
+          <section aria-label={sectionTitle}>
             <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-              All Exercises
+              {sectionTitle}
               <span className="ml-2 font-normal text-slate-600">({allFiltered.length})</span>
             </h2>
             <ul className="space-y-1.5">
@@ -459,6 +548,7 @@ export default function ExercisesPage() {
                 <ExerciseCard
                   key={ex.id}
                   exercise={ex}
+                  highlighted={ex.id === highlightedId}
                   onFavoriteToggle={handleFavoriteToggle}
                   onEdit={handleEdit}
                   onDuplicate={handleDuplicate}
@@ -468,6 +558,17 @@ export default function ExercisesPage() {
             </ul>
           </section>
         </div>
+      )}
+
+      {/* Editor drawer */}
+      {showForm && (
+        <ExerciseEditorDrawer
+          exercise={editingExercise}
+          onSubmit={handleFormSubmit}
+          onClose={() => { setShowForm(false); setEditingExercise(null) }}
+          submitting={formSubmitting}
+          submitError={formError}
+        />
       )}
 
       {/* Delete confirmation modal */}
