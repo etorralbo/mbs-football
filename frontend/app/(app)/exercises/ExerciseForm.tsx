@@ -36,6 +36,8 @@ interface Props {
   submitting?: boolean
   /** Optional error from the outer submit call. */
   submitError?: string | null
+  /** Notifies parent when form state diverges from initial values. */
+  onDirtyChange?: (dirty: boolean) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -203,6 +205,7 @@ export default function ExerciseForm({
   onCancel,
   submitting = false,
   submitError = null,
+  onDirtyChange,
 }: Props) {
   const [name, setName] = useState(initial?.name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
@@ -212,6 +215,17 @@ export default function ExerciseForm({
   const [nameError, setNameError] = useState<string | null>(null)
   const [descError, setDescError] = useState<string | null>(null)
   const [tagsError, setTagsError] = useState<string | null>(null)
+
+  // Dirty tracking — notify parent when form state diverges from initial values
+  const initialRef = useRef(initial)
+  useEffect(() => {
+    const init = initialRef.current
+    const dirty =
+      name !== (init?.name ?? '') ||
+      description !== (init?.description ?? '') ||
+      JSON.stringify(tags) !== JSON.stringify(init?.tags ?? [])
+    onDirtyChange?.(dirty)
+  }, [name, description, tags, onDirtyChange])
 
   const descLen = description.trim().length
   const isValid =

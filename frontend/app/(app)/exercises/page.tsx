@@ -27,7 +27,8 @@ import type { Exercise } from '@/app/_shared/api/types'
 
 import { CreateButton } from '@/app/_shared/components/CreateButton'
 import { PageHeader } from '@/app/_shared/components/PageHeader'
-import ExerciseForm, { type ExerciseFormValues } from './ExerciseForm'
+import { type ExerciseFormValues } from './ExerciseForm'
+import { ExerciseEditorDrawer } from './ExerciseEditorDrawer'
 import ExerciseCard from './ExerciseCard'
 import { FILTER_CHIPS, useExerciseFilters, type Scope } from './useExerciseFilters'
 
@@ -350,36 +351,16 @@ export default function ExercisesPage() {
   // ---------------------------------------------------------------------------
   if (authLoading) return null
 
-  const formInitial = editingExercise
-    ? { name: editingExercise.name, description: editingExercise.description, tags: editingExercise.tags }
-    : undefined
-
   return (
     <>
       <PageHeader
         title="Exercise Library"
         actions={
-          <CreateButton onClick={() => { setShowForm((v) => !v); setEditingExercise(null); setFormError(null) }}>
+          <CreateButton onClick={() => { setShowForm(true); setEditingExercise(null); setFormError(null) }}>
             New exercise
           </CreateButton>
         }
       />
-
-      {/* Create / Edit form */}
-      {showForm && (
-        <div className="mt-4 rounded-lg border border-white/8 bg-[#131922] p-4">
-          <p className="mb-3 text-sm font-medium text-white">
-            {editingExercise ? `Edit: ${editingExercise.name}` : 'New exercise'}
-          </p>
-          <ExerciseForm
-            initial={formInitial}
-            onSubmit={handleFormSubmit}
-            onCancel={() => { setShowForm(false); setEditingExercise(null) }}
-            submitting={formSubmitting}
-            submitError={formError}
-          />
-        </div>
-      )}
 
       {/* Scope selector */}
       <div className="mt-4 flex gap-1">
@@ -528,6 +509,17 @@ export default function ExercisesPage() {
             </ul>
           </section>
         </div>
+      )}
+
+      {/* Editor drawer */}
+      {showForm && (
+        <ExerciseEditorDrawer
+          exercise={editingExercise}
+          onSubmit={handleFormSubmit}
+          onClose={() => { setShowForm(false); setEditingExercise(null) }}
+          submitting={formSubmitting}
+          submitError={formError}
+        />
       )}
 
       {/* Delete confirmation modal */}

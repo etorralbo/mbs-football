@@ -727,6 +727,161 @@ describe('ExercisesPage — favourite rollback', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Editor drawer
+// ---------------------------------------------------------------------------
+
+/**
+ * Helper: mock request that handles both exercise list + tag suggestions fetch.
+ * ExerciseForm fetches /v1/exercises/tags on mount inside the drawer.
+ */
+function setupDrawerMocks(exercises: Exercise[] = [COACH_EX]) {
+  mockRequest.mockImplementation((url: string, opts?: { method?: string; body?: string }) => {
+    if (url === '/v1/exercises' && !opts?.method) return Promise.resolve(exercises)
+    if (url === '/v1/exercises/tags') return Promise.resolve(['strength', 'mobility'])
+    if (url === '/v1/exercises' && opts?.method === 'POST') {
+      const body = JSON.parse(opts.body ?? '{}')
+      return Promise.resolve({ ...COACH_EX, id: 'new-id', ...body })
+    }
+    if (url.startsWith('/v1/exercises/') && opts?.method === 'PATCH') {
+      const body = JSON.parse(opts.body ?? '{}')
+      return Promise.resolve({ ...COACH_EX, ...body })
+    }
+    return Promise.reject(new Error(`unexpected: ${url}`))
+  })
+}
+
+describe('ExercisesPage — editor drawer', () => {
+  beforeEach(() => {
+    mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
+  })
+
+  it('opens drawer with role="dialog" on "New exercise" click, list still visible', async () => {
+    setupDrawerMocks()
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('My Custom Move')
+    fireEvent.click(screen.getByRole('button', { name: /new exercise/i }))
+
+    expect(screen.getByRole('dialog', { name: /new exercise/i })).toBeInTheDocument()
+    // List is still rendered behind the overlay
+    expect(screen.getByText('My Custom Move')).toBeInTheDocument()
+  })
+
+  it('opens drawer in edit mode with "Edit: <name>" title', async () => {
+    setupDrawerMocks()
+
+    render(<ExercisesPage />)
+
+    const editBtn = await screen.findByRole('button', { name: /edit my custom move/i })
+    fireEvent.click(editBtn)
+
+    expect(screen.getByRole('dialog', { name: /edit: my custom move/i })).toBeInTheDocument()
+  })
+
+  it('closes drawer on X button when form is clean', async () => {
+    setupDrawerMocks()
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('My Custom Move')
+    fireEvent.click(screen.getByRole('button', { name: /new exercise/i }))
+    expect(screen.getByRole('dialog', { name: /new exercise/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /close/i }))
+
+    expect(screen.queryByRole('dialog', { name: /new exercise/i })).not.toBeInTheDocument()
+  })
+
+  it('closes drawer on Escape when form is clean', async () => {
+    setupDrawerMocks()
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('My Custom Move')
+    fireEvent.click(screen.getByRole('button', { name: /new exercise/i }))
+    expect(screen.getByRole('dialog', { name: /new exercise/i })).toBeInTheDocument()
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    expect(screen.queryByRole('dialog', { name: /new exercise/i })).not.toBeInTheDocument()
+  })
+
+  it('shows "Discard changes?" when closing dirty form', async () => {
+    setupDrawerMocks()
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('My Custom Move')
+    fireEvent.click(screen.getByRole('button', { name: /new exercise/i }))
+
+    // Make form dirty by typing in the name field
+    const nameInput = screen.getByLabelText(/name/i)
+    fireEvent.change(nameInput, { target: { value: 'Something new' } })
+
+    // Try to close
+    fireEvent.click(screen.getByRole('button', { name: /close/i }))
+
+    // Discard confirmation should appear
+    expect(screen.getByRole('dialog', { name: /discard changes/i })).toBeInTheDocument()
+    expect(screen.getByText(/unsaved changes/i)).toBeInTheDocument()
+  })
+
+  it('discards changes when user confirms discard', async () => {
+    setupDrawerMocks()
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('My Custom Move')
+    fireEvent.click(screen.getByRole('button', { name: /new exercise/i }))
+
+    // Make dirty
+    fireEvent.change(screen.getByLabelText(/name/i), { target: { value: 'Something' } })
+    // Try close
+    fireEvent.click(screen.getByRole('button', { name: /close/i }))
+    // Confirm discard
+    fireEvent.click(screen.getByRole('button', { name: /discard/i }))
+
+    // Drawer should be closed
+    expect(screen.queryByRole('dialog', { name: /new exercise/i })).not.toBeInTheDocument()
+  })
+
+  it('returns to form when user cancels discard', async () => {
+    setupDrawerMocks()
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('My Custom Move')
+    fireEvent.click(screen.getByRole('button', { name: /new exercise/i }))
+
+    // Make dirty
+    fireEvent.change(screen.getByLabelText(/name/i), { target: { value: 'Something' } })
+    // Try close
+    fireEvent.click(screen.getByRole('button', { name: /close/i }))
+    // Cancel discard
+    fireEvent.click(screen.getByRole('button', { name: /keep editing/i }))
+
+    // Drawer should still be open
+    expect(screen.getByRole('dialog', { name: /new exercise/i })).toBeInTheDocument()
+    // Discard dialog should be gone
+    expect(screen.queryByRole('dialog', { name: /discard changes/i })).not.toBeInTheDocument()
+  })
+
+  it('locks body scroll when drawer is open', async () => {
+    setupDrawerMocks()
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('My Custom Move')
+    expect(document.body.style.overflow).not.toBe('hidden')
+
+    fireEvent.click(screen.getByRole('button', { name: /new exercise/i }))
+
+    expect(document.body.style.overflow).toBe('hidden')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Athlete redirect
 // ---------------------------------------------------------------------------
 
