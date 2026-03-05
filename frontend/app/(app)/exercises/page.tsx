@@ -166,6 +166,10 @@ export default function ExercisesPage() {
   // Delete modal
   const [deletingExercise, setDeletingExercise] = useState<Exercise | null>(null)
 
+  // Highlight newly created / duplicated exercise
+  const [highlightedId, setHighlightedId] = useState<string | null>(null)
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Toast
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -180,6 +184,14 @@ export default function ExercisesPage() {
 
   useEffect(() => {
     document.title = 'Exercise Library | Mettle Performance'
+  }, [])
+
+  // Clean up timers on unmount to avoid setState-after-unmount
+  useEffect(() => {
+    return () => {
+      if (highlightTimer.current) clearTimeout(highlightTimer.current)
+      if (toastTimer.current) clearTimeout(toastTimer.current)
+    }
   }, [])
 
   // ---------------------------------------------------------------------------
@@ -204,6 +216,15 @@ export default function ExercisesPage() {
     fetchExercises()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // ---------------------------------------------------------------------------
+  // Highlight helper
+  // ---------------------------------------------------------------------------
+  function highlightExercise(id: string) {
+    if (highlightTimer.current) clearTimeout(highlightTimer.current)
+    setHighlightedId(id)
+    highlightTimer.current = setTimeout(() => setHighlightedId(null), 2500)
+  }
 
   // ---------------------------------------------------------------------------
   // Toast helper
@@ -249,6 +270,12 @@ export default function ExercisesPage() {
   // All exercises (filtered, regardless of favorite)
   const allFiltered = filtered
 
+  // Section title adapts to scope
+  const sectionTitle =
+    filters.scope === 'official' ? 'Official exercises'
+      : filters.scope === 'mine' ? 'My exercises'
+        : 'All exercises'
+
   // Scope-filtered list (before text query + tag filters, so chip counts reflect scope)
   const scoped = useMemo(() => {
     if (filters.scope === 'official') return exercises.filter((e) => e.owner_type === 'COMPANY')
@@ -290,6 +317,7 @@ export default function ExercisesPage() {
           body: JSON.stringify(values),
         })
         setExercises((prev) => [created, ...prev])
+        highlightExercise(created.id)
         showToast('Exercise created', 'success')
       }
       setShowForm(false)
@@ -334,6 +362,7 @@ export default function ExercisesPage() {
         }),
       })
       setExercises((prev) => [copy, ...prev])
+      highlightExercise(copy.id)
       showToast('Exercise duplicated', 'success')
     } catch {
       showToast('Could not duplicate exercise', 'error')
@@ -463,12 +492,20 @@ export default function ExercisesPage() {
       {!loading && exercises.length > 0 && allFiltered.length === 0 && (
         <div className="mt-6 rounded-lg border border-dashed border-white/10 p-10 text-center">
           <p className="text-sm text-slate-500">No exercises match your filters.</p>
-          <button
-            onClick={clearFilters}
-            className="mt-2 text-xs text-[#4f9cf9] hover:underline"
-          >
-            Clear filters
-          </button>
+          <div className="mt-3 flex items-center justify-center gap-3">
+            <button
+              onClick={clearFilters}
+              className="text-xs text-[#4f9cf9] hover:underline"
+            >
+              Clear filters
+            </button>
+            <button
+              onClick={() => { setShowForm(true); setEditingExercise(null); setFormError(null) }}
+              className="rounded-md bg-[#c8f135] px-3 py-1.5 text-xs font-bold text-[#0a0d14] hover:bg-[#d4f755] transition-colors"
+            >
+              Create exercise
+            </button>
+          </div>
         </div>
       )}
 
@@ -489,6 +526,7 @@ export default function ExercisesPage() {
                   <ExerciseCard
                     key={ex.id}
                     exercise={ex}
+                    highlighted={ex.id === highlightedId}
                     onFavoriteToggle={handleFavoriteToggle}
                     onEdit={handleEdit}
                     onDuplicate={handleDuplicate}
@@ -500,9 +538,9 @@ export default function ExercisesPage() {
           )}
 
           {/* All exercises */}
-          <section aria-label="All exercises">
+          <section aria-label={sectionTitle}>
             <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-              All Exercises
+              {sectionTitle}
               <span className="ml-2 font-normal text-slate-600">({allFiltered.length})</span>
             </h2>
             <ul className="space-y-1.5">
@@ -510,6 +548,7 @@ export default function ExercisesPage() {
                 <ExerciseCard
                   key={ex.id}
                   exercise={ex}
+                  highlighted={ex.id === highlightedId}
                   onFavoriteToggle={handleFavoriteToggle}
                   onEdit={handleEdit}
                   onDuplicate={handleDuplicate}

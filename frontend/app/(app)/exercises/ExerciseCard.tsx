@@ -19,6 +19,7 @@ import type { Exercise } from '@/app/_shared/api/types'
 
 interface Props {
   exercise: Exercise
+  highlighted?: boolean
   onFavoriteToggle: (id: string) => void
   onEdit: (exercise: Exercise) => void
   onDuplicate: (exercise: Exercise) => void
@@ -27,6 +28,7 @@ interface Props {
 
 export default function ExerciseCard({
   exercise,
+  highlighted = false,
   onFavoriteToggle,
   onEdit,
   onDuplicate,
@@ -36,7 +38,7 @@ export default function ExerciseCard({
   const canMutate = exercise.is_editable !== false
 
   return (
-    <li className="group relative flex items-start justify-between gap-3 rounded-lg border border-white/8 bg-[#131922] px-4 py-3 transition-all duration-150 hover:border-white/20 hover:shadow-md">
+    <li data-highlight={highlighted ? 'true' : undefined} className="group relative flex items-start justify-between gap-3 rounded-lg border border-white/8 bg-[#131922] px-4 py-3 transition-all duration-150 hover:border-white/20 hover:shadow-md">
       {/* Left: content */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">

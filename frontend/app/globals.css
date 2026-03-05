@@ -30,3 +30,12 @@ body {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
 }
+
+@keyframes highlight-fade {
+  0% { background-color: rgba(200, 241, 53, 0.15); }
+  100% { background-color: transparent; }
+}
+
+[data-highlight="true"] {
+  animation: highlight-fade 2s ease-out;
+}

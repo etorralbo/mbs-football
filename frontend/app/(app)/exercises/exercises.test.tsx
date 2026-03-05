@@ -960,6 +960,164 @@ describe('ExercisesPage — tag counts respect scope', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Scope-aware section title
+// ---------------------------------------------------------------------------
+
+describe('ExercisesPage — scope-aware section title', () => {
+  beforeEach(() => {
+    mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
+  })
+
+  it('shows "All Exercises" title when scope is "All"', async () => {
+    mockRequest.mockResolvedValue([COMPANY_EX, COACH_EX])
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('Back Squat')
+    expect(screen.getByRole('region', { name: 'All exercises' })).toBeInTheDocument()
+    const section = screen.getByRole('region', { name: 'All exercises' })
+    expect(within(section).getByText(/all exercises/i)).toBeInTheDocument()
+  })
+
+  it('shows "Official Exercises" title when scope is "Official"', async () => {
+    mockRequest.mockResolvedValue([COMPANY_EX, COACH_EX])
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('Back Squat')
+    fireEvent.click(screen.getByRole('button', { name: /^Official$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: 'Official exercises' })).toBeInTheDocument()
+    })
+    const section = screen.getByRole('region', { name: 'Official exercises' })
+    expect(within(section).getByText('(1)')).toBeInTheDocument()
+  })
+
+  it('shows "My Exercises" title when scope is "Mine"', async () => {
+    mockRequest.mockResolvedValue([COMPANY_EX, COACH_EX])
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('Back Squat')
+    fireEvent.click(screen.getByRole('button', { name: /^Mine$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: 'My exercises' })).toBeInTheDocument()
+    })
+    const section = screen.getByRole('region', { name: 'My exercises' })
+    expect(within(section).getByText('(1)')).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Highlight newly created / duplicated exercise
+// ---------------------------------------------------------------------------
+
+describe('ExercisesPage — highlight new exercise', () => {
+  beforeEach(() => {
+    mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
+  })
+
+  it('applies highlight class to newly created exercise', async () => {
+    setupDrawerMocks()
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('My Custom Move')
+    fireEvent.click(screen.getByRole('button', { name: /new exercise/i }))
+
+    // Fill valid form
+    fireEvent.change(screen.getByLabelText(/name/i), { target: { value: 'Brand New Exercise' } })
+    fireEvent.change(screen.getByLabelText(/description/i), { target: { value: 'A detailed description for testing purposes here.' } })
+    // Add a tag via the tag input
+    const tagInput = screen.getByPlaceholderText(/add a tag/i)
+    fireEvent.change(tagInput, { target: { value: 'strength' } })
+    fireEvent.keyDown(tagInput, { key: 'Enter' })
+
+    // Wait for button to be enabled, then submit
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /save exercise/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save exercise/i }))
+
+    // Wait for the drawer to close and the new exercise to appear in the list
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /new exercise/i })).not.toBeInTheDocument()
+    })
+    const newItem = await screen.findByText('Brand New Exercise')
+    // The parent <li> should have the highlight data attribute
+    const card = newItem.closest('li')
+    expect(card).toHaveAttribute('data-highlight', 'true')
+  })
+
+  it('applies highlight class to duplicated exercise', async () => {
+    const copy: Exercise = { ...COACH_EX, id: 'ex-copy', name: 'My Custom Move (copy)' }
+    mockRequest
+      .mockResolvedValueOnce([COACH_EX])
+      .mockResolvedValueOnce(copy)
+
+    render(<ExercisesPage />)
+
+    const dupBtn = await screen.findByRole('button', { name: /duplicate my custom move/i })
+    fireEvent.click(dupBtn)
+
+    await waitFor(() => {
+      const newItem = screen.getByText('My Custom Move (copy)')
+      const card = newItem.closest('li')
+      expect(card).toHaveAttribute('data-highlight', 'true')
+    }, { timeout: 2000 })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Empty state — filtered, with "Create exercise" button
+// ---------------------------------------------------------------------------
+
+describe('ExercisesPage — filtered empty state', () => {
+  beforeEach(() => {
+    mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
+  })
+
+  it('shows empty state with "Clear filters" and "Create exercise" buttons when filters produce no results', async () => {
+    mockRequest.mockResolvedValue([COMPANY_EX])
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('Back Squat')
+
+    // Search for something that doesn't exist
+    fireEvent.change(screen.getByPlaceholderText(/search by name/i), { target: { value: 'zzzznonexistent' } })
+
+    await waitFor(() => {
+      expect(screen.getByText(/no exercises match your filters/i)).toBeInTheDocument()
+    })
+    // "Clear filters" appears in both chip area and empty state — just check at least one exists
+    expect(screen.getAllByRole('button', { name: /clear filters/i }).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByRole('button', { name: /create exercise/i })).toBeInTheDocument()
+  })
+
+  it('"Create exercise" button in empty state opens the editor drawer', async () => {
+    setupDrawerMocks()
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('My Custom Move')
+
+    // Search for something that doesn't exist
+    fireEvent.change(screen.getByPlaceholderText(/search by name/i), { target: { value: 'zzzznonexistent' } })
+
+    await waitFor(() => {
+      expect(screen.getByText(/no exercises match your filters/i)).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /create exercise/i }))
+
+    expect(screen.getByRole('dialog', { name: /new exercise/i })).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Athlete redirect
 // ---------------------------------------------------------------------------
 
