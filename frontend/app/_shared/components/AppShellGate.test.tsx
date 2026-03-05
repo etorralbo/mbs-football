@@ -113,7 +113,7 @@ describe('AppShellGate — ready', () => {
       authValue({
         me: {
           user_id: 'u1',
-          memberships: [{ team_id: 't1', team_name: 'FC', role: 'COACH' }],
+          memberships: [{ team_id: 't1', team_name: 'FC', role: 'COACH', is_owner: true }],
           active_team_id: 't1',
         },
         role: 'COACH',

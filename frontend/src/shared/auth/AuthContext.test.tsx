@@ -56,14 +56,14 @@ function meWith({
 
 const singleTeamMe = meWith({
   activeTeamId: TEAM_A,
-  memberships: [{ team_id: TEAM_A, team_name: 'Team A', role: 'COACH' }],
+  memberships: [{ team_id: TEAM_A, team_name: 'Team A', role: 'COACH', is_owner: true }],
 })
 
 const multiTeamMe = meWith({
   activeTeamId: null,
   memberships: [
-    { team_id: TEAM_A, team_name: 'Team A', role: 'COACH' },
-    { team_id: TEAM_B, team_name: 'Team B', role: 'COACH' },
+    { team_id: TEAM_A, team_name: 'Team A', role: 'COACH', is_owner: true },
+    { team_id: TEAM_B, team_name: 'Team B', role: 'COACH', is_owner: true },
   ],
 })
 
@@ -212,8 +212,8 @@ describe('deriveRole with resolved team', () => {
     const mixedMe = meWith({
       activeTeamId: null,
       memberships: [
-        { team_id: TEAM_A, team_name: 'Team A', role: 'COACH' },
-        { team_id: TEAM_B, team_name: 'Team B', role: 'ATHLETE' },
+        { team_id: TEAM_A, team_name: 'Team A', role: 'COACH', is_owner: true },
+        { team_id: TEAM_B, team_name: 'Team B', role: 'ATHLETE', is_owner: false },
       ],
     })
     localStorage.setItem('activeTeamId', TEAM_B)
