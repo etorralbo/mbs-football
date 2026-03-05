@@ -41,6 +41,14 @@ export function ExerciseEditorDrawer({
   const [isDirty, setIsDirty] = useState(false)
   const [showDiscard, setShowDiscard] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<Element | null>(document.activeElement)
+
+  // Restore focus to the trigger element when the drawer closes
+  const close = useCallback(() => {
+    const el = triggerRef.current
+    if (el && 'focus' in el) (el as HTMLElement).focus()
+    onClose()
+  }, [onClose])
 
   const title = exercise ? `Edit: ${exercise.name}` : 'New exercise'
   const formInitial = exercise
@@ -59,9 +67,9 @@ export function ExerciseEditorDrawer({
     if (isDirty) {
       setShowDiscard(true)
     } else {
-      onClose()
+      close()
     }
-  }, [isDirty, onClose])
+  }, [isDirty, close])
 
   // --- Escape key ---
   useEffect(() => {
@@ -160,7 +168,7 @@ export function ExerciseEditorDrawer({
             <div className="mt-4 flex gap-2">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={close}
                 className="flex-1 rounded-md bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-400 hover:bg-red-500/30 transition-colors"
               >
                 Discard
