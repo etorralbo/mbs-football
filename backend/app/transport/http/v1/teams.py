@@ -1,22 +1,31 @@
-"""POST /v1/teams — create a new team and become its COACH.
+"""Team endpoints — create and delete teams.
 
-Reachable before onboarding completes (uses get_auth_user_id, not get_current_user).
-A user may coach multiple teams; each call creates a new team + COACH membership.
+POST /v1/teams — create a new team and become its COACH.
+DELETE /v1/teams/{team_id} — delete a team (owner only, with safety guards).
 """
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_auth_user_id
+from app.core.dependencies import CurrentUser, get_auth_user_id, get_current_user, require_coach
 from app.db.session import get_db
 from app.domain.events.service import ProductEventService
 from app.domain.use_cases.create_team import (
     CreateTeamCommand,
     CreateTeamUseCase,
+)
+from app.domain.use_cases.delete_team import (
+    DeleteTeamCommand,
+    DeleteTeamUseCase,
+    NotTeamOwnerError,
+    TeamHasAthletesError,
+    TeamHasCoachExercisesError,
+    TeamHasSessionsError,
+    TeamNotFoundError,
 )
 from app.persistence.repositories.membership_repository import SqlAlchemyMembershipRepository
 from app.persistence.repositories.team_repository import SqlAlchemyTeamRepository
@@ -74,3 +83,36 @@ def create_team(
         membership_id=result.membership_id,
         role=result.role.value,
     )
+
+
+@router.delete("/teams/{team_id}", status_code=204)
+def delete_team(
+    team_id: uuid.UUID,
+    current_user: Annotated[CurrentUser, Depends(require_coach)],
+    db: Session = Depends(get_db),
+) -> Response:
+    use_case = DeleteTeamUseCase(team_repo=SqlAlchemyTeamRepository(db))
+    try:
+        use_case.execute(
+            DeleteTeamCommand(
+                team_id=team_id,
+                supabase_user_id=current_user.supabase_user_id,
+                caller_team_id=current_user.team_id,
+            )
+        )
+        db.commit()
+    except TeamNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found.")
+    except NotTeamOwnerError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the team owner can delete this team.",
+        )
+    except TeamHasAthletesError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except TeamHasSessionsError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except TeamHasCoachExercisesError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
