@@ -32,7 +32,7 @@ class TestGetMe:
         self, client: TestClient, db_session: Session, mock_jwt
     ) -> None:
         user_id = uuid.uuid4()
-        team = Team(id=uuid.uuid4(), name="Me-Test Team")
+        team = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="Me-Test Team")
         db_session.add(team)
         db_session.flush()
         m = Membership(id=uuid.uuid4(), user_id=user_id, team_id=team.id, role=Role.COACH)
@@ -53,7 +53,7 @@ class TestGetMe:
     ) -> None:
         user_id = uuid.uuid4()
         for i in range(2):
-            team = Team(id=uuid.uuid4(), name=f"Multi-Team {i}")
+            team = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name=f"Multi-Team {i}")
             db_session.add(team)
             db_session.flush()
             m = Membership(

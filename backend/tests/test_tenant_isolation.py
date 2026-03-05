@@ -73,8 +73,8 @@ class TestTemplateIsolation:
     ):
         """GET /v1/workout-templates returns only templates belonging to the
         authenticated user's team — never templates from other teams."""
-        team_a = Team(id=uuid.uuid4(), name="Isolation Team A")
-        team_b = Team(id=uuid.uuid4(), name="Isolation Team B")
+        team_a = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="Isolation Team A")
+        team_b = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="Isolation Team B")
         db_session.add_all([team_a, team_b])
         db_session.flush()
 
@@ -100,8 +100,8 @@ class TestTemplateIsolation:
     ):
         """GET /v1/workout-templates/{id} for a template owned by another team
         must return 404 — not the template data, and not 403 (no existence leak)."""
-        team_a = Team(id=uuid.uuid4(), name="Owner Team")
-        team_b = Team(id=uuid.uuid4(), name="Requester Team")
+        team_a = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="Owner Team")
+        team_b = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="Requester Team")
         db_session.add_all([team_a, team_b])
         db_session.flush()
 
@@ -129,8 +129,8 @@ class TestXTeamIdIsolation:
     ):
         """X-Team-Id referencing a team the user does not belong to must return
         403, NOT 404. Returning 404 would confirm the team_id exists."""
-        own_team = Team(id=uuid.uuid4(), name="Own Team")
-        foreign_team = Team(id=uuid.uuid4(), name="Foreign Team")
+        own_team = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="Own Team")
+        foreign_team = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="Foreign Team")
         db_session.add_all([own_team, foreign_team])
         db_session.flush()
 
@@ -154,7 +154,7 @@ class TestXTeamIdIsolation:
         mock_jwt,
     ):
         """X-Team-Id with a UUID that doesn't exist at all must also return 403."""
-        own_team = Team(id=uuid.uuid4(), name="Real Team")
+        own_team = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="Real Team")
         db_session.add(own_team)
         db_session.flush()
 
@@ -175,7 +175,7 @@ class TestXTeamIdIsolation:
         mock_jwt,
     ):
         """X-Team-Id matching a team the user belongs to is accepted."""
-        team = Team(id=uuid.uuid4(), name="My Team")
+        team = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="My Team")
         db_session.add(team)
         db_session.flush()
         user = _make_user_with_membership(db_session, team, Role.COACH)
@@ -202,7 +202,7 @@ class TestNoMembership:
     ):
         """A user with a valid JWT and a UserProfile but NO Membership must get
         403 — they have not completed onboarding via the new flow."""
-        team = Team(id=uuid.uuid4(), name="Orphan Team")
+        team = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="Orphan Team")
         db_session.add(team)
         db_session.flush()
 
@@ -247,8 +247,8 @@ class TestStaleUserProfile:
         """Regression: if UserProfile.team_id points to an old team (stale) but
         the Membership points to the current team, templates must come from the
         Membership's team — never from the stale team."""
-        old_team = Team(id=uuid.uuid4(), name="Old Team")
-        new_team = Team(id=uuid.uuid4(), name="New Team")
+        old_team = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="Old Team")
+        new_team = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="New Team")
         db_session.add_all([old_team, new_team])
         db_session.flush()
 

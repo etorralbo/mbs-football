@@ -750,3 +750,57 @@ class TestBlockItems:
         detail = client.get(f"{TEMPLATES_URL}/{t['id']}", headers=HEADERS).json()
         item_ids = [i["id"] for bl in detail["blocks"] for i in bl["items"]]
         assert item["id"] in item_ids
+
+
+# ---------------------------------------------------------------------------
+# Template title uniqueness (per-team, case-insensitive)
+# ---------------------------------------------------------------------------
+
+class TestTemplateTitleUniqueness:
+    """Template titles must be unique within a team (case-insensitive)."""
+
+    def test_same_team_same_title_returns_409(
+        self, client: TestClient, mock_jwt, coach_a: UserProfile
+    ):
+        mock_jwt(str(coach_a.supabase_user_id))
+        r1 = client.post(TEMPLATES_URL, headers=HEADERS, json={"title": "Leg Day"})
+        assert r1.status_code == 201
+
+        r2 = client.post(TEMPLATES_URL, headers=HEADERS, json={"title": "Leg Day"})
+        assert r2.status_code == 409
+        assert "already exists" in r2.json()["detail"]
+
+    def test_same_team_same_title_case_insensitive_returns_409(
+        self, client: TestClient, mock_jwt, coach_a: UserProfile
+    ):
+        mock_jwt(str(coach_a.supabase_user_id))
+        r1 = client.post(TEMPLATES_URL, headers=HEADERS, json={"title": "leg day"})
+        assert r1.status_code == 201
+
+        r2 = client.post(TEMPLATES_URL, headers=HEADERS, json={"title": "LEG DAY"})
+        assert r2.status_code == 409
+
+    def test_different_team_same_title_returns_201(
+        self, client: TestClient, mock_jwt, coach_a: UserProfile, coach_b: UserProfile
+    ):
+        mock_jwt(str(coach_a.supabase_user_id))
+        r1 = client.post(TEMPLATES_URL, headers=HEADERS, json={"title": "Upper Body"})
+        assert r1.status_code == 201
+
+        mock_jwt(str(coach_b.supabase_user_id))
+        r2 = client.post(TEMPLATES_URL, headers=HEADERS, json={"title": "Upper Body"})
+        assert r2.status_code == 201
+
+    def test_rename_to_existing_title_returns_409(
+        self, client: TestClient, mock_jwt, coach_a: UserProfile
+    ):
+        mock_jwt(str(coach_a.supabase_user_id))
+        t1 = _create_template(client, "Template A")
+        t2 = _create_template(client, "Template B")
+
+        r = client.patch(
+            f"{TEMPLATES_URL}/{t2['id']}",
+            headers=HEADERS,
+            json={"title": "Template A"},
+        )
+        assert r.status_code == 409

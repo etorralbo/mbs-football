@@ -7,7 +7,8 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_auth_user_id
@@ -27,6 +28,11 @@ router = APIRouter(tags=["teams"])
 class CreateTeamRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     display_name: str = Field(..., min_length=1, max_length=255)
+
+    @field_validator("name")
+    @classmethod
+    def strip_name(cls, v: str) -> str:
+        return v.strip()
 
 
 class CreateTeamResponse(BaseModel):
@@ -51,11 +57,17 @@ def create_team(
         result = use_case.execute(
             CreateTeamCommand(supabase_user_id=user_id, team_name=payload.name, name=payload.display_name)
         )
+        db.commit()
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-
-    # user_profile_repo.create() commits; if profile already existed, commit here.
-    db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        if exc.orig and "uix_teams_creator_name" in str(exc.orig):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"You already have a team named '{payload.name[:100]}'.",
+            )
+        raise
 
     return CreateTeamResponse(
         team_id=result.team_id,

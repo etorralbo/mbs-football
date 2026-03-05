@@ -25,7 +25,7 @@ class TestCreateInvite:
         self, client: TestClient, db_session: Session, mock_jwt
     ) -> None:
         user_id = uuid.uuid4()
-        team = Team(id=uuid.uuid4(), name="Invite-403 Team")
+        team = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="Invite-403 Team")
         db_session.add(team)
         db_session.flush()
         m = Membership(
@@ -44,7 +44,7 @@ class TestCreateInvite:
         self, client: TestClient, db_session: Session, mock_jwt
     ) -> None:
         user_id = uuid.uuid4()
-        team = Team(id=uuid.uuid4(), name="Invite-Happy Team")
+        team = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="Invite-Happy Team")
         db_session.add(team)
         db_session.flush()
         m = Membership(
@@ -73,7 +73,7 @@ class TestCreateInvite:
     ) -> None:
         """When expires_in_days is omitted the invite expires in 7 days."""
         user_id = uuid.uuid4()
-        team = Team(id=uuid.uuid4(), name="Expiry Default Team")
+        team = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="Expiry Default Team")
         db_session.add(team)
         db_session.flush()
         db_session.add(
@@ -95,8 +95,8 @@ class TestCreateInvite:
     ) -> None:
         """A coach cannot create an invite for a team they don't belong to."""
         user_id = uuid.uuid4()
-        own_team = Team(id=uuid.uuid4(), name="Own Team 2")
-        other_team = Team(id=uuid.uuid4(), name="Other Team 2")
+        own_team = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="Own Team 2")
+        other_team = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="Other Team 2")
         db_session.add_all([own_team, other_team])
         db_session.flush()
         m = Membership(
@@ -119,7 +119,7 @@ class TestCreateInvite:
         from app.domain.events.models import FunnelEvent, ProductEvent
 
         user_id = uuid.uuid4()
-        team = Team(id=uuid.uuid4(), name="Event-Track Team")
+        team = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="Event-Track Team")
         db_session.add(team)
         db_session.flush()
         db_session.add(
@@ -150,8 +150,8 @@ class TestCreateInvite:
         from app.domain.events.models import FunnelEvent, ProductEvent
 
         user_id = uuid.uuid4()
-        team_a = Team(id=uuid.uuid4(), name="Scoping Team A2")
-        team_b = Team(id=uuid.uuid4(), name="Scoping Team B2")
+        team_a = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="Scoping Team A2")
+        team_b = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="Scoping Team B2")
         db_session.add_all([team_a, team_b])
         db_session.flush()
         db_session.add(
@@ -469,7 +469,7 @@ class TestAcceptInvite:
     ) -> None:
         """A coach on a different team gets not_eligible (200) — not an error."""
         coach_id = uuid.uuid4()
-        other_team = Team(id=uuid.uuid4(), name="Coach Own Team")
+        other_team = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="Coach Own Team")
         db_session.add(other_team)
         db_session.flush()
         db_session.add(
@@ -498,7 +498,7 @@ class TestAcceptInvite:
     ) -> None:
         """not_eligible must NOT mark the invite as used — athletes can still join."""
         coach_id = uuid.uuid4()
-        other_team = Team(id=uuid.uuid4(), name="Coach Other Team")
+        other_team = Team(id=uuid.uuid4(), created_by_user_id=uuid.uuid4(), name="Coach Other Team")
         db_session.add(other_team)
         db_session.flush()
         db_session.add(

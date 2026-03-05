@@ -12,7 +12,7 @@ from app.models.team import Team
 class AbstractTeamRepository(ABC):
 
     @abstractmethod
-    def create(self, name: str) -> Team:
+    def create(self, name: str, created_by_user_id: uuid.UUID) -> Team:
         """Persist a new team with the given name and return the created instance."""
         ...
 
@@ -27,8 +27,8 @@ class SqlAlchemyTeamRepository(AbstractTeamRepository):
     def __init__(self, db: Session) -> None:
         self._db = db
 
-    def create(self, name: str) -> Team:
-        team = Team(id=uuid.uuid4(), name=name)
+    def create(self, name: str, created_by_user_id: uuid.UUID) -> Team:
+        team = Team(id=uuid.uuid4(), name=name, created_by_user_id=created_by_user_id)
         self._db.add(team)
         self._db.flush()
         return team

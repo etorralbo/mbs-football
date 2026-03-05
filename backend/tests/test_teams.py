@@ -60,7 +60,7 @@ class TestCreateTeam:
     ) -> None:
         """A coach with an existing team can create another one."""
         user_id = uuid.uuid4()
-        team = Team(id=uuid.uuid4(), name="Existing Team")
+        team = Team(id=uuid.uuid4(), name="Existing Team", created_by_user_id=user_id)
         db_session.add(team)
         db_session.flush()
         m = Membership(id=uuid.uuid4(), user_id=user_id, team_id=team.id, role=Role.COACH)
@@ -83,7 +83,7 @@ class TestCreateTeam:
     ) -> None:
         """An ATHLETE membership does not block creating a new team (COACH is a separate role)."""
         user_id = uuid.uuid4()
-        team = Team(id=uuid.uuid4(), name="Athlete's Original Team")
+        team = Team(id=uuid.uuid4(), name="Athlete's Original Team", created_by_user_id=uuid.uuid4())
         db_session.add(team)
         db_session.flush()
         m = Membership(
@@ -99,6 +99,72 @@ class TestCreateTeam:
             headers=AUTH,
         )
         assert resp.status_code == 201
+
+
+class TestTeamNameUniqueness:
+    """Team names must be unique per coach (case-insensitive), not globally."""
+
+    def test_same_coach_same_name_returns_409(
+        self, client: TestClient, db_session: Session, mock_jwt
+    ) -> None:
+        user_id = uuid.uuid4()
+        mock_jwt(str(user_id))
+
+        resp1 = client.post(
+            "/v1/teams",
+            json={"name": "FC Test", "display_name": "Coach"},
+            headers=AUTH,
+        )
+        assert resp1.status_code == 201
+
+        resp2 = client.post(
+            "/v1/teams",
+            json={"name": "FC Test", "display_name": "Coach"},
+            headers=AUTH,
+        )
+        assert resp2.status_code == 409
+        assert "already have a team" in resp2.json()["detail"]
+
+    def test_same_coach_same_name_case_insensitive_returns_409(
+        self, client: TestClient, db_session: Session, mock_jwt
+    ) -> None:
+        user_id = uuid.uuid4()
+        mock_jwt(str(user_id))
+
+        resp1 = client.post(
+            "/v1/teams",
+            json={"name": "fc test", "display_name": "Coach"},
+            headers=AUTH,
+        )
+        assert resp1.status_code == 201
+
+        resp2 = client.post(
+            "/v1/teams",
+            json={"name": "FC TEST", "display_name": "Coach"},
+            headers=AUTH,
+        )
+        assert resp2.status_code == 409
+
+    def test_different_coach_same_name_returns_201(
+        self, client: TestClient, db_session: Session, mock_jwt
+    ) -> None:
+        user_a = uuid.uuid4()
+        mock_jwt(str(user_a))
+        resp1 = client.post(
+            "/v1/teams",
+            json={"name": "FC Barcelona", "display_name": "Coach A"},
+            headers=AUTH,
+        )
+        assert resp1.status_code == 201
+
+        user_b = uuid.uuid4()
+        mock_jwt(str(user_b))
+        resp2 = client.post(
+            "/v1/teams",
+            json={"name": "FC Barcelona", "display_name": "Coach B"},
+            headers=AUTH,
+        )
+        assert resp2.status_code == 201
 
 
 class TestCreateTeamDisplayName:

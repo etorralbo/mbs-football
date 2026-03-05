@@ -9,6 +9,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import CurrentUser, get_current_user, require_coach
@@ -44,7 +45,16 @@ def create_template(
     current_user: Annotated[CurrentUser, Depends(require_coach)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    return workout_templates_service.create_template(db, current_user.team_id, data)
+    try:
+        return workout_templates_service.create_template(db, current_user.team_id, data)
+    except IntegrityError as exc:
+        db.rollback()
+        if exc.orig and "uix_templates_team_title" in str(exc.orig):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"A template named '{data.title[:100]}' already exists in this team.",
+            )
+        raise
 
 
 @router.get(
@@ -117,9 +127,18 @@ def update_template(
                         detail="Each exercise must have at least one set before publishing",
                     )
 
-    template = workout_templates_service.update_template(
-        db, current_user.team_id, template_id, data
-    )
+    try:
+        template = workout_templates_service.update_template(
+            db, current_user.team_id, template_id, data
+        )
+    except IntegrityError as exc:
+        db.rollback()
+        if exc.orig and "uix_templates_team_title" in str(exc.orig):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"A template named '{data.title[:100]}' already exists in this team.",
+            )
+        raise
     if not template:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workout template not found")
     return template
