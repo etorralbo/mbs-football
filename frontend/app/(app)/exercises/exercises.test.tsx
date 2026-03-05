@@ -251,6 +251,22 @@ describe('ExercisesPage — delete', () => {
     expect(screen.getByText(/cannot be undone/i)).toBeInTheDocument()
   })
 
+  it('closes modal when Escape key is pressed', async () => {
+    mockRequest.mockResolvedValue([COACH_EX])
+
+    render(<ExercisesPage />)
+
+    const deleteBtn = await screen.findByRole('button', { name: /delete my custom move/i })
+    fireEvent.click(deleteBtn)
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByText('My Custom Move')).toBeInTheDocument()
+  })
+
   it('cancels deletion when modal cancel is clicked', async () => {
     mockRequest.mockResolvedValue([COACH_EX])
 
@@ -538,6 +554,175 @@ describe('ExercisesPage — scope URL param', () => {
       const lastCall = mockReplace.mock.calls[mockReplace.mock.calls.length - 1]
       expect(lastCall[0]).not.toContain('scope=')
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Quick actions — per owner_type
+// ---------------------------------------------------------------------------
+
+describe('ExercisesPage — action visibility per owner_type', () => {
+  beforeEach(() => {
+    mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
+  })
+
+  it('COMPANY card shows Duplicate but hides Edit and Delete', async () => {
+    mockRequest.mockResolvedValue([COMPANY_EX])
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('Back Squat')
+    expect(screen.getByRole('button', { name: /duplicate back squat to my library/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^edit back squat$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^delete back squat$/i })).not.toBeInTheDocument()
+  })
+
+  it('COACH card shows Edit, Duplicate, and Delete', async () => {
+    mockRequest.mockResolvedValue([COACH_EX])
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('My Custom Move')
+    expect(screen.getByRole('button', { name: /edit my custom move/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /duplicate my custom move/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /delete my custom move/i })).toBeInTheDocument()
+  })
+
+  it('favourite button is always visible regardless of owner_type', async () => {
+    mockRequest.mockResolvedValue([COMPANY_EX])
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('Back Squat')
+    expect(screen.getByRole('button', { name: /add back squat to favourites/i })).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Duplicate action
+// ---------------------------------------------------------------------------
+
+describe('ExercisesPage — duplicate', () => {
+  beforeEach(() => {
+    mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
+  })
+
+  it('duplicates a COACH exercise and adds the copy to the list', async () => {
+    const copy: Exercise = { ...COACH_EX, id: 'ex-copy', name: 'My Custom Move (copy)' }
+    mockRequest
+      .mockResolvedValueOnce([COACH_EX])   // initial fetch
+      .mockResolvedValueOnce(copy)          // POST create (duplicate)
+
+    render(<ExercisesPage />)
+
+    const dupBtn = await screen.findByRole('button', { name: /duplicate my custom move/i })
+    fireEvent.click(dupBtn)
+
+    expect(await screen.findByText('My Custom Move (copy)')).toBeInTheDocument()
+    expect(mockRequest).toHaveBeenCalledWith(
+      '/v1/exercises',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'My Custom Move (copy)',
+          description: COACH_EX.description,
+          tags: COACH_EX.tags,
+        }),
+      }),
+    )
+  })
+
+  it('duplicates a COMPANY exercise to "my library"', async () => {
+    const copy: Exercise = { ...COMPANY_EX, id: 'ex-copy', name: 'Back Squat (copy)', owner_type: 'COACH', is_editable: true, coach_id: 'coach-uuid' }
+    mockRequest
+      .mockResolvedValueOnce([COMPANY_EX])  // initial fetch
+      .mockResolvedValueOnce(copy)           // POST create
+
+    render(<ExercisesPage />)
+
+    const dupBtn = await screen.findByRole('button', { name: /duplicate back squat to my library/i })
+    fireEvent.click(dupBtn)
+
+    expect(await screen.findByText('Back Squat (copy)')).toBeInTheDocument()
+  })
+
+  it('shows error toast when duplicate fails', async () => {
+    mockRequest
+      .mockResolvedValueOnce([COACH_EX])             // initial fetch
+      .mockRejectedValueOnce(new Error('conflict'))   // POST fails
+
+    render(<ExercisesPage />)
+
+    const dupBtn = await screen.findByRole('button', { name: /duplicate my custom move/i })
+    fireEvent.click(dupBtn)
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/could not duplicate/i)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Delete — error handling
+// ---------------------------------------------------------------------------
+
+describe('ExercisesPage — delete errors', () => {
+  beforeEach(() => {
+    mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
+  })
+
+  it('shows error toast when delete fails (exercise in use)', async () => {
+    mockRequest
+      .mockResolvedValueOnce([COACH_EX])             // initial fetch
+      .mockRejectedValueOnce(new Error('conflict'))   // DELETE 409
+
+    render(<ExercisesPage />)
+
+    const deleteBtn = await screen.findByRole('button', { name: /delete my custom move/i })
+    fireEvent.click(deleteBtn)
+
+    const confirmBtn = screen.getByRole('button', { name: /^delete$/i })
+    fireEvent.click(confirmBtn)
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/could not delete.*in use/i)
+    // Exercise should still be in the list
+    expect(screen.getByText('My Custom Move')).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Favourite — optimistic rollback on error
+// ---------------------------------------------------------------------------
+
+describe('ExercisesPage — favourite rollback', () => {
+  beforeEach(() => {
+    mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
+  })
+
+  it('reverts favourite toggle when API call fails', async () => {
+    mockRequest
+      .mockResolvedValueOnce([COACH_EX])                       // initial fetch (is_favorite: false)
+      .mockRejectedValueOnce(new Error('network error'))       // POST /favorite fails
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('My Custom Move')
+    // Should not be in favourites initially
+    expect(screen.queryByRole('region', { name: 'Favourites' })).not.toBeInTheDocument()
+
+    const starBtn = screen.getByRole('button', { name: /add my custom move to favourites/i })
+    fireEvent.click(starBtn)
+
+    // Optimistic: favourites section should appear
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: 'Favourites' })).toBeInTheDocument()
+    })
+
+    // After error: favourites section should disappear (rollback)
+    await waitFor(() => {
+      expect(screen.queryByRole('region', { name: 'Favourites' })).not.toBeInTheDocument()
+    })
+
+    // Error toast should show
+    expect(screen.getByRole('status')).toHaveTextContent(/could not update favourite/i)
   })
 })
 

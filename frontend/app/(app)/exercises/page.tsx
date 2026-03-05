@@ -62,6 +62,35 @@ function ConfirmDeleteModal({
   onConfirm: () => void
   onCancel: () => void
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+
+  // Focus trap + Escape key
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+
+    // Focus the first focusable element (Cancel is safest default)
+    const focusable = dialog.querySelectorAll<HTMLElement>('button, [tabindex]')
+    if (focusable.length > 0) focusable[focusable.length - 1].focus()
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') { onCancel(); return }
+      if (e.key !== 'Tab' || !dialog) return
+      const els = dialog.querySelectorAll<HTMLElement>('button, [tabindex]')
+      if (els.length === 0) return
+      const first = els[0]
+      const last = els[els.length - 1]
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onCancel])
+
   return (
     <div
       role="dialog"
@@ -69,7 +98,7 @@ function ConfirmDeleteModal({
       aria-labelledby="delete-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
     >
-      <div className="w-full max-w-sm rounded-xl border border-white/10 bg-[#131922] p-6 shadow-2xl">
+      <div ref={dialogRef} className="w-full max-w-sm rounded-xl border border-white/10 bg-[#131922] p-6 shadow-2xl">
         <h2 id="delete-modal-title" className="text-sm font-semibold text-white">
           Delete exercise?
         </h2>

@@ -90,17 +90,15 @@ export default function ExerciseCard({
           </button>
         )}
 
-        {/* Duplicate — COACH only */}
-        {canMutate && (
-          <button
-            type="button"
-            onClick={() => onDuplicate(exercise)}
-            aria-label={`Duplicate ${exercise.name}`}
-            className="rounded p-1.5 text-slate-600 transition-colors hover:bg-white/5 hover:text-white"
-          >
-            <DuplicateIcon />
-          </button>
-        )}
+        {/* Duplicate — always available (COMPANY → "to my library", COACH → copy) */}
+        <button
+          type="button"
+          onClick={() => onDuplicate(exercise)}
+          aria-label={isOfficial ? `Duplicate ${exercise.name} to my library` : `Duplicate ${exercise.name}`}
+          className="rounded p-1.5 text-slate-600 transition-colors hover:bg-white/5 hover:text-white"
+        >
+          <DuplicateIcon />
+        </button>
 
         {/* Delete — COACH only */}
         {canMutate && (
