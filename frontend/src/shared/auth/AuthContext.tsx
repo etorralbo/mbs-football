@@ -20,6 +20,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import { request } from '@/app/_shared/api/httpClient'
@@ -100,6 +101,10 @@ const AuthContext = createContext<AuthContextValue>({
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<MeResponse | null>(null)
+  // Ref keeps the latest `me` accessible from stable callbacks (setActiveTeamId)
+  // without re-creating them on every `me` change.
+  const meRef = useRef<MeResponse | null>(null)
+  meRef.current = me
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
   // Persisted team selection (for multi-team coaches). Initialised from
@@ -115,6 +120,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signal,
         teamScoped: false,
       } as RequestInit & { teamScoped: boolean })
+      // Update ref eagerly so setActiveTeamId (called right after await
+      // refreshMe()) can validate against the fresh memberships without
+      // waiting for the React re-render triggered by setMe.
+      meRef.current = data
       setMe(data)
       return data
     },
@@ -167,14 +176,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const setActiveTeamId = useCallback(
     (id: string) => {
-      if (!me) return
+      // Read from ref so this callback always sees the latest `me`,
+      // even when called right after an awaited refreshMe() whose
+      // setMe() hasn't triggered a re-render yet.
+      const currentMe = meRef.current
+      if (!currentMe) return
       if (!isValidUuid(id)) {
         if (process.env.NODE_ENV === 'development') {
           console.error('[AuthContext] setActiveTeamId: invalid UUID', id)
         }
         return
       }
-      if (!me.memberships.some((m) => m.team_id === id)) {
+      if (!currentMe.memberships.some((m) => m.team_id === id)) {
         if (process.env.NODE_ENV === 'development') {
           console.error(
             '[AuthContext] setActiveTeamId: team not in user memberships',
@@ -196,7 +209,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // local state automatically. There is no Zustand/Redux/Jotai to flush.
       setLocalTeamId(id)
     },
-    [me],
+    [],
   )
 
   const clearActiveTeam = useCallback(() => {
