@@ -1,8 +1,11 @@
 """Domain use case: delete a team (hard delete with safety guards)."""
+import logging
 import uuid
 from dataclasses import dataclass
 
 from app.persistence.repositories.team_repository import AbstractTeamRepository
+
+logger = logging.getLogger(__name__)
 
 
 class TeamNotFoundError(Exception):
@@ -68,3 +71,12 @@ class DeleteTeamUseCase:
             )
 
         self._team_repo.delete(team)
+
+        logger.info(
+            "team_deleted",
+            extra={
+                "team_id": str(command.team_id),
+                "team_name": team.name,
+                "deleted_by": str(command.supabase_user_id),
+            },
+        )
