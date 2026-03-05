@@ -29,7 +29,13 @@ import { CreateButton } from '@/app/_shared/components/CreateButton'
 import { PageHeader } from '@/app/_shared/components/PageHeader'
 import ExerciseForm, { type ExerciseFormValues } from './ExerciseForm'
 import ExerciseCard from './ExerciseCard'
-import { FILTER_CHIPS, useExerciseFilters } from './useExerciseFilters'
+import { FILTER_CHIPS, useExerciseFilters, type Scope } from './useExerciseFilters'
+
+const SCOPE_OPTIONS: { label: string; value: Scope }[] = [
+  { label: 'All', value: 'all' },
+  { label: 'Official', value: 'official' },
+  { label: 'Mine', value: 'mine' },
+]
 
 // ---------------------------------------------------------------------------
 // Normalise helper (mirrors ExerciseSelector normalisation for search)
@@ -135,7 +141,7 @@ export default function ExercisesPage() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Filters (URL-synced)
-  const { filters, setQuery, toggleTag, clearFilters, hasActiveFilters } = useExerciseFilters()
+  const { filters, setQuery, toggleTag, setScope, clearFilters, hasActiveFilters } = useExerciseFilters()
 
   // UX guard: athletes should not access this page
   useEffect(() => {
@@ -183,6 +189,12 @@ export default function ExercisesPage() {
   // ---------------------------------------------------------------------------
   const filtered = useMemo(() => {
     let list = exercises
+
+    if (filters.scope === 'official') {
+      list = list.filter((e) => e.owner_type === 'COMPANY')
+    } else if (filters.scope === 'mine') {
+      list = list.filter((e) => e.owner_type === 'COACH')
+    }
 
     if (filters.query) {
       const q = normalise(filters.query)
@@ -340,8 +352,27 @@ export default function ExercisesPage() {
         </div>
       )}
 
+      {/* Scope selector */}
+      <div className="mt-4 flex gap-1">
+        {SCOPE_OPTIONS.map(({ label, value }) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={filters.scope === value}
+            onClick={() => setScope(value)}
+            className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+              filters.scope === value
+                ? 'bg-white/10 text-white'
+                : 'text-slate-400 hover:bg-white/5 hover:text-slate-300'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {/* Search */}
-      <div className="mt-4">
+      <div className="mt-3">
         <input
           type="search"
           value={filters.query}

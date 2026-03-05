@@ -145,8 +145,8 @@ describe('ExercisesPage — Official badge', () => {
 
     render(<ExercisesPage />)
 
-    await screen.findByText('Back Squat')
-    expect(screen.getByText('Official')).toBeInTheDocument()
+    const section = await screen.findByRole('region', { name: 'All exercises' })
+    expect(within(section).getByText('Official')).toBeInTheDocument()
   })
 
   it('does not show "Official" badge on COACH exercises', async () => {
@@ -154,8 +154,8 @@ describe('ExercisesPage — Official badge', () => {
 
     render(<ExercisesPage />)
 
-    await screen.findByText('My Custom Move')
-    expect(screen.queryByText('Official')).not.toBeInTheDocument()
+    const section = await screen.findByRole('region', { name: 'All exercises' })
+    expect(within(section).queryByText('Official')).not.toBeInTheDocument()
   })
 })
 
@@ -373,6 +373,170 @@ describe('ExercisesPage — filter chips', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /clear filters/i })).toBeInTheDocument()
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Scope selector
+// ---------------------------------------------------------------------------
+
+describe('ExercisesPage — scope selector', () => {
+  beforeEach(() => {
+    mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
+  })
+
+  it('renders three scope buttons: All, Official, Mine', async () => {
+    mockRequest.mockResolvedValue([COMPANY_EX, COACH_EX])
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('Back Squat')
+    expect(screen.getByRole('button', { name: /^All$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Official$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Mine$/i })).toBeInTheDocument()
+  })
+
+  it('"All" is the default active scope', async () => {
+    mockRequest.mockResolvedValue([COMPANY_EX, COACH_EX])
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('Back Squat')
+    expect(screen.getByRole('button', { name: /^All$/i })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /^Official$/i })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: /^Mine$/i })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('clicking "Official" shows only COMPANY exercises', async () => {
+    mockRequest.mockResolvedValue([COMPANY_EX, COACH_EX])
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('Back Squat')
+    fireEvent.click(screen.getByRole('button', { name: /^Official$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Back Squat')).toBeInTheDocument()
+      expect(screen.queryByText('My Custom Move')).not.toBeInTheDocument()
+    })
+  })
+
+  it('clicking "Mine" shows only COACH exercises', async () => {
+    mockRequest.mockResolvedValue([COMPANY_EX, COACH_EX])
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('Back Squat')
+    fireEvent.click(screen.getByRole('button', { name: /^Mine$/i }))
+
+    await waitFor(() => {
+      expect(screen.queryByText('Back Squat')).not.toBeInTheDocument()
+      expect(screen.getByText('My Custom Move')).toBeInTheDocument()
+    })
+  })
+
+  it('clicking "All" resets the scope filter', async () => {
+    mockRequest.mockResolvedValue([COMPANY_EX, COACH_EX])
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('Back Squat')
+    fireEvent.click(screen.getByRole('button', { name: /^Mine$/i }))
+    await waitFor(() => expect(screen.queryByText('Back Squat')).not.toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: /^All$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Back Squat')).toBeInTheDocument()
+      expect(screen.getByText('My Custom Move')).toBeInTheDocument()
+    })
+  })
+
+  it('scope combines with tag filters', async () => {
+    const mobilityCoach: Exercise = {
+      ...COACH_EX,
+      id: 'ex-mob-coach',
+      name: 'Coach Mobility Drill',
+      tags: ['mobility'],
+    }
+    mockRequest.mockResolvedValue([COMPANY_EX, COACH_EX, mobilityCoach])
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('Back Squat')
+    // Select "Mine" scope
+    fireEvent.click(screen.getByRole('button', { name: /^Mine$/i }))
+    // Activate "strength" tag
+    fireEvent.click(screen.getByRole('button', { name: /^strength/i }))
+
+    await waitFor(() => {
+      // Only COACH exercises with "strength" tag
+      expect(screen.getByText('My Custom Move')).toBeInTheDocument()
+      expect(screen.queryByText('Back Squat')).not.toBeInTheDocument()
+      expect(screen.queryByText('Coach Mobility Drill')).not.toBeInTheDocument()
+    })
+  })
+
+  it('"Clear filters" also resets scope back to "All"', async () => {
+    mockRequest.mockResolvedValue([COMPANY_EX, COACH_EX])
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('Back Squat')
+    // Set scope to "Mine"
+    fireEvent.click(screen.getByRole('button', { name: /^Mine$/i }))
+    await waitFor(() => expect(screen.queryByText('Back Squat')).not.toBeInTheDocument())
+
+    // Clear filters
+    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Back Squat')).toBeInTheDocument()
+      expect(screen.getByText('My Custom Move')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^All$/i })).toHaveAttribute('aria-pressed', 'true')
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// URL param persistence — scope
+// ---------------------------------------------------------------------------
+
+describe('ExercisesPage — scope URL param', () => {
+  beforeEach(() => {
+    mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
+  })
+
+  it('syncs scope to URL when changed', async () => {
+    mockRequest.mockResolvedValue([COMPANY_EX, COACH_EX])
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('Back Squat')
+    fireEvent.click(screen.getByRole('button', { name: /^Official$/i }))
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith(
+        expect.stringContaining('scope=official'),
+        expect.anything(),
+      )
+    })
+  })
+
+  it('does not include scope=all in URL (it is the default)', async () => {
+    mockRequest.mockResolvedValue([COMPANY_EX, COACH_EX])
+
+    render(<ExercisesPage />)
+
+    await screen.findByText('Back Squat')
+    // Click "Official" then back to "All"
+    fireEvent.click(screen.getByRole('button', { name: /^Official$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^All$/i }))
+
+    await waitFor(() => {
+      const lastCall = mockReplace.mock.calls[mockReplace.mock.calls.length - 1]
+      expect(lastCall[0]).not.toContain('scope=')
     })
   })
 })
