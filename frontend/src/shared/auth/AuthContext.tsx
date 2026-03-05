@@ -103,8 +103,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<MeResponse | null>(null)
   // Ref keeps the latest `me` accessible from stable callbacks (setActiveTeamId)
   // without re-creating them on every `me` change.
+  // Updated in two places: eagerly inside fetchMe (before re-render), and
+  // via effect to stay in sync with any other setMe calls.
   const meRef = useRef<MeResponse | null>(null)
-  meRef.current = me
+  useEffect(() => {
+    meRef.current = me
+  }, [me])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
   // Persisted team selection (for multi-team coaches). Initialised from
