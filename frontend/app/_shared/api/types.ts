@@ -6,6 +6,7 @@ export interface MembershipItem {
   team_id: string
   team_name: string
   role: 'COACH' | 'ATHLETE'
+  is_owner: boolean
 }
 
 export interface MeResponse {

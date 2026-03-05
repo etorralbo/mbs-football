@@ -23,6 +23,7 @@ class MembershipOut(BaseModel):
     team_id: uuid.UUID
     team_name: str
     role: str
+    is_owner: bool
 
 
 class MeResponse(BaseModel):
@@ -45,7 +46,12 @@ def get_me(
     rows = db.execute(stmt).all()
 
     memberships = [
-        MembershipOut(team_id=m.team_id, team_name=t.name, role=m.role.value)
+        MembershipOut(
+            team_id=m.team_id,
+            team_name=t.name,
+            role=m.role.value,
+            is_owner=t.created_by_user_id == user_id,
+        )
         for m, t in rows
     ]
 
