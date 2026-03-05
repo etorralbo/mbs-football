@@ -20,6 +20,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import { request } from '@/app/_shared/api/httpClient'
@@ -43,7 +44,7 @@ export interface AuthContextValue {
   error: Error | null
   /** True while /v1/me is loading OR onboarding logic is resolving. */
   isAppBootstrapping: boolean
-  refreshMe: () => void
+  refreshMe: () => Promise<MeResponse>
   setActiveTeamId: (teamId: string) => void
   clearActiveTeam: () => void
   /** Called by router-guard pages (OnboardingHub, AuthContinue) to signal
@@ -88,7 +89,7 @@ const AuthContext = createContext<AuthContextValue>({
   loading: true,
   error: null,
   isAppBootstrapping: true,
-  refreshMe: () => {},
+  refreshMe: () => Promise.resolve(null as unknown as MeResponse),
   setActiveTeamId: () => {},
   clearActiveTeam: () => {},
   setOnboardingResolving: () => {},
@@ -100,10 +101,16 @@ const AuthContext = createContext<AuthContextValue>({
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<MeResponse | null>(null)
+  // Ref keeps the latest `me` accessible from stable callbacks (setActiveTeamId)
+  // without re-creating them on every `me` change.
+  // Updated in two places: eagerly inside fetchMe (before re-render), and
+  // via effect to stay in sync with any other setMe calls.
+  const meRef = useRef<MeResponse | null>(null)
+  useEffect(() => {
+    meRef.current = me
+  }, [me])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
-  // Incrementing this triggers the fetch effect.
-  const [refreshToken, setRefreshToken] = useState(0)
   // Persisted team selection (for multi-team coaches). Initialised from
   // localStorage on first render; updated via setActiveTeamId / clearActiveTeam.
   const [localTeamId, setLocalTeamId] = useState<string | null>(
@@ -111,8 +118,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
   const [onboardingResolving, setOnboardingResolving] = useState(false)
 
-  const refreshMe = useCallback(() => setRefreshToken((t) => t + 1), [])
+  const fetchMe = useCallback(
+    async (signal?: AbortSignal): Promise<MeResponse> => {
+      const data = await request<MeResponse>('/v1/me', {
+        signal,
+        teamScoped: false,
+      } as RequestInit & { teamScoped: boolean })
+      // Update ref eagerly so setActiveTeamId (called right after await
+      // refreshMe()) can validate against the fresh memberships without
+      // waiting for the React re-render triggered by setMe.
+      meRef.current = data
+      setMe(data)
+      return data
+    },
+    [],
+  )
 
+  const refreshMe = useCallback(async (): Promise<MeResponse> => {
+    return fetchMe()
+  }, [fetchMe])
+
+  // Initial bootstrap fetch on mount.
   useEffect(() => {
     const controller = new AbortController()
 
@@ -120,13 +146,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true)
     setError(null)
 
-    // teamScoped: false — bootstrap call, no team context available yet.
-    request<MeResponse>('/v1/me', {
-      signal: controller.signal,
-      teamScoped: false,
-    } as RequestInit & { teamScoped: boolean })
-      .then((data) => {
-        setMe(data)
+    fetchMe(controller.signal)
+      .then(() => {
         setLoading(false)
       })
       .catch((err) => {
@@ -136,7 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
 
     return () => controller.abort()
-  }, [refreshToken])
+  }, [fetchMe])
 
   // Resolved team: server value → validated localStorage → null.
   const resolvedActiveTeamId = useMemo<string | null>(() => {
@@ -159,14 +180,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const setActiveTeamId = useCallback(
     (id: string) => {
-      if (!me) return
+      // Read from ref so this callback always sees the latest `me`,
+      // even when called right after an awaited refreshMe() whose
+      // setMe() hasn't triggered a re-render yet.
+      const currentMe = meRef.current
+      if (!currentMe) return
       if (!isValidUuid(id)) {
         if (process.env.NODE_ENV === 'development') {
           console.error('[AuthContext] setActiveTeamId: invalid UUID', id)
         }
         return
       }
-      if (!me.memberships.some((m) => m.team_id === id)) {
+      if (!currentMe.memberships.some((m) => m.team_id === id)) {
         if (process.env.NODE_ENV === 'development') {
           console.error(
             '[AuthContext] setActiveTeamId: team not in user memberships',
@@ -188,7 +213,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // local state automatically. There is no Zustand/Redux/Jotai to flush.
       setLocalTeamId(id)
     },
-    [me],
+    [],
   )
 
   const clearActiveTeam = useCallback(() => {

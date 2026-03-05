@@ -13,6 +13,7 @@ import { Button } from '@/app/_shared/components/Button'
 import { getPostActionRedirect } from '@/src/features/activation/postActionRedirect'
 import { supabase } from '@/app/_shared/auth/supabaseClient'
 import { useAuth } from '@/src/shared/auth/AuthContext'
+import { _setActiveTeamIdInternal } from '@/src/shared/auth/activeTeamStore'
 
 export function CreateTeamForm() {
   const [name, setName] = useState('')
@@ -44,8 +45,19 @@ export function CreateTeamForm() {
         body: JSON.stringify({ name: trimmedTeam, display_name: displayNameRef.current }),
         teamScoped: false,
       })
-      setActiveTeamId(result.team_id)
-      refreshMe()
+      // Team created on the backend. Refresh profile so me.memberships
+      // includes the new team before we try to select it.
+      // If refreshMe fails (network blip), navigate anyway — next page
+      // load will pick up the membership.
+      try {
+        await refreshMe()
+        setActiveTeamId(result.team_id)
+      } catch {
+        // Best-effort: sync both localStorage and the in-memory store so
+        // httpClient sends the correct X-Team-Id during navigation.
+        try { localStorage.setItem('activeTeamId', result.team_id) } catch { /* ignore */ }
+        _setActiveTeamIdInternal(result.team_id)
+      }
       router.replace(getPostActionRedirect('team_created', 'COACH') ?? '/templates')
     } catch (err) {
       if (err instanceof UnauthorizedError) {
