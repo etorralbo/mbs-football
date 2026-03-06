@@ -459,6 +459,48 @@ describe('SessionsPage — Unassign (calendar)', () => {
     expect(within(dialog).getByText('Alice Johnson')).toBeInTheDocument()
     expect(within(dialog).getByText('Strength Block A')).toBeInTheDocument()
   })
+
+  it('removes session from calendar after successful unassign', async () => {
+    const CAL_BOB: WorkoutSessionSummary = { ...BOB_SESSION, scheduled_for: THIS_MONTH }
+    mockActivation.mockReturnValue(COACH_STATE)
+    let cancelled = false
+    mockRequest.mockImplementation((url: string) => {
+      if (url.endsWith('/cancel')) { cancelled = true; return Promise.resolve(undefined) }
+      return Promise.resolve(cancelled ? [CAL_BOB] : [CAL_SESSION, CAL_BOB])
+    })
+
+    render(<SessionsPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /unassign alice johnson/i }))
+    const dialog = screen.getByRole('dialog', { name: /confirm unassign/i })
+    fireEvent.click(within(dialog).getByRole('button', { name: /^unassign$/i }))
+
+    await waitFor(() => {
+      expect(screen.queryByText('Alice Johnson')).not.toBeInTheDocument()
+    })
+    expect(screen.getAllByText('Bob Smith').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('shows error message on 409 conflict from calendar unassign', async () => {
+    mockActivation.mockReturnValue(COACH_STATE)
+    const { ConflictError } = await import('@/app/_shared/api/httpClient')
+    mockRequest.mockImplementation((url: string) => {
+      if (url === '/v1/workout-sessions') return Promise.resolve([CAL_SESSION])
+      return Promise.reject(new ConflictError('Session has activity'))
+    })
+
+    render(<SessionsPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /unassign alice johnson/i }))
+    const dialog = screen.getByRole('dialog', { name: /confirm unassign/i })
+    fireEvent.click(within(dialog).getByRole('button', { name: /^unassign$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        /can't be unassigned because it has activity or logs/i,
+      )
+    })
+  })
 })
 
 describe('SessionsPage — Unassign (list)', () => {
