@@ -15,6 +15,7 @@ interface Athlete {
 }
 
 type InviteState = {
+  email: string
   url: string | null
   expiresAt: string | null
   generating: boolean
@@ -27,7 +28,9 @@ type AthletesState =
   | { status: 'ok'; data: Athlete[] }
   | { status: 'error' }
 
-const EMPTY_INVITE: InviteState = { url: null, expiresAt: null, generating: false, copied: false, error: null }
+const EMPTY_INVITE: InviteState = { email: '', url: null, expiresAt: null, generating: false, copied: false, error: null }
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 // ---------------------------------------------------------------------------
 // Delete Team Modal
@@ -158,13 +161,18 @@ export default function TeamPage() {
   const isOwner = activeTeam?.is_owner === true
 
   async function handleGenerate() {
+    const trimmed = invite.email.trim().toLowerCase()
+    if (!EMAIL_RE.test(trimmed)) {
+      setInvite((prev) => ({ ...prev, error: 'Please enter a valid email address.' }))
+      return
+    }
     setInvite((prev) => ({ ...prev, generating: true, error: null }))
     try {
       const result = await request<CreateInviteResponse>('/v1/team-invites', {
         method: 'POST',
-        body: JSON.stringify({ team_id: activeTeamId }),
+        body: JSON.stringify({ team_id: activeTeamId, email: trimmed }),
       })
-      setInvite({ url: result.join_url, expiresAt: result.expires_at, generating: false, copied: false, error: null })
+      setInvite({ email: '', url: result.join_url, expiresAt: result.expires_at, generating: false, copied: false, error: null })
     } catch {
       setInvite((prev) => ({
         ...prev,
@@ -284,8 +292,23 @@ export default function TeamPage() {
                 Invite link
               </p>
               <p className="mb-3 text-xs text-slate-400">
-                Generate an invite link and share it with your athletes. Each link expires in 7 days.
+                Enter the athlete&apos;s email and generate an invite link. Each link expires in 7 days.
               </p>
+
+              <div className="mb-3">
+                <label htmlFor="invite-email" className="block text-xs text-slate-400 mb-1">
+                  Athlete email
+                </label>
+                <input
+                  id="invite-email"
+                  type="email"
+                  value={invite.email}
+                  onChange={(e) => setInvite((prev) => ({ ...prev, email: e.target.value, error: null }))}
+                  placeholder="athlete@example.com"
+                  disabled={invite.generating}
+                  className="w-full rounded-md border border-white/10 bg-[#0d1420] px-3 py-2 text-sm text-slate-300 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-[#4f9cf9] disabled:opacity-50"
+                />
+              </div>
 
               {invite.error && (
                 <p role="alert" className="mb-3 text-sm text-red-400">

@@ -236,12 +236,20 @@ describe('TeamPage', () => {
   // Invite
   // ---------------------------------------------------------------------------
 
+  /** Type an email into the invite input and click generate. */
+  async function fillEmailAndGenerate(email = 'athlete@test.com') {
+    const input = await screen.findByLabelText(/athlete email/i)
+    fireEvent.change(input, { target: { value: email } })
+    fireEvent.click(screen.getByRole('button', { name: /generate invite link/i }))
+  }
+
   it('shows the invite panel only for a coach', async () => {
     authAs(coachMe, 'COACH')
     render(<TeamPage />)
     expect(
       await screen.findByRole('button', { name: /generate invite link/i }),
     ).toBeInTheDocument()
+    expect(screen.getByLabelText(/athlete email/i)).toBeInTheDocument()
   })
 
   it('does not show the invite panel for an athlete', async () => {
@@ -253,12 +261,31 @@ describe('TeamPage', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('shows the invite URL after clicking generate', async () => {
+  it('shows validation error when generating without email', async () => {
+    authAs(coachMe, 'COACH')
+    render(<TeamPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /generate invite link/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/valid email/i)
+    expect(mockRequest).not.toHaveBeenCalledWith('/v1/team-invites', expect.anything())
+  })
+
+  it('shows validation error for invalid email format', async () => {
+    authAs(coachMe, 'COACH')
+    render(<TeamPage />)
+
+    await fillEmailAndGenerate('not-an-email')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/valid email/i)
+  })
+
+  it('shows the invite URL after entering email and clicking generate', async () => {
     authAs(coachMe, 'COACH')
     setupRequest({ invite: inviteResponse })
     render(<TeamPage />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /generate invite link/i }))
+    await fillEmailAndGenerate()
 
     expect(
       await screen.findByDisplayValue('https://app.com/join?token=ABC123-token-xyz'),
@@ -272,7 +299,7 @@ describe('TeamPage', () => {
     setupRequest({ invite: inviteResponse })
     render(<TeamPage />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /generate invite link/i }))
+    await fillEmailAndGenerate()
     fireEvent.click(await screen.findByRole('button', { name: /copy invite link/i }))
 
     await waitFor(() => {
@@ -285,26 +312,37 @@ describe('TeamPage', () => {
     authAs(coachMe, 'COACH')
     render(<TeamPage />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /generate invite link/i }))
+    await fillEmailAndGenerate()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/could not generate/i)
   })
 
-  it('generates invite for the active team', async () => {
+  it('sends team_id and email in the invite request', async () => {
     authAs(coachMe, 'COACH')
     setupRequest({ invite: inviteResponse })
     render(<TeamPage />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /generate invite link/i }))
+    await fillEmailAndGenerate('  Athlete@Test.COM  ')
 
     await waitFor(() => {
       expect(mockRequest).toHaveBeenCalledWith(
         '/v1/team-invites',
         expect.objectContaining({
-          body: JSON.stringify({ team_id: TEAM_A }),
+          body: JSON.stringify({ team_id: TEAM_A, email: 'athlete@test.com' }),
         }),
       )
     })
+  })
+
+  it('clears email input after successful invite generation', async () => {
+    authAs(coachMe, 'COACH')
+    setupRequest({ invite: inviteResponse })
+    render(<TeamPage />)
+
+    await fillEmailAndGenerate()
+
+    await screen.findByDisplayValue('https://app.com/join?token=ABC123-token-xyz')
+    expect(screen.getByLabelText(/athlete email/i)).toHaveValue('')
   })
 
   // ---------------------------------------------------------------------------
@@ -349,8 +387,6 @@ describe('TeamPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /delete team/i }))
 
-    const dialog = screen.getByRole('dialog')
-    const confirmBtn = dialog.querySelector('button')!
     // The "Delete team" button inside the modal
     const deleteBtn = screen.getAllByRole('button', { name: /delete team/i })[1]
     expect(deleteBtn).toBeDisabled()
