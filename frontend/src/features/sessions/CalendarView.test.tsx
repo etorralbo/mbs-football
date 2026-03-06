@@ -40,6 +40,8 @@ function makeSession(overrides: Partial<WorkoutSessionSummary> & { id: string })
     scheduled_for: `${THIS_MONTH}-15`,
     completed_at: null,
     cancelled_at: null,
+    exercise_count: 6,
+    exercises_logged_count: 0,
     ...overrides,
   }
 }
