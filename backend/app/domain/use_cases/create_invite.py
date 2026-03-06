@@ -24,6 +24,7 @@ class NotACoachError(Exception):
 class CreateInviteCommand:
     requesting_user_id: uuid.UUID
     team_id: uuid.UUID
+    email: str
     expires_in_days: Optional[int] = None
 
 
@@ -74,6 +75,7 @@ class CreateInviteUseCase:
             role=Role.ATHLETE,
             created_by_user_id=command.requesting_user_id,
             expires_at=expires_at,
+            email=command.email.lower().strip(),
         )
 
         # Funnel event — post-validation, post-write, same transaction.

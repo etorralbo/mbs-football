@@ -34,6 +34,14 @@ export interface AcceptInviteResponse {
   team_name: string
 }
 
+export interface InvitePreviewResponse {
+  team_name: string
+  coach_name: string
+  role: string
+  email: string | null
+  expires_at: string | null
+}
+
 // ---------------------------------------------------------------------------
 // Workout Templates
 // ---------------------------------------------------------------------------

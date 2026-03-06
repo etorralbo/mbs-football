@@ -1,4 +1,4 @@
-"""Tests for POST /v1/team-invites and POST /v1/team-invites/{token}/accept."""
+"""Tests for team invite endpoints: create, preview, accept."""
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models import Invite, Membership, Role, Team
+from app.models import Invite, Membership, Role, Team, UserProfile
 
 
 AUTH = {"Authorization": "Bearer test-token"}
@@ -36,7 +36,9 @@ class TestCreateInvite:
 
         mock_jwt(str(user_id))
         resp = client.post(
-            "/v1/team-invites", json={"team_id": str(team.id)}, headers=AUTH
+            "/v1/team-invites",
+            json={"team_id": str(team.id), "email": "a@b.com"},
+            headers=AUTH,
         )
         assert resp.status_code == 403
 
@@ -56,14 +58,14 @@ class TestCreateInvite:
         mock_jwt(str(user_id))
         resp = client.post(
             "/v1/team-invites",
-            json={"team_id": str(team.id)},
+            json={"team_id": str(team.id), "email": "athlete@test.com"},
             headers=AUTH,
         )
         assert resp.status_code == 201
         body = resp.json()
         assert "token" in body
         assert len(body["token"]) >= 43  # secrets.token_urlsafe(32) → 43 chars
-        assert "/join?token=" in body["join_url"]
+        assert "/join/" in body["join_url"]
         assert body["token"] in body["join_url"]
         assert body["team_id"] == str(team.id)
         assert body["expires_at"] is not None  # default 7 days
@@ -82,7 +84,7 @@ class TestCreateInvite:
         db_session.commit()
 
         mock_jwt(str(user_id))
-        resp = client.post("/v1/team-invites", json={"team_id": str(team.id)}, headers=AUTH)
+        resp = client.post("/v1/team-invites", json={"team_id": str(team.id), "email": "a@b.com"}, headers=AUTH)
         assert resp.status_code == 201
         expires_at = resp.json()["expires_at"]
         assert expires_at is not None
@@ -107,7 +109,7 @@ class TestCreateInvite:
 
         mock_jwt(str(user_id))
         resp = client.post(
-            "/v1/team-invites", json={"team_id": str(other_team.id)}, headers=AUTH
+            "/v1/team-invites", json={"team_id": str(other_team.id), "email": "a@b.com"}, headers=AUTH
         )
         assert resp.status_code == 403
 
@@ -128,7 +130,7 @@ class TestCreateInvite:
         db_session.commit()
 
         mock_jwt(str(user_id))
-        resp = client.post("/v1/team-invites", json={"team_id": str(team.id)}, headers=AUTH)
+        resp = client.post("/v1/team-invites", json={"team_id": str(team.id), "email": "a@b.com"}, headers=AUTH)
         assert resp.status_code == 201
 
         events = db_session.execute(
@@ -160,7 +162,7 @@ class TestCreateInvite:
         db_session.commit()
 
         mock_jwt(str(user_id))
-        resp = client.post("/v1/team-invites", json={"team_id": str(team_a.id)}, headers=AUTH)
+        resp = client.post("/v1/team-invites", json={"team_id": str(team_a.id), "email": "a@b.com"}, headers=AUTH)
         assert resp.status_code == 201
 
         team_a_events = db_session.execute(
@@ -515,3 +517,173 @@ class TestAcceptInvite:
 
         db_session.expire(invite_team_a)
         assert invite_team_a.used_at is None
+
+
+# ---------------------------------------------------------------------------
+# GET /v1/invites/preview/{token}
+# ---------------------------------------------------------------------------
+
+class TestInvitePreview:
+    def test_valid_token_returns_preview(
+        self,
+        client: TestClient,
+        db_session: Session,
+        invite_team_a: Invite,
+    ) -> None:
+        """No auth required; returns team_name, coach_name, role, expires_at."""
+        # Create a UserProfile for the coach who created the invite
+        coach_profile = UserProfile(
+            id=uuid.uuid4(),
+            supabase_user_id=invite_team_a.created_by_user_id,
+            team_id=invite_team_a.team_id,
+            role=Role.COACH,
+            name="Coach Preview",
+        )
+        db_session.add(coach_profile)
+        db_session.commit()
+
+        resp = client.get(f"/v1/invites/preview/{invite_team_a.token}")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["team_name"] == "Team Alpha"
+        assert body["coach_name"] == "Coach Preview"
+        assert body["role"] == "ATHLETE"
+        assert "expires_at" in body
+
+    def test_no_auth_required(
+        self,
+        client: TestClient,
+        db_session: Session,
+        invite_team_a: Invite,
+    ) -> None:
+        """Preview endpoint works without Authorization header."""
+        resp = client.get(f"/v1/invites/preview/{invite_team_a.token}")
+        assert resp.status_code == 200
+
+    def test_invalid_token_returns_404(self, client: TestClient) -> None:
+        resp = client.get("/v1/invites/preview/nonexistent-token")
+        assert resp.status_code == 404
+
+    def test_expired_invite_returns_410(
+        self,
+        client: TestClient,
+        db_session: Session,
+        invite_team_a: Invite,
+    ) -> None:
+        invite_team_a.expires_at = datetime.now(timezone.utc) - timedelta(days=1)
+        db_session.commit()
+
+        resp = client.get(f"/v1/invites/preview/{invite_team_a.token}")
+        assert resp.status_code == 410
+
+    def test_used_invite_returns_409(
+        self,
+        client: TestClient,
+        db_session: Session,
+        invite_team_a: Invite,
+    ) -> None:
+        invite_team_a.used_at = datetime.now(timezone.utc)
+        db_session.commit()
+
+        resp = client.get(f"/v1/invites/preview/{invite_team_a.token}")
+        assert resp.status_code == 409
+
+    def test_coach_name_fallback_when_no_profile(
+        self,
+        client: TestClient,
+        db_session: Session,
+        invite_team_a: Invite,
+    ) -> None:
+        """When the coach has no UserProfile, coach_name should be empty string."""
+        resp = client.get(f"/v1/invites/preview/{invite_team_a.token}")
+        assert resp.status_code == 200
+        assert resp.json()["coach_name"] == ""
+
+    def test_preview_returns_email(
+        self,
+        client: TestClient,
+        db_session: Session,
+        invite_team_a: Invite,
+    ) -> None:
+        """Preview includes the invite's bound email."""
+        resp = client.get(f"/v1/invites/preview/{invite_team_a.token}")
+        assert resp.status_code == 200
+        assert resp.json()["email"] == "test@example.com"
+
+
+# ---------------------------------------------------------------------------
+# Email mismatch tests
+# ---------------------------------------------------------------------------
+
+class TestAcceptInviteEmailMismatch:
+    def test_email_mismatch_returns_403(
+        self,
+        client: TestClient,
+        db_session: Session,
+        mock_jwt,
+        invite_team_a: Invite,
+    ) -> None:
+        """Accepting with a different email than the invite's bound email returns 403."""
+        athlete_id = uuid.uuid4()
+        mock_jwt(str(athlete_id), email="wrong@example.com")
+        resp = client.post(
+            f"/v1/team-invites/{invite_team_a.token}/accept",
+            json={"display_name": "Wrong User"},
+            headers=AUTH,
+        )
+        assert resp.status_code == 403
+        assert "test@example.com" in resp.json()["detail"]
+
+    def test_email_mismatch_does_not_consume_invite(
+        self,
+        client: TestClient,
+        db_session: Session,
+        mock_jwt,
+        invite_team_a: Invite,
+    ) -> None:
+        """Email mismatch must NOT mark the invite as used."""
+        athlete_id = uuid.uuid4()
+        mock_jwt(str(athlete_id), email="wrong@example.com")
+        client.post(
+            f"/v1/team-invites/{invite_team_a.token}/accept",
+            json={},
+            headers=AUTH,
+        )
+        db_session.expire(invite_team_a)
+        assert invite_team_a.used_at is None
+
+    def test_matching_email_allows_acceptance(
+        self,
+        client: TestClient,
+        db_session: Session,
+        mock_jwt,
+        invite_team_a: Invite,
+    ) -> None:
+        """Accepting with the correct email succeeds."""
+        athlete_id = uuid.uuid4()
+        mock_jwt(str(athlete_id), email="test@example.com")
+        resp = client.post(
+            f"/v1/team-invites/{invite_team_a.token}/accept",
+            json={"display_name": "Correct User"},
+            headers=AUTH,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "joined"
+
+    def test_email_comparison_is_case_insensitive(
+        self,
+        client: TestClient,
+        db_session: Session,
+        mock_jwt,
+        invite_team_a: Invite,
+    ) -> None:
+        """Email matching is case-insensitive."""
+        athlete_id = uuid.uuid4()
+        mock_jwt(str(athlete_id), email="TEST@EXAMPLE.COM")
+        resp = client.post(
+            f"/v1/team-invites/{invite_team_a.token}/accept",
+            json={"display_name": "CaseTest"},
+            headers=AUTH,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "joined"

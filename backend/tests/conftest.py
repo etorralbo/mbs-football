@@ -212,11 +212,12 @@ def mock_jwt(monkeypatch):
     """
     settings = get_settings()
 
-    def _set_sub(sub: str):
+    def _set_sub(sub: str, email: str = "test@example.com"):
         def fake_verify(_token: str):
             now = int(time.time())
             return {
                 "sub": sub,
+                "email": email,
                 "aud": settings.SUPABASE_JWT_AUD,
                 "iss": settings.SUPABASE_JWT_ISSUER,
                 "iat": now,
@@ -444,13 +445,14 @@ def membership_coach_a(db_session: Session, team_a: Team) -> Membership:
 
 @pytest.fixture
 def invite_team_a(db_session: Session, team_a: Team, membership_coach_a: Membership) -> Invite:
-    """A valid, unused ATHLETE invite for team A."""
+    """A valid, unused ATHLETE invite for team A, bound to test@example.com."""
     invite = Invite(
         id=uuid.uuid4(),
         team_id=team_a.id,
         token="valid-test-invite-token-abc",
         role=Role.ATHLETE,
         created_by_user_id=membership_coach_a.user_id,
+        email="test@example.com",
     )
     db_session.add(invite)
     db_session.commit()
