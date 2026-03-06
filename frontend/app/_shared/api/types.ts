@@ -142,6 +142,8 @@ export interface WorkoutSessionSummary {
   scheduled_for: string | null
   completed_at: string | null
   cancelled_at: string | null
+  exercise_count: number
+  exercises_logged_count: number
 }
 
 export interface SessionLogEntry {

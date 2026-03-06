@@ -5,10 +5,12 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from typing import Optional
 
-from sqlalchemy import exists, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
 
+from app.models.block_exercise import BlockExercise
 from app.models.user_profile import UserProfile
+from app.models.workout_block import WorkoutBlock
 from app.models.workout_session import WorkoutSession
 from app.models.workout_session_log import WorkoutSessionLog
 from app.models.workout_template import WorkoutTemplate
@@ -26,6 +28,8 @@ class WorkoutSessionRow:
     completed_at: Optional[datetime]
     template_title: str
     athlete_name: str
+    exercise_count: int
+    exercises_logged_count: int
 
 
 class AbstractWorkoutSessionRepository(ABC):
@@ -130,27 +134,55 @@ class SqlAlchemyWorkoutSessionRepository(AbstractWorkoutSessionRepository):
             self._db.refresh(s)
         return sessions
 
-    def list_by_team(self, team_id: uuid.UUID) -> list[WorkoutSessionRow]:
-        stmt = (
-            select(WorkoutSession, WorkoutTemplate.title, UserProfile.name)
+    def _exercise_count_subquery(self):
+        return (
+            select(func.count(BlockExercise.id))
+            .join(WorkoutBlock, BlockExercise.workout_block_id == WorkoutBlock.id)
+            .where(WorkoutBlock.workout_template_id == WorkoutSession.workout_template_id)
+            .correlate(WorkoutSession)
+            .scalar_subquery()
+            .label("exercise_count")
+        )
+
+    def _exercises_logged_subquery(self):
+        return (
+            select(func.count(func.distinct(WorkoutSessionLog.exercise_id)))
+            .where(WorkoutSessionLog.session_id == WorkoutSession.id)
+            .correlate(WorkoutSession)
+            .scalar_subquery()
+            .label("exercises_logged_count")
+        )
+
+    def _build_list_stmt(self):
+        ex_count = self._exercise_count_subquery()
+        logged_count = self._exercises_logged_subquery()
+        return (
+            select(WorkoutSession, WorkoutTemplate.title, UserProfile.name, ex_count, logged_count)
             .join(UserProfile, WorkoutSession.athlete_id == UserProfile.id)
             .join(WorkoutTemplate, WorkoutSession.workout_template_id == WorkoutTemplate.id)
+        )
+
+    def _row_from_result(self, row) -> WorkoutSessionRow:
+        return WorkoutSessionRow(
+            id=row.WorkoutSession.id,
+            assignment_id=row.WorkoutSession.assignment_id,
+            athlete_id=row.WorkoutSession.athlete_id,
+            workout_template_id=row.WorkoutSession.workout_template_id,
+            scheduled_for=row.WorkoutSession.scheduled_for,
+            completed_at=row.WorkoutSession.completed_at,
+            template_title=row.title,
+            athlete_name=row.name,
+            exercise_count=row.exercise_count or 0,
+            exercises_logged_count=row.exercises_logged_count or 0,
+        )
+
+    def list_by_team(self, team_id: uuid.UUID) -> list[WorkoutSessionRow]:
+        stmt = (
+            self._build_list_stmt()
             .where(UserProfile.team_id == team_id)
             .where(WorkoutSession.cancelled_at.is_(None))
         )
-        return [
-            WorkoutSessionRow(
-                id=row.WorkoutSession.id,
-                assignment_id=row.WorkoutSession.assignment_id,
-                athlete_id=row.WorkoutSession.athlete_id,
-                workout_template_id=row.WorkoutSession.workout_template_id,
-                scheduled_for=row.WorkoutSession.scheduled_for,
-                completed_at=row.WorkoutSession.completed_at,
-                template_title=row.title,
-                athlete_name=row.name,
-            )
-            for row in self._db.execute(stmt)
-        ]
+        return [self._row_from_result(row) for row in self._db.execute(stmt)]
 
     def list_by_athlete(
         self,
@@ -158,28 +190,14 @@ class SqlAlchemyWorkoutSessionRepository(AbstractWorkoutSessionRepository):
         team_id: uuid.UUID,
     ) -> list[WorkoutSessionRow]:
         stmt = (
-            select(WorkoutSession, WorkoutTemplate.title, UserProfile.name)
-            .join(UserProfile, WorkoutSession.athlete_id == UserProfile.id)
-            .join(WorkoutTemplate, WorkoutSession.workout_template_id == WorkoutTemplate.id)
+            self._build_list_stmt()
             .where(
                 WorkoutSession.athlete_id == athlete_id,
                 UserProfile.team_id == team_id,
             )
             .where(WorkoutSession.cancelled_at.is_(None))
         )
-        return [
-            WorkoutSessionRow(
-                id=row.WorkoutSession.id,
-                assignment_id=row.WorkoutSession.assignment_id,
-                athlete_id=row.WorkoutSession.athlete_id,
-                workout_template_id=row.WorkoutSession.workout_template_id,
-                scheduled_for=row.WorkoutSession.scheduled_for,
-                completed_at=row.WorkoutSession.completed_at,
-                template_title=row.title,
-                athlete_name=row.name,
-            )
-            for row in self._db.execute(stmt)
-        ]
+        return [self._row_from_result(row) for row in self._db.execute(stmt)]
 
     def get_by_id_and_team(
         self,

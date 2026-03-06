@@ -48,6 +48,8 @@ const ALICE_SESSION: WorkoutSessionSummary = {
   scheduled_for: '2025-03-01',
   completed_at: null,
   cancelled_at: null,
+  exercise_count: 6,
+  exercises_logged_count: 0,
 }
 
 const BOB_SESSION: WorkoutSessionSummary = {
@@ -60,6 +62,8 @@ const BOB_SESSION: WorkoutSessionSummary = {
   scheduled_for: '2025-03-02',
   completed_at: null,
   cancelled_at: null,
+  exercise_count: 4,
+  exercises_logged_count: 0,
 }
 
 // ---------------------------------------------------------------------------
@@ -74,6 +78,23 @@ function setupCoach(sessions: WorkoutSessionSummary[]) {
 function setupAthlete(sessions: WorkoutSessionSummary[]) {
   mockActivation.mockReturnValue(ATHLETE_STATE)
   mockRequest.mockResolvedValue(sessions)
+}
+
+function todayStr(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
+function futureStr(daysAhead = 5): string {
+  const d = new Date()
+  d.setDate(d.getDate() + daysAhead)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function pastStr(daysAgo = 3): string {
+  const d = new Date()
+  d.setDate(d.getDate() - daysAgo)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 // ---------------------------------------------------------------------------
@@ -109,6 +130,8 @@ describe('SessionsPage', () => {
         template_title: 'Sprint Workout',
         scheduled_for: '2026-02-25',
         completed_at: null,
+        exercise_count: 5,
+        exercises_logged_count: 0,
       },
       {
         id: 'bbbbbbbb-0000-0000-0000-000000000002',
@@ -118,6 +141,8 @@ describe('SessionsPage', () => {
         template_title: 'Strength Day',
         scheduled_for: null,
         completed_at: '2026-02-20T10:00:00Z',
+        exercise_count: 3,
+        exercises_logged_count: 3,
       },
     ])
 
@@ -125,10 +150,12 @@ describe('SessionsPage', () => {
     // Page defaults to calendar view; switch to list to see session rows
     fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
 
-    // First session: template title + formatted scheduled date
-    expect(await screen.findByText('Sprint Workout · Feb 25, 2026')).toBeInTheDocument()
+    // Template title as card heading
+    expect(await screen.findByText('Sprint Workout')).toBeInTheDocument()
+    // Date on separate line
+    expect(screen.getByText('Feb 25, 2026')).toBeInTheDocument()
 
-    // Second session: template title only (no scheduled date)
+    // Second session: template title
     expect(screen.getByText('Strength Day')).toBeInTheDocument()
     expect(screen.getAllByText('Completed')[0]).toBeInTheDocument()
   })
@@ -143,6 +170,8 @@ describe('SessionsPage', () => {
         workout_template_id: 'wt3',
         scheduled_for: null,
         completed_at: null,
+        exercise_count: 0,
+        exercises_logged_count: 0,
       },
     ])
 
@@ -171,46 +200,174 @@ describe('SessionsPage', () => {
 })
 
 // ---------------------------------------------------------------------------
-// COACH grouped view
+// COACH grouped view — status grouping
 // ---------------------------------------------------------------------------
 
-describe('SessionsPage — COACH grouped view', () => {
-  it('renders athlete name as a section heading', async () => {
-    setupCoach([ALICE_SESSION, BOB_SESSION])
+describe('SessionsPage — COACH status grouping', () => {
+  it('groups sessions into Today / Upcoming / Completed sections', async () => {
+    const todaySession: WorkoutSessionSummary = {
+      ...ALICE_SESSION,
+      id: 'sess-today',
+      scheduled_for: todayStr(),
+    }
+    const upcomingSession: WorkoutSessionSummary = {
+      ...BOB_SESSION,
+      id: 'sess-upcoming',
+      scheduled_for: futureStr(),
+    }
+    const completedSession: WorkoutSessionSummary = {
+      ...ALICE_SESSION,
+      id: 'sess-done',
+      completed_at: '2025-03-01T10:00:00Z',
+    }
+
+    setupCoach([todaySession, upcomingSession, completedSession])
     render(<SessionsPage />)
     fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /alice johnson/i })).toBeInTheDocument()
-      expect(screen.getByRole('heading', { name: /bob smith/i })).toBeInTheDocument()
+      const todaySection = screen.getByRole('region', { name: /^today$/i })
+      expect(within(todaySection).getByText('Strength Block A')).toBeInTheDocument()
+
+      const upcomingSection = screen.getByRole('region', { name: /^upcoming$/i })
+      expect(within(upcomingSection).getByText('Cardio Day')).toBeInTheDocument()
+
+      const completedSection = screen.getByRole('region', { name: /^completed$/i })
+      expect(within(completedSection).getByText('Strength Block A')).toBeInTheDocument()
     })
   })
 
-  it('places each session under the correct athlete section', async () => {
-    setupCoach([ALICE_SESSION, BOB_SESSION])
+  it('hides empty status sections', async () => {
+    // Only pending sessions, no completed
+    setupCoach([{ ...ALICE_SESSION, scheduled_for: futureStr() }])
     render(<SessionsPage />)
     fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+
     await waitFor(() => {
-      const aliceSection = screen.getByRole('heading', { name: /alice johnson/i }).closest('section')!
-      expect(within(aliceSection).getByText(/strength block a/i)).toBeInTheDocument()
-      const bobSection = screen.getByRole('heading', { name: /bob smith/i }).closest('section')!
-      expect(within(bobSection).getByText(/cardio day/i)).toBeInTheDocument()
+      expect(screen.getByRole('region', { name: /^upcoming$/i })).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('region', { name: /^today$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: /^completed$/i })).not.toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Session card content
+// ---------------------------------------------------------------------------
+
+describe('SessionsPage — session card content', () => {
+  it('displays athlete name and exercise count on COACH cards', async () => {
+    setupCoach([{ ...ALICE_SESSION, scheduled_for: futureStr(), exercise_count: 6 }])
+    render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+
+    await waitFor(() => {
+      // Athlete name appears in card (also in filter dropdown — use getAllByText)
+      expect(screen.getAllByText('Alice Johnson').length).toBeGreaterThanOrEqual(1)
+      expect(screen.getByText('6 exercises')).toBeInTheDocument()
     })
   })
 
-  it('sorts groups alphabetically by athlete name', async () => {
-    setupCoach([BOB_SESSION, ALICE_SESSION])
+  it('does not show athlete name for ATHLETE role', async () => {
+    setupAthlete([{ ...ALICE_SESSION, scheduled_for: futureStr() }])
     render(<SessionsPage />)
     fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+
     await waitFor(() => {
-      const headings = screen.getAllByRole('heading').map((h) => h.textContent ?? '')
-      // h2 text is uppercase via CSS but textContent is the original case
-      const aliceIdx = headings.findIndex((t) => /alice johnson/i.test(t))
-      const bobIdx = headings.findIndex((t) => /bob smith/i.test(t))
-      expect(aliceIdx).toBeGreaterThanOrEqual(0)
-      expect(aliceIdx).toBeLessThan(bobIdx)
+      expect(screen.getByText('Strength Block A')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Alice Johnson')).not.toBeInTheDocument()
+  })
+
+  it('shows workout name and date on separate lines', async () => {
+    setupCoach([{ ...ALICE_SESSION, scheduled_for: '2026-03-03' }])
+    render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+
+    await waitFor(() => {
+      // Title is in an h3
+      const heading = screen.getByRole('heading', { name: 'Strength Block A', level: 3 })
+      expect(heading).toBeInTheDocument()
+      // Date is in a separate <p> element
+      expect(screen.getByText('Mar 3, 2026')).toBeInTheDocument()
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Quick actions menu
+// ---------------------------------------------------------------------------
+
+describe('SessionsPage — kebab menu', () => {
+  it('shows kebab menu button for COACH role', async () => {
+    setupCoach([{ ...ALICE_SESSION, scheduled_for: futureStr() }])
+    render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /actions for strength block a/i })).toBeInTheDocument()
     })
   })
 
+  it('does not show kebab menu for ATHLETE role', async () => {
+    setupAthlete([ALICE_SESSION])
+    render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Strength Block A')).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('button', { name: /actions for/i })).not.toBeInTheDocument()
+  })
+
+  it('opens menu with Reschedule, Duplicate, Unassign options', async () => {
+    setupCoach([{ ...ALICE_SESSION, scheduled_for: futureStr() }])
+    render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+
+    const kebab = await screen.findByRole('button', { name: /actions for strength block a/i })
+    fireEvent.click(kebab)
+
+    expect(screen.getByRole('menuitem', { name: /reschedule/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /duplicate session/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /unassign/i })).toBeInTheDocument()
+  })
+
+  it('does not show Unassign in menu for completed sessions', async () => {
+    const completed: WorkoutSessionSummary = {
+      ...ALICE_SESSION,
+      completed_at: '2025-03-01T10:00:00Z',
+    }
+    setupCoach([completed])
+    render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+
+    const kebab = await screen.findByRole('button', { name: /actions for strength block a/i })
+    fireEvent.click(kebab)
+
+    expect(screen.getByRole('menuitem', { name: /reschedule/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /duplicate session/i })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /unassign/i })).not.toBeInTheDocument()
+  })
+
+  it('opens unassign dialog from kebab menu', async () => {
+    setupCoach([{ ...ALICE_SESSION, scheduled_for: futureStr() }])
+    render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+
+    const kebab = await screen.findByRole('button', { name: /actions for strength block a/i })
+    fireEvent.click(kebab)
+    fireEvent.click(screen.getByRole('menuitem', { name: /unassign/i }))
+
+    expect(screen.getByRole('dialog', { name: /confirm unassign/i })).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// COACH athlete filter
+// ---------------------------------------------------------------------------
+
+describe('SessionsPage — COACH athlete filter', () => {
   it('shows athlete filter dropdown with All athletes option', async () => {
     setupCoach([ALICE_SESSION, BOB_SESSION])
     render(<SessionsPage />)
@@ -222,7 +379,10 @@ describe('SessionsPage — COACH grouped view', () => {
   })
 
   it('filters to a single athlete when selected', async () => {
-    setupCoach([ALICE_SESSION, BOB_SESSION])
+    setupCoach([
+      { ...ALICE_SESSION, scheduled_for: futureStr() },
+      { ...BOB_SESSION, scheduled_for: futureStr() },
+    ])
     render(<SessionsPage />)
     fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
     await waitFor(() => screen.getByRole('combobox', { name: /filter by athlete/i }))
@@ -304,34 +464,42 @@ describe('SessionsPage — Unassign (calendar)', () => {
 })
 
 describe('SessionsPage — Unassign (list)', () => {
-  it('shows Unassign button for coach on pending session', async () => {
-    setupCoach([ALICE_SESSION])
+  it('shows Unassign in kebab menu for coach on pending session', async () => {
+    setupCoach([{ ...ALICE_SESSION, scheduled_for: futureStr() }])
     render(<SessionsPage />)
     fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
-    expect(await screen.findByRole('button', { name: /unassign/i })).toBeInTheDocument()
+
+    const kebab = await screen.findByRole('button', { name: /actions for strength block a/i })
+    fireEvent.click(kebab)
+    expect(screen.getByRole('menuitem', { name: /unassign/i })).toBeInTheDocument()
   })
 
-  it('does not show Unassign button for athlete', async () => {
+  it('does not show kebab menu for athlete', async () => {
     setupAthlete([ALICE_SESSION])
     render(<SessionsPage />)
     fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
     await waitFor(() => screen.getByText(/strength block a/i))
-    expect(screen.queryByRole('button', { name: /unassign/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /actions for/i })).not.toBeInTheDocument()
   })
 
-  it('does not show Unassign button for completed session', async () => {
+  it('does not show Unassign in menu for completed session', async () => {
     setupCoach([COMPLETED_SESSION])
     render(<SessionsPage />)
     fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
-    await waitFor(() => screen.getByText(/strength block a/i))
-    expect(screen.queryByRole('button', { name: /unassign/i })).not.toBeInTheDocument()
+
+    const kebab = await screen.findByRole('button', { name: /actions for strength block a/i })
+    fireEvent.click(kebab)
+    expect(screen.queryByRole('menuitem', { name: /unassign/i })).not.toBeInTheDocument()
   })
 
-  it('shows confirmation dialog when Unassign is clicked', async () => {
-    setupCoach([ALICE_SESSION])
+  it('shows confirmation dialog when Unassign is clicked from kebab', async () => {
+    setupCoach([{ ...ALICE_SESSION, scheduled_for: futureStr() }])
     render(<SessionsPage />)
     fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
-    fireEvent.click(await screen.findByRole('button', { name: /unassign/i }))
+
+    const kebab = await screen.findByRole('button', { name: /actions for strength block a/i })
+    fireEvent.click(kebab)
+    fireEvent.click(screen.getByRole('menuitem', { name: /unassign/i }))
 
     expect(screen.getByRole('dialog', { name: /confirm unassign/i })).toBeInTheDocument()
     expect(screen.getByText(/the athlete will no longer see this session/i)).toBeInTheDocument()
@@ -339,19 +507,21 @@ describe('SessionsPage — Unassign (list)', () => {
 
   it('removes session from list after successful unassign', async () => {
     mockActivation.mockReturnValue(COACH_STATE)
-    // After cancel, list re-fetch should exclude Alice
     let cancelled = false
     mockRequest.mockImplementation((url: string) => {
       if (url.endsWith('/cancel')) { cancelled = true; return Promise.resolve(undefined) }
-      return Promise.resolve(cancelled ? [BOB_SESSION] : [ALICE_SESSION, BOB_SESSION])
+      return Promise.resolve(cancelled
+        ? [{ ...BOB_SESSION, scheduled_for: futureStr() }]
+        : [{ ...ALICE_SESSION, scheduled_for: futureStr() }, { ...BOB_SESSION, scheduled_for: futureStr() }])
     })
 
     render(<SessionsPage />)
     fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
 
-    // Click unassign on Alice's session
-    const aliceUnassign = await screen.findAllByRole('button', { name: /unassign/i })
-    fireEvent.click(aliceUnassign[0])
+    // Open kebab on Alice's session and click Unassign
+    const kebab = await screen.findByRole('button', { name: /actions for strength block a/i })
+    fireEvent.click(kebab)
+    fireEvent.click(screen.getByRole('menuitem', { name: /unassign/i }))
 
     // Confirm
     const dialog = screen.getByRole('dialog', { name: /confirm unassign/i })
@@ -367,15 +537,18 @@ describe('SessionsPage — Unassign (list)', () => {
   it('shows error message on 409 conflict', async () => {
     mockActivation.mockReturnValue(COACH_STATE)
     const { ConflictError } = await import('@/app/_shared/api/httpClient')
-    // Mock: first call = list, second call = cancel (409)
     mockRequest.mockImplementation((url: string) => {
-      if (url === '/v1/workout-sessions') return Promise.resolve([ALICE_SESSION])
+      if (url === '/v1/workout-sessions') return Promise.resolve([{ ...ALICE_SESSION, scheduled_for: futureStr() }])
       return Promise.reject(new ConflictError('Session has activity'))
     })
 
     render(<SessionsPage />)
     fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
-    fireEvent.click(await screen.findByRole('button', { name: /unassign/i }))
+
+    // Open kebab and click Unassign
+    const kebab = await screen.findByRole('button', { name: /actions for strength block a/i })
+    fireEvent.click(kebab)
+    fireEvent.click(screen.getByRole('menuitem', { name: /unassign/i }))
 
     const dialog = screen.getByRole('dialog', { name: /confirm unassign/i })
     fireEvent.click(within(dialog).getByRole('button', { name: /^unassign$/i }))
@@ -385,7 +558,169 @@ describe('SessionsPage — Unassign (list)', () => {
         /can't be unassigned because it has activity or logs/i,
       )
     })
-    // Session still visible (text appears in list row + dialog template title)
+    // Session still visible
     expect(screen.getAllByText(/strength block a/i).length).toBeGreaterThanOrEqual(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Overdue status group
+// ---------------------------------------------------------------------------
+
+describe('SessionsPage — Overdue section', () => {
+  it('shows overdue section for past-due pending sessions', async () => {
+    const overdueSession: WorkoutSessionSummary = {
+      ...ALICE_SESSION,
+      id: 'sess-overdue',
+      scheduled_for: pastStr(),
+    }
+    setupCoach([overdueSession])
+    render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: /^overdue$/i })).toBeInTheDocument()
+      const section = screen.getByRole('region', { name: /^overdue$/i })
+      expect(within(section).getByText('Strength Block A')).toBeInTheDocument()
+    })
+  })
+
+  it('shows Overdue badge for past-due pending sessions', async () => {
+    const overdueSession: WorkoutSessionSummary = {
+      ...ALICE_SESSION,
+      id: 'sess-overdue',
+      scheduled_for: pastStr(),
+    }
+    setupCoach([overdueSession])
+    render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+
+    await waitFor(() => {
+      // "Overdue" appears both as section heading (h2) and badge (span) — check both exist
+      expect(screen.getAllByText('Overdue').length).toBe(2)
+    })
+  })
+
+  it('does not put completed past sessions in overdue', async () => {
+    const completedPast: WorkoutSessionSummary = {
+      ...ALICE_SESSION,
+      id: 'sess-past-done',
+      scheduled_for: pastStr(),
+      completed_at: pastStr(1) + 'T10:00:00Z',
+    }
+    setupCoach([completedPast])
+    render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: /^completed$/i })).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('region', { name: /^overdue$/i })).not.toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Exercise progress display
+// ---------------------------------------------------------------------------
+
+describe('SessionsPage — exercise progress', () => {
+  it('shows "X / Y exercises" when exercises have been logged', async () => {
+    const inProgressSession: WorkoutSessionSummary = {
+      ...ALICE_SESSION,
+      id: 'sess-progress',
+      scheduled_for: futureStr(),
+      exercise_count: 6,
+      exercises_logged_count: 4,
+    }
+    setupCoach([inProgressSession])
+    render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('4 / 6 exercises')).toBeInTheDocument()
+    })
+  })
+
+  it('shows "Y exercises" when no exercises logged', async () => {
+    setupCoach([{ ...ALICE_SESSION, scheduled_for: futureStr(), exercise_count: 6, exercises_logged_count: 0 }])
+    render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('6 exercises')).toBeInTheDocument()
+    })
+  })
+
+  it('shows In progress badge when exercises have been logged', async () => {
+    const inProgressSession: WorkoutSessionSummary = {
+      ...ALICE_SESSION,
+      id: 'sess-ip',
+      scheduled_for: futureStr(),
+      exercise_count: 6,
+      exercises_logged_count: 2,
+    }
+    setupCoach([inProgressSession])
+    render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('In progress')).toBeInTheDocument()
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Chronological sorting within sections
+// ---------------------------------------------------------------------------
+
+describe('SessionsPage — chronological sorting', () => {
+  it('sorts upcoming sessions by date ascending', async () => {
+    const laterSession: WorkoutSessionSummary = {
+      ...ALICE_SESSION,
+      id: 'sess-later',
+      template_title: 'Later Session',
+      scheduled_for: futureStr(10),
+    }
+    const soonerSession: WorkoutSessionSummary = {
+      ...BOB_SESSION,
+      id: 'sess-sooner',
+      template_title: 'Sooner Session',
+      scheduled_for: futureStr(2),
+    }
+    setupCoach([laterSession, soonerSession])
+    render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+
+    await waitFor(() => {
+      const section = screen.getByRole('region', { name: /^upcoming$/i })
+      const headings = within(section).getAllByRole('heading', { level: 3 })
+      expect(headings[0]).toHaveTextContent('Sooner Session')
+      expect(headings[1]).toHaveTextContent('Later Session')
+    })
+  })
+
+  it('sorts completed sessions by date descending (most recent first)', async () => {
+    const olderDone: WorkoutSessionSummary = {
+      ...ALICE_SESSION,
+      id: 'sess-older',
+      template_title: 'Older Done',
+      completed_at: '2025-01-01T10:00:00Z',
+    }
+    const newerDone: WorkoutSessionSummary = {
+      ...BOB_SESSION,
+      id: 'sess-newer',
+      template_title: 'Newer Done',
+      completed_at: '2025-03-01T10:00:00Z',
+    }
+    setupCoach([olderDone, newerDone])
+    render(<SessionsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
+
+    await waitFor(() => {
+      const section = screen.getByRole('region', { name: /^completed$/i })
+      const headings = within(section).getAllByRole('heading', { level: 3 })
+      expect(headings[0]).toHaveTextContent('Newer Done')
+      expect(headings[1]).toHaveTextContent('Older Done')
+    })
   })
 })
