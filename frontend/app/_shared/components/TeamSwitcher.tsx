@@ -69,7 +69,7 @@ export function TeamSwitcher() {
     // automatically on team change, re-running all data hooks.
     // Only explicit navigation is needed when still on the picker page itself.
     if (pathname === '/team/select') {
-      router.replace('/home')
+      router.replace('/dashboard')
     }
   }
 

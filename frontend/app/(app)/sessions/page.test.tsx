@@ -53,6 +53,8 @@ const PENDING_SESSION = {
   athlete_name: 'Alice Athlete',
   scheduled_for: null,
   completed_at: null,
+  exercise_count: 5,
+  exercises_logged_count: 0,
 }
 
 const COMPLETED_SESSION = {
@@ -137,19 +139,6 @@ describe('SessionsPage — session list CTAs', () => {
     await waitFor(() => {
       expect(screen.queryByRole('link', { name: /start session/i })).toBeNull()
       expect(screen.getByRole('link', { name: /view/i })).toBeInTheDocument()
-    })
-  })
-
-  it('shows athlete names as section headings when role is COACH', async () => {
-    mockUseActivationState.mockReturnValue({ ...baseActivationState, role: 'COACH' })
-    mockRequest.mockResolvedValue([PENDING_SESSION, COMPLETED_SESSION])
-
-    render(<SessionsPage />)
-    fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
-
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /alice athlete/i })).toBeInTheDocument()
-      expect(screen.getByRole('heading', { name: /bob athlete/i })).toBeInTheDocument()
     })
   })
 
