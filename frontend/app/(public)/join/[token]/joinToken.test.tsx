@@ -21,13 +21,14 @@ import { ForbiddenError } from '@/app/_shared/api/httpClient'
 // Module mocks
 // ---------------------------------------------------------------------------
 
-const { mockReplace, mockPush, mockParams, mockGetSession, mockGetUser, mockRequest } =
+const { mockReplace, mockPush, mockParams, mockGetSession, mockGetUser, mockSignOut, mockRequest } =
   vi.hoisted(() => ({
     mockReplace: vi.fn(),
     mockPush: vi.fn(),
     mockParams: vi.fn(),
     mockGetSession: vi.fn(),
     mockGetUser: vi.fn(),
+    mockSignOut: vi.fn().mockResolvedValue({}),
     mockRequest: vi.fn(),
   }))
 
@@ -41,6 +42,7 @@ vi.mock('@/app/_shared/auth/supabaseClient', () => ({
     auth: {
       getSession: mockGetSession,
       getUser: mockGetUser,
+      signOut: mockSignOut,
     },
   },
 }))
@@ -80,6 +82,7 @@ beforeEach(() => {
   mockParams.mockReset()
   mockGetSession.mockReset()
   mockGetUser.mockReset()
+  mockSignOut.mockReset().mockResolvedValue({})
   mockRequest.mockReset()
 
   // Default: valid token param
@@ -385,10 +388,10 @@ describe('JoinTokenPage — accept: not_eligible', () => {
 })
 
 describe('JoinTokenPage — accept: email mismatch', () => {
-  it('shows wrong account message on 403 ForbiddenError', async () => {
+  it('shows wrong account message with switch account button on 403', async () => {
     mockRequest.mockRejectedValue(
       new ForbiddenError(
-        'This invitation was sent to athlete@example.com. Please sign in with that account.',
+        'This invitation was sent to athlete@example.com. You are currently signed in with a different account.',
       ),
     )
 
@@ -401,6 +404,32 @@ describe('JoinTokenPage — accept: email mismatch', () => {
     expect(
       screen.getByText(/This invitation was sent to athlete@example.com/),
     ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /switch account/i }),
+    ).toBeInTheDocument()
+  })
+
+  it('clicking "Switch account" signs out and redirects to login', async () => {
+    mockRequest.mockRejectedValue(
+      new ForbiddenError(
+        'This invitation was sent to athlete@example.com. You are currently signed in with a different account.',
+      ),
+    )
+
+    await renderPage()
+
+    const btn = await screen.findByRole('button', { name: /join team/i })
+    fireEvent.click(btn)
+
+    const switchBtn = await screen.findByRole('button', { name: /switch account/i })
+    fireEvent.click(switchBtn)
+
+    await waitFor(() => {
+      expect(mockSignOut).toHaveBeenCalledTimes(1)
+      expect(mockPush).toHaveBeenCalledWith(
+        `/login?next=/join/${encodeURIComponent(VALID_TOKEN)}`,
+      )
+    })
   })
 })
 
