@@ -47,6 +47,11 @@ class Invite(Base, TimestampMixin):
         nullable=False,
         index=True,
     )
+    email: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        index=True,
+    )
 
     def __repr__(self) -> str:
         return f"<Invite(id={self.id}, team_id={self.team_id}, token={self.token!r})>"

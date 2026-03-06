@@ -28,6 +28,10 @@ class InviteRoleConflictError(Exception):
     """Raised when a COACH user (on a different team) tries to accept an ATHLETE invite."""
 
 
+class InviteEmailMismatchError(Exception):
+    """Raised when the accepting user's email does not match the invite email."""
+
+
 # ---------------------------------------------------------------------------
 # Command / Result DTOs
 # ---------------------------------------------------------------------------
@@ -37,6 +41,7 @@ class AcceptInviteCommand:
     supabase_user_id: uuid.UUID
     token: str
     name: str = ""
+    email: str = ""
 
 
 @dataclass
@@ -80,11 +85,16 @@ class AcceptInviteUseCase:
             if now > expires:
                 raise InviteExpiredError("This invite has expired.")
 
-        # 3. If the user is already a member of the invite's team, return
-        #    "already_member" immediately — do NOT consume the invite and do
-        #    NOT modify roles.  This covers:
-        #      • A coach who accidentally opens their own invite link.
-        #      • An athlete who clicks the same link a second time.
+        # 3. Email must match (if the invite was bound to an email).
+        if invite.email and command.email:
+            if invite.email.lower() != command.email.lower():
+                raise InviteEmailMismatchError(
+                    f"This invitation was sent to {invite.email}. "
+                    "Please sign in with that account."
+                )
+
+        # 4. If the user is already a member of the invite's team, return
+        #    "already_member" immediately - do NOT consume the invite.
         existing = self._membership_repo.get_by_user_and_team(
             user_id=command.supabase_user_id,
             team_id=invite.team_id,
@@ -97,20 +107,18 @@ class AcceptInviteUseCase:
                 role=existing.role,
             )
 
-        # 4. Invite must not have been consumed by another user.
+        # 5. Invite must not have been consumed by another user.
         if invite.used_at is not None:
             raise InviteAlreadyUsedError("This invite has already been used.")
 
-        # 5. Coaches on OTHER teams are not eligible to join as athletes.
-        #    Return not_eligible instead of raising an error — the link is valid,
-        #    the user just isn't the right role.  Do NOT consume the invite.
+        # 6. Coaches on OTHER teams are not eligible to join as athletes.
         if self._membership_repo.has_coach_membership(command.supabase_user_id):
             return AcceptInviteResult(
                 status="not_eligible",
                 team_id=invite.team_id,
             )
 
-        # 6. Create membership, mark invite used, bootstrap UserProfile.
+        # 7. Create membership, mark invite used, bootstrap UserProfile.
         membership = self._membership_repo.create(
             user_id=command.supabase_user_id,
             team_id=invite.team_id,

@@ -21,6 +21,7 @@ class AbstractInviteRepository(ABC):
         role: Role,
         created_by_user_id: uuid.UUID,
         expires_at: Optional[datetime] = None,
+        email: Optional[str] = None,
     ) -> Invite:
         """Persist a new invite and return it (flushed, not committed)."""
         ...
@@ -48,6 +49,7 @@ class SqlAlchemyInviteRepository(AbstractInviteRepository):
         role: Role,
         created_by_user_id: uuid.UUID,
         expires_at: Optional[datetime] = None,
+        email: Optional[str] = None,
     ) -> Invite:
         invite = Invite(
             id=uuid.uuid4(),
@@ -56,6 +58,7 @@ class SqlAlchemyInviteRepository(AbstractInviteRepository):
             role=role,
             created_by_user_id=created_by_user_id,
             expires_at=expires_at,
+            email=email,
         )
         self._db.add(invite)
         self._db.flush()

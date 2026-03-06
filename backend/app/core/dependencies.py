@@ -185,6 +185,36 @@ def get_current_user(
     return current_user
 
 
+@dataclass
+class AuthIdentity:
+    """Lightweight auth identity: user ID + email from JWT."""
+    user_id: uuid.UUID
+    email: str
+
+
+def get_auth_identity(
+    token: str = Depends(get_bearer_token),
+) -> AuthIdentity:
+    """
+    Verify JWT and return the Supabase user ID + email.
+
+    Unlike get_current_user(), this does NOT require a UserProfile to exist.
+    Use for endpoints that need the user's email (e.g. accept invite).
+    """
+    token_payload = verify_jwt_token(token)
+    supabase_user_id_str = token_payload.get("sub")
+    try:
+        user_id = uuid.UUID(supabase_user_id_str)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user ID in token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    email = token_payload.get("email", "")
+    return AuthIdentity(user_id=user_id, email=email)
+
+
 def get_auth_user_id(
     token: str = Depends(get_bearer_token),
 ) -> uuid.UUID:
