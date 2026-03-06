@@ -6,8 +6,8 @@
  *   invalid token → shows "Invalid invite" error
  *   expired token → shows "Invite expired" error
  *   used token    → shows "Invite already used" error
- *   logged in     → "Accept invitation" button → calls accept → shows success
- *   not logged in → "Log in to accept" button → redirects to /login?next=...
+ *   logged in     → "Join team" button → calls accept → shows success
+ *   not logged in → "Log in to join this team" button → redirects to /login?next=...
  *   accept: joined        → shows "You joined <team>" + "View your sessions"
  *   accept: already_member → shows "Already a member"
  *   accept: not_eligible  → shows "Cannot join as athlete"
@@ -114,14 +114,14 @@ async function renderPage() {
 // ---------------------------------------------------------------------------
 
 describe('JoinTokenPage — preview (logged in)', () => {
-  it('shows team name, coach name, role, and accept button', async () => {
+  it('shows team name, coach name, role, and join button', async () => {
     await renderPage()
 
     await screen.findByText(/Join Coaching SL/i)
     expect(screen.getByText(/Coach: Estibaliz/)).toBeInTheDocument()
     expect(screen.getByText(/Role: Athlete/)).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: /accept invitation/i }),
+      screen.getByRole('button', { name: /join team/i }),
     ).toBeInTheDocument()
   })
 
@@ -162,10 +162,10 @@ describe('JoinTokenPage — preview (not logged in)', () => {
 
     await screen.findByText(/Join Coaching SL/i)
     expect(
-      screen.getByRole('button', { name: /log in to accept/i }),
+      screen.getByRole('button', { name: /log in to join this team/i }),
     ).toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: /accept invitation/i }),
+      screen.queryByRole('button', { name: /join team/i }),
     ).not.toBeInTheDocument()
   })
 
@@ -174,7 +174,7 @@ describe('JoinTokenPage — preview (not logged in)', () => {
 
     await renderPage()
 
-    const btn = await screen.findByRole('button', { name: /log in to accept/i })
+    const btn = await screen.findByRole('button', { name: /log in to join this team/i })
     fireEvent.click(btn)
 
     expect(mockPush).toHaveBeenCalledWith(
@@ -270,7 +270,7 @@ describe('JoinTokenPage — auto-accept', () => {
     await renderPage()
 
     // Should show preview with accept button
-    await screen.findByRole('button', { name: /accept invitation/i })
+    await screen.findByRole('button', { name: /join team/i })
   })
 
   it('does not auto-accept when emails differ', async () => {
@@ -278,7 +278,7 @@ describe('JoinTokenPage — auto-accept', () => {
     await renderPage()
 
     // Should show preview with accept button
-    await screen.findByRole('button', { name: /accept invitation/i })
+    await screen.findByRole('button', { name: /join team/i })
   })
 })
 
@@ -286,19 +286,19 @@ describe('JoinTokenPage — auto-accept', () => {
 // Accept flow
 // ---------------------------------------------------------------------------
 
-describe('JoinTokenPage — accept: button disabled while accepting', () => {
-  it('disables button and shows "Accepting..." while request is in-flight', async () => {
+describe('JoinTokenPage — accept: button disabled while joining', () => {
+  it('disables button and shows "Joining..." while request is in-flight', async () => {
     // Never resolve — keep the request in-flight
     mockRequest.mockReturnValue(new Promise(() => {}))
 
     await renderPage()
 
-    const btn = await screen.findByRole('button', { name: /accept invitation/i })
+    const btn = await screen.findByRole('button', { name: /join team/i })
     fireEvent.click(btn)
 
     await waitFor(() => {
       expect(btn).toBeDisabled()
-      expect(btn).toHaveTextContent('Accepting...')
+      expect(btn).toHaveTextContent('Joining...')
     })
   })
 })
@@ -314,7 +314,7 @@ describe('JoinTokenPage — accept: joined', () => {
     await renderPage()
 
     const acceptBtn = await screen.findByRole('button', {
-      name: /accept invitation/i,
+      name: /join team/i,
     })
     fireEvent.click(acceptBtn)
 
@@ -334,7 +334,7 @@ describe('JoinTokenPage — accept: joined', () => {
     await renderPage()
 
     const acceptBtn = await screen.findByRole('button', {
-      name: /accept invitation/i,
+      name: /join team/i,
     })
     fireEvent.click(acceptBtn)
 
@@ -357,7 +357,7 @@ describe('JoinTokenPage — accept: already_member', () => {
 
     await renderPage()
 
-    const btn = await screen.findByRole('button', { name: /accept invitation/i })
+    const btn = await screen.findByRole('button', { name: /join team/i })
     fireEvent.click(btn)
 
     await screen.findByRole('heading', { name: /already part of Coaching SL/i })
@@ -377,7 +377,7 @@ describe('JoinTokenPage — accept: not_eligible', () => {
 
     await renderPage()
 
-    const btn = await screen.findByRole('button', { name: /accept invitation/i })
+    const btn = await screen.findByRole('button', { name: /join team/i })
     fireEvent.click(btn)
 
     await screen.findByText(/cannot join as athlete/i)
@@ -394,7 +394,7 @@ describe('JoinTokenPage — accept: email mismatch', () => {
 
     await renderPage()
 
-    const btn = await screen.findByRole('button', { name: /accept invitation/i })
+    const btn = await screen.findByRole('button', { name: /join team/i })
     fireEvent.click(btn)
 
     await screen.findByRole('heading', { name: /wrong account/i })
@@ -410,7 +410,7 @@ describe('JoinTokenPage — accept: error', () => {
 
     await renderPage()
 
-    const btn = await screen.findByRole('button', { name: /accept invitation/i })
+    const btn = await screen.findByRole('button', { name: /join team/i })
     fireEvent.click(btn)
 
     await screen.findByText(/invalid invite/i)
