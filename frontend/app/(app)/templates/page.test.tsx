@@ -1,8 +1,14 @@
 /**
- * Guard tests for /templates page.
+ * Tests for /templates page.
  *
  * 1. ATHLETE is redirected to /sessions (UX guard — backend RBAC is the real authority).
  * 2. COACH can access the page (no redirect).
+ * 3. "New Template" dropdown opens drawer for manual creation.
+ * 4. Template cards show kebab menu with Duplicate / Delete actions.
+ * 5. Duplicate highlights the new card inline.
+ * 6. Cards show "Last edited" metadata.
+ * 7. Quick actions (Edit, Assign, Duplicate) appear on hover.
+ * 8. "Incomplete" badge shown for draft templates without description.
  */
 import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
@@ -18,8 +24,6 @@ const { mockUseAuth, mockPush, mockRequest, stableRouter } = vi.hoisted(() => {
     mockUseAuth: vi.fn(),
     mockPush: push,
     mockRequest: vi.fn(),
-    // Stable object reference — prevents useEffect([router]) from re-running
-    // on every render (new object each render would consume Once mocks early).
     stableRouter: { replace: push, push },
   }
 })
@@ -33,6 +37,7 @@ vi.mock('@/app/_shared/api/httpClient', async (importOriginal) => {
 
 vi.mock('next/navigation', () => ({
   useRouter: () => stableRouter,
+  useSearchParams: () => new URLSearchParams(),
 }))
 
 vi.mock('next/link', () => ({
@@ -41,13 +46,10 @@ vi.mock('next/link', () => ({
   ),
 }))
 
-// useActivationState is called by TemplatesPage for role-based empty states.
-// Stub it out so tests don't hit /v1/me.
 vi.mock('@/src/features/activation/useActivationState', () => ({
   useActivationState: () => ({ role: 'COACH', steps: [], nextAction: null, isLoading: false, error: null }),
 }))
 
-// AiDraftPanel makes its own requests — stub it out for guard tests.
 vi.mock('./AiDraftPanel', () => ({ AiDraftPanel: () => null }))
 
 // ---------------------------------------------------------------------------
@@ -60,6 +62,27 @@ afterEach(() => {
 })
 
 // ---------------------------------------------------------------------------
+// Helper
+// ---------------------------------------------------------------------------
+
+const NOW = new Date().toISOString()
+
+function renderAsCoach(templates: unknown[] = []) {
+  mockUseAuth.mockReturnValue({
+    role: 'COACH', loading: false, me: null, activeTeamId: null, error: null, refreshMe: vi.fn(),
+  })
+  mockRequest.mockResolvedValue(templates)
+  return render(<TemplatesPage />)
+}
+
+async function openDrawerViaScratch() {
+  await screen.findByText(/workout templates/i)
+  // Header "New Template" button — use first match (EmptyState may also render one)
+  fireEvent.click(screen.getAllByRole('button', { name: /new template/i })[0])
+  fireEvent.click(screen.getByRole('menuitem', { name: /start from scratch/i }))
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -68,7 +91,7 @@ describe('TemplatesPage — ATHLETE guard', () => {
     mockUseAuth.mockReturnValue({
       role: 'ATHLETE', loading: false, me: null, activeTeamId: null, error: null, refreshMe: vi.fn(),
     })
-    mockRequest.mockResolvedValue([]) // templates list
+    mockRequest.mockResolvedValue([])
 
     render(<TemplatesPage />)
 
@@ -89,50 +112,44 @@ describe('TemplatesPage — ATHLETE guard', () => {
 
 describe('TemplatesPage — COACH access', () => {
   it('does NOT redirect COACH', async () => {
-    mockUseAuth.mockReturnValue({
-      role: 'COACH', loading: false, me: null, activeTeamId: null, error: null, refreshMe: vi.fn(),
-    })
-    mockRequest.mockResolvedValue([])
+    renderAsCoach()
 
-    render(<TemplatesPage />)
-
-    // Wait for loading to settle, then assert no redirect
     await screen.findByText(/workout templates/i)
     expect(mockPush).not.toHaveBeenCalledWith('/sessions')
   })
 })
 
-describe('TemplatesPage — New Template form', () => {
-  function renderAsCoach() {
-    mockUseAuth.mockReturnValue({
-      role: 'COACH', loading: false, me: null, activeTeamId: null, error: null, refreshMe: vi.fn(),
-    })
-    mockRequest.mockResolvedValue([])
-    return render(<TemplatesPage />)
-  }
-
+describe('TemplatesPage — New Template dropdown', () => {
   it('shows "New Template" button for COACH', async () => {
     renderAsCoach()
     await screen.findByText(/workout templates/i)
-    // EmptyState also renders a "New Template" button — target the header one (first)
     expect(screen.getAllByRole('button', { name: /new template/i })[0]).toBeInTheDocument()
   })
 
-  it('toggles inline form when "New Template" is clicked', async () => {
+  it('opens dropdown with "Start from scratch" and "Generate with AI"', async () => {
     renderAsCoach()
     await screen.findByText(/workout templates/i)
 
     fireEvent.click(screen.getAllByRole('button', { name: /new template/i })[0])
 
+    expect(screen.getByRole('menuitem', { name: /start from scratch/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /generate with ai/i })).toBeInTheDocument()
+  })
+})
+
+describe('TemplatesPage — New Template drawer', () => {
+  it('opens drawer when "Start from scratch" is clicked', async () => {
+    renderAsCoach()
+    await openDrawerViaScratch()
+
+    expect(screen.getByRole('dialog', { name: /new template/i })).toBeInTheDocument()
     expect(screen.getByLabelText(/template title/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^create$/i })).toBeInTheDocument()
   })
 
   it('shows validation error when title is fewer than 3 chars', async () => {
     renderAsCoach()
-    await screen.findByText(/workout templates/i)
+    await openDrawerViaScratch()
 
-    fireEvent.click(screen.getAllByRole('button', { name: /new template/i })[0])
     const input = screen.getByLabelText(/template title/i)
     fireEvent.change(input, { target: { value: 'AB' } })
     fireEvent.submit(input.closest('form')!)
@@ -149,13 +166,11 @@ describe('TemplatesPage — New Template form', () => {
       role: 'COACH', loading: false, me: null, activeTeamId: null, error: null, refreshMe: vi.fn(),
     })
     mockRequest
-      .mockResolvedValueOnce([])  // list fetch
-      .mockResolvedValueOnce({ id: 'new-tpl', title: 'Leg Day', status: 'draft', team_id: 't1', description: null, created_at: '', updated_at: '' })  // POST
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ id: 'new-tpl', title: 'Leg Day', status: 'draft', team_id: 't1', description: null, created_at: NOW, updated_at: NOW })
 
     render(<TemplatesPage />)
-
-    await screen.findByText(/workout templates/i)
-    fireEvent.click(screen.getAllByRole('button', { name: /new template/i })[0])
+    await openDrawerViaScratch()
 
     const input = screen.getByLabelText(/template title/i)
     fireEvent.change(input, { target: { value: 'Leg Day' } })
@@ -164,5 +179,177 @@ describe('TemplatesPage — New Template form', () => {
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith('/templates/new-tpl')
     })
+  })
+})
+
+describe('TemplatesPage — Template cards', () => {
+  const TEMPLATES = [
+    { id: 't1', title: 'Strength A', status: 'draft', team_id: 'team1', description: null, created_at: NOW, updated_at: NOW },
+    { id: 't2', title: 'Speed B', status: 'published', team_id: 'team1', description: 'Speed drills', created_at: NOW, updated_at: NOW },
+  ]
+
+  it('renders template cards with status badges', async () => {
+    renderAsCoach(TEMPLATES)
+
+    await screen.findByText('Strength A')
+    // Strength A is draft+no description → shows INCOMPLETE instead of DRAFT
+    expect(screen.getByText('INCOMPLETE')).toBeInTheDocument()
+    expect(screen.getByText('PUBLISHED')).toBeInTheDocument()
+  })
+
+  it('shows "Edit template" for draft and "View template" for published', async () => {
+    renderAsCoach(TEMPLATES)
+
+    await screen.findByText('Strength A')
+    expect(screen.getByText('Edit template')).toBeInTheDocument()
+    expect(screen.getByText('View template')).toBeInTheDocument()
+  })
+
+  it('shows "Last edited" metadata on cards', async () => {
+    renderAsCoach(TEMPLATES)
+
+    await screen.findByText('Strength A')
+    const labels = screen.getAllByText(/last edited/i)
+    expect(labels.length).toBe(2)
+  })
+
+  it('kebab menu shows Duplicate and Delete options', async () => {
+    renderAsCoach(TEMPLATES)
+
+    await screen.findByText('Strength A')
+    const kebabs = screen.getAllByRole('button', { name: /template actions/i })
+    fireEvent.click(kebabs[0])
+
+    expect(screen.getByRole('menuitem', { name: /duplicate/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /delete/i })).toBeInTheDocument()
+  })
+
+  it('duplicate adds card to grid and highlights it', async () => {
+    mockUseAuth.mockReturnValue({
+      role: 'COACH', loading: false, me: null, activeTeamId: null, error: null, refreshMe: vi.fn(),
+    })
+    mockRequest
+      .mockResolvedValueOnce(TEMPLATES)
+      .mockResolvedValueOnce({ id: 'dup-1', title: 'Strength A (copy)', status: 'draft', team_id: 'team1', description: null, created_at: NOW, updated_at: NOW })
+
+    render(<TemplatesPage />)
+
+    await screen.findByText('Strength A')
+    const kebabs = screen.getAllByRole('button', { name: /template actions/i })
+    fireEvent.click(kebabs[0])
+    fireEvent.click(screen.getByRole('menuitem', { name: /duplicate/i }))
+
+    await waitFor(() => {
+      expect(mockRequest).toHaveBeenCalledWith('/v1/workout-templates', {
+        method: 'POST',
+        body: JSON.stringify({ title: 'Strength A (copy)' }),
+      })
+    })
+
+    // Card appears in the grid with highlight
+    const dupCard = await screen.findByText('Strength A (copy)')
+    expect(dupCard.closest('[data-highlight]')).toHaveAttribute('data-highlight', 'true')
+  })
+
+  it('delete removes the template from the grid', async () => {
+    mockUseAuth.mockReturnValue({
+      role: 'COACH', loading: false, me: null, activeTeamId: null, error: null, refreshMe: vi.fn(),
+    })
+    mockRequest
+      .mockResolvedValueOnce(TEMPLATES)
+      .mockResolvedValueOnce(undefined) // DELETE response
+
+    render(<TemplatesPage />)
+
+    await screen.findByText('Strength A')
+    const kebabs = screen.getAllByRole('button', { name: /template actions/i })
+    fireEvent.click(kebabs[0])
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete/i }))
+
+    await waitFor(() => {
+      expect(mockRequest).toHaveBeenCalledWith('/v1/workout-templates/t1', {
+        method: 'DELETE',
+      })
+      expect(screen.queryByText('Strength A')).not.toBeInTheDocument()
+    })
+  })
+})
+
+describe('TemplatesPage — quick actions on hover', () => {
+  const TEMPLATES = [
+    { id: 't1', title: 'Strength A', status: 'draft', team_id: 'team1', description: null, created_at: NOW, updated_at: NOW },
+  ]
+
+  it('renders Edit, Assign, and Duplicate quick action buttons', async () => {
+    renderAsCoach(TEMPLATES)
+
+    await screen.findByText('Strength A')
+    expect(screen.getByRole('button', { name: /^edit$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^assign$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^duplicate$/i })).toBeInTheDocument()
+  })
+
+  it('Edit quick action navigates to template detail', async () => {
+    renderAsCoach(TEMPLATES)
+
+    await screen.findByText('Strength A')
+    fireEvent.click(screen.getByRole('button', { name: /^edit$/i }))
+
+    expect(mockPush).toHaveBeenCalledWith('/templates/t1')
+  })
+
+  it('Assign quick action navigates to template detail with assign param', async () => {
+    renderAsCoach(TEMPLATES)
+
+    await screen.findByText('Strength A')
+    fireEvent.click(screen.getByRole('button', { name: /^assign$/i }))
+
+    expect(mockPush).toHaveBeenCalledWith('/templates/t1?assign=true')
+  })
+})
+
+describe('TemplatesPage — incomplete state', () => {
+  it('shows INCOMPLETE badge (replacing DRAFT) for draft templates without description', async () => {
+    const templates = [
+      { id: 't1', title: 'Empty Draft', status: 'draft', team_id: 'team1', description: null, created_at: NOW, updated_at: NOW },
+    ]
+    renderAsCoach(templates)
+
+    await screen.findByText('Empty Draft')
+    expect(screen.getByText('INCOMPLETE')).toBeInTheDocument()
+    expect(screen.queryByText('DRAFT')).not.toBeInTheDocument()
+    expect(screen.getByText(/add exercises to finish setup/i)).toBeInTheDocument()
+  })
+
+  it('shows DRAFT badge (not INCOMPLETE) for draft templates with description', async () => {
+    const templates = [
+      { id: 't1', title: 'Full Draft', status: 'draft', team_id: 'team1', description: 'Has a description', created_at: NOW, updated_at: NOW },
+    ]
+    renderAsCoach(templates)
+
+    await screen.findByText('Full Draft')
+    expect(screen.getByText('DRAFT')).toBeInTheDocument()
+    expect(screen.queryByText('INCOMPLETE')).not.toBeInTheDocument()
+    expect(screen.queryByText(/add exercises to finish setup/i)).not.toBeInTheDocument()
+  })
+
+  it('does NOT show INCOMPLETE badge for published templates', async () => {
+    const templates = [
+      { id: 't1', title: 'Published', status: 'published', team_id: 'team1', description: null, created_at: NOW, updated_at: NOW },
+    ]
+    renderAsCoach(templates)
+
+    await screen.findByText('Published')
+    expect(screen.queryByText('INCOMPLETE')).not.toBeInTheDocument()
+  })
+})
+
+describe('TemplatesPage — empty state', () => {
+  it('shows improved empty state for COACH', async () => {
+    renderAsCoach()
+
+    await screen.findByText(/you don.t have any templates yet/i)
+    expect(screen.getByText(/templates help you design/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create your first template/i })).toBeInTheDocument()
   })
 })
