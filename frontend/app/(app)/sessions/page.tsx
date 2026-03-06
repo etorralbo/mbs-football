@@ -152,27 +152,11 @@ function KebabMenu({
         >
           <button
             role="menuitem"
-            className="flex w-full items-center px-3 py-2 text-left text-sm text-slate-300 hover:bg-white/5 hover:text-white"
-            onClick={() => { setOpen(false) }}
+            className="flex w-full items-center px-3 py-2 text-left text-sm text-red-400 hover:bg-white/5 hover:text-red-300"
+            onClick={() => { setOpen(false); onUnassign(session) }}
           >
-            Reschedule
+            Unassign
           </button>
-          <button
-            role="menuitem"
-            className="flex w-full items-center px-3 py-2 text-left text-sm text-slate-300 hover:bg-white/5 hover:text-white"
-            onClick={() => { setOpen(false) }}
-          >
-            Duplicate session
-          </button>
-          {!session.completed_at && (
-            <button
-              role="menuitem"
-              className="flex w-full items-center px-3 py-2 text-left text-sm text-red-400 hover:bg-white/5 hover:text-red-300"
-              onClick={() => { setOpen(false); onUnassign(session) }}
-            >
-              Unassign
-            </button>
-          )}
         </div>
       )}
     </div>
@@ -229,8 +213,8 @@ function SessionCard({
           </div>
         </div>
 
-        {/* Right: kebab menu (COACH only) */}
-        {role === 'COACH' && (
+        {/* Right: kebab menu (COACH only, pending sessions) */}
+        {role === 'COACH' && !s.completed_at && (
           <KebabMenu session={s} onUnassign={onUnassign} />
         )}
       </div>

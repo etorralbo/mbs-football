@@ -320,7 +320,7 @@ describe('SessionsPage — kebab menu', () => {
     expect(screen.queryByRole('button', { name: /actions for/i })).not.toBeInTheDocument()
   })
 
-  it('opens menu with Reschedule, Duplicate, Unassign options', async () => {
+  it('opens menu with only Unassign option for pending sessions', async () => {
     setupCoach([{ ...ALICE_SESSION, scheduled_for: futureStr() }])
     render(<SessionsPage />)
     fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
@@ -328,12 +328,12 @@ describe('SessionsPage — kebab menu', () => {
     const kebab = await screen.findByRole('button', { name: /actions for strength block a/i })
     fireEvent.click(kebab)
 
-    expect(screen.getByRole('menuitem', { name: /reschedule/i })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /duplicate session/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /unassign/i })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /reschedule/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /duplicate/i })).not.toBeInTheDocument()
   })
 
-  it('does not show Unassign in menu for completed sessions', async () => {
+  it('does not show kebab menu for completed sessions', async () => {
     const completed: WorkoutSessionSummary = {
       ...ALICE_SESSION,
       completed_at: '2025-03-01T10:00:00Z',
@@ -342,12 +342,10 @@ describe('SessionsPage — kebab menu', () => {
     render(<SessionsPage />)
     fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
 
-    const kebab = await screen.findByRole('button', { name: /actions for strength block a/i })
-    fireEvent.click(kebab)
-
-    expect(screen.getByRole('menuitem', { name: /reschedule/i })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /duplicate session/i })).toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: /unassign/i })).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Strength Block A')).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('button', { name: /actions for/i })).not.toBeInTheDocument()
   })
 
   it('opens unassign dialog from kebab menu', async () => {
@@ -482,14 +480,13 @@ describe('SessionsPage — Unassign (list)', () => {
     expect(screen.queryByRole('button', { name: /actions for/i })).not.toBeInTheDocument()
   })
 
-  it('does not show Unassign in menu for completed session', async () => {
+  it('does not show kebab menu for completed session', async () => {
     setupCoach([COMPLETED_SESSION])
     render(<SessionsPage />)
     fireEvent.click(screen.getByRole('button', { name: /^list$/i }))
 
-    const kebab = await screen.findByRole('button', { name: /actions for strength block a/i })
-    fireEvent.click(kebab)
-    expect(screen.queryByRole('menuitem', { name: /unassign/i })).not.toBeInTheDocument()
+    await waitFor(() => screen.getByText(/strength block a/i))
+    expect(screen.queryByRole('button', { name: /actions for/i })).not.toBeInTheDocument()
   })
 
   it('shows confirmation dialog when Unassign is clicked from kebab', async () => {
