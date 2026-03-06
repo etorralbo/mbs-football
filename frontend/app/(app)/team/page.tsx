@@ -292,7 +292,7 @@ export default function TeamPage() {
                 Invite link
               </p>
               <p className="mb-3 text-xs text-slate-400">
-                Enter the athlete's email and generate an invite link. Each link expires in 7 days.
+                Enter the athlete&apos;s email and generate an invite link. Each link expires in 7 days.
               </p>
 
               <div className="mb-3">

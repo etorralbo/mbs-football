@@ -387,8 +387,6 @@ describe('TeamPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /delete team/i }))
 
-    const dialog = screen.getByRole('dialog')
-    const confirmBtn = dialog.querySelector('button')!
     // The "Delete team" button inside the modal
     const deleteBtn = screen.getAllByRole('button', { name: /delete team/i })[1]
     expect(deleteBtn).toBeDisabled()
