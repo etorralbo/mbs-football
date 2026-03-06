@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/app/_shared/auth/supabaseClient'
+import { BrandLogo } from '@/app/_shared/components/BrandLogo'
 import { TeamSwitcher } from '@/app/_shared/components/TeamSwitcher'
 import { useAuth } from '@/src/shared/auth/AuthContext'
 
@@ -23,24 +24,8 @@ export function NavBar() {
   return (
     <aside data-testid="app-navbar" className="flex w-64 flex-shrink-0 flex-col border-r border-slate-800 bg-[#0b1117]">
       {/* Branding */}
-      <div className="flex items-center gap-3 p-6">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#c8f135] text-black">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-4.5 w-4.5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2.5}
-            aria-hidden="true"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-        </div>
-        <div>
-          <h1 className="text-sm font-bold leading-tight text-white">Mettle Performance</h1>
-          <p className="text-[10px] uppercase tracking-wider text-slate-500">Elite Coach Pro</p>
-        </div>
+      <div className="p-6">
+        <BrandLogo variant="sidebar" />
       </div>
 
       {/* Team switcher */}

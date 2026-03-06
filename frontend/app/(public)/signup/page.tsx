@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { BrandLogo } from '@/app/_shared/components/BrandLogo'
 import { SignupForm } from './SignupForm'
 
 export default function SignupPage() {
@@ -20,14 +21,7 @@ export default function SignupPage() {
         </div>
 
         {/* Logo */}
-        <div className="relative z-10 flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </div>
-          <span className="text-lg font-bold text-white">Mettle Performance</span>
-        </div>
+        <BrandLogo variant="full" className="relative z-10" />
 
         {/* Hero content */}
         <div className="relative z-10">
@@ -50,14 +44,7 @@ export default function SignupPage() {
       {/* ── Right form side ── */}
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 sm:px-12">
         {/* Mobile logo */}
-        <div className="mb-8 flex items-center gap-2.5 lg:hidden">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </div>
-          <span className="text-lg font-bold text-white">Mettle Performance</span>
-        </div>
+        <BrandLogo variant="full" className="mb-8 lg:hidden" />
 
         <div className="w-full max-w-[400px]">
           <div className="rounded-2xl border border-white/8 bg-[#141d2b] p-8 shadow-2xl">
