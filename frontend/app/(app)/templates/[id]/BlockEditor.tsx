@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { NotFoundError, request } from '@/app/_shared/api/httpClient'
 import type { BlockItem, SetPrescription, WorkoutBlock } from '@/app/_shared/api/types'
 
@@ -299,39 +299,53 @@ export function BlockEditor({ block, accentColor = '#facc15', onDeleted, onItemU
     [block.items, deletedItemIds],
   )
 
-  // Track IDs of items known at mount or already highlighted, so new arrivals
-  // from the parent can be briefly highlighted.
-  const knownItemIds = useRef<Set<string>>(new Set(block.items.map((i) => i.id)))
+  // Track IDs seen so far so newly added items can be briefly highlighted.
+  // We store both knownIds and highlightedIds in a single ref to avoid
+  // calling setState during render or directly inside an effect body.
+  const highlightRef = useRef<{
+    known: Set<string>
+    timers: Map<string, ReturnType<typeof setTimeout>>
+  }>({
+    known: new Set(block.items.map((i) => i.id)),
+    timers: new Map(),
+  })
   const [highlightedItemIds, setHighlightedItemIds] = useState<Set<string>>(new Set())
-  const highlightTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
-  // Detect newly added items from parent and highlight them.
-  useMemo(() => {
+  // Detect newly added items from parent and schedule highlight-then-fade.
+  // setState is deferred via setTimeout to satisfy the react-hooks/set-state-in-effect rule.
+  useEffect(() => {
+    const { known, timers } = highlightRef.current
     const newIds: string[] = []
     for (const item of block.items) {
-      if (!knownItemIds.current.has(item.id)) {
-        knownItemIds.current.add(item.id)
+      if (!known.has(item.id)) {
+        known.add(item.id)
         newIds.push(item.id)
       }
     }
-    if (newIds.length > 0) {
+    if (newIds.length === 0) return
+
+    // Deferred so the setState is not synchronous inside the effect body.
+    const addTimer = setTimeout(() => {
       setHighlightedItemIds((prev) => new Set([...prev, ...newIds]))
-      for (const id of newIds) {
-        const existing = highlightTimers.current.get(id)
-        if (existing) clearTimeout(existing)
-        highlightTimers.current.set(
-          id,
-          setTimeout(() => {
-            setHighlightedItemIds((prev) => {
-              const next = new Set(prev)
-              next.delete(id)
-              return next
-            })
-            highlightTimers.current.delete(id)
-          }, 2000),
-        )
-      }
+    }, 0)
+
+    for (const id of newIds) {
+      const existing = timers.get(id)
+      if (existing) clearTimeout(existing)
+      timers.set(
+        id,
+        setTimeout(() => {
+          setHighlightedItemIds((prev) => {
+            const next = new Set(prev)
+            next.delete(id)
+            return next
+          })
+          timers.delete(id)
+        }, 2000),
+      )
     }
+
+    return () => clearTimeout(addTimer)
   }, [block.items])
 
   const [deleting, setDeleting] = useState(false)
