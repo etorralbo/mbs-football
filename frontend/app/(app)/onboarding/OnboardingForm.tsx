@@ -12,7 +12,8 @@ const TOKEN_MAX_AGE_MS = 30 * 60 * 1000
 /**
  * Deterministic onboarding router guard.
  *
- * - Has membership          → /sessions
+ * - Has membership (COACH)  → /dashboard
+ * - Has membership (ATHLETE)→ /sessions
  * - Pending invite token    → accept invite → /sessions?welcome=1
  * - Token expired/invalid   → /invite-invalid
  * - No token                → /create-team  (coach path)
@@ -38,7 +39,8 @@ export function OnboardingHub() {
     request<MeResponse>('/v1/me', { teamScoped: false })
       .then((me) => {
         if (me.memberships.length > 0) {
-          router.replace('/sessions')
+          const isCoach = me.memberships.some((m) => m.role === 'COACH')
+          router.replace(isCoach ? '/dashboard' : '/sessions')
           return
         }
         handleNoMemberships()

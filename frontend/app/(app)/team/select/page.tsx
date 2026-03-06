@@ -23,7 +23,7 @@ export default function TeamSelectPage() {
 
   function handleSelect(teamId: string) {
     setActiveTeamId(teamId)
-    router.replace('/home')
+    router.replace('/dashboard')
   }
 
   return (

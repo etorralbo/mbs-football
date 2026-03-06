@@ -83,12 +83,12 @@ describe('OnboardingHub', () => {
     expect(screen.getByText(/setting up your account/i)).toBeInTheDocument()
   })
 
-  it('redirects to /sessions when user already has a membership', async () => {
+  it('redirects to /dashboard when coach already has a membership', async () => {
     mockRequest.mockResolvedValue(WITH_MEMBERSHIP)
     render(<OnboardingHub />)
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/sessions')
+      expect(mockReplace).toHaveBeenCalledWith('/dashboard')
     })
   })
 
