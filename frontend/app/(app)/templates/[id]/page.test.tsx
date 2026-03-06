@@ -198,7 +198,7 @@ describe('TemplateDetailPage — exercise picker drawer', () => {
     ],
   }
 
-  it('opens exercise picker drawer when Browse library is clicked in edit mode', async () => {
+  it('opens exercise picker drawer when Add exercise is clicked in edit mode', async () => {
     mockRequest.mockResolvedValueOnce(TEMPLATE_WITH_BLOCK)
 
     render(<TemplateDetailPage />)
@@ -210,8 +210,8 @@ describe('TemplateDetailPage — exercise picker drawer', () => {
     // Enter edit mode
     fireEvent.click(screen.getByRole('button', { name: 'Edit template' }))
 
-    // Click "Browse library" button
-    fireEvent.click(screen.getByRole('button', { name: /browse library/i }))
+    // Click "Add exercise" button
+    fireEvent.click(screen.getByRole('button', { name: /add exercise/i }))
 
     // Exercise picker drawer should appear with correct blockId
     expect(screen.getByTestId('exercise-picker')).toBeInTheDocument()
@@ -240,7 +240,7 @@ describe('TemplateDetailPage — exercise picker drawer', () => {
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit template' }))
-    fireEvent.click(screen.getByRole('button', { name: /browse library/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add exercise/i }))
 
     expect(screen.getByTestId('exercise-picker')).toBeInTheDocument()
 

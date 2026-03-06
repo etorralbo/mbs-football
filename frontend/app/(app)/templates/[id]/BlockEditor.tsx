@@ -143,7 +143,7 @@ function SetTable({ item, onDeleted, onItemUpdated }: SetTableProps) {
   }
 
   return (
-    <div className="py-4 first:pt-0 last:pb-0">
+    <div className="rounded-lg py-4 transition-all duration-150 ease-out first:pt-0 last:pb-0 hover:-translate-y-[1px] hover:bg-white/[0.02]">
       {/* Exercise name row */}
       <div className="mb-3 flex items-center justify-between gap-2">
         <h4 className="flex items-center gap-2 text-sm font-bold text-white">
@@ -299,6 +299,41 @@ export function BlockEditor({ block, accentColor = '#facc15', onDeleted, onItemU
     [block.items, deletedItemIds],
   )
 
+  // Track IDs of items known at mount or already highlighted, so new arrivals
+  // from the parent can be briefly highlighted.
+  const knownItemIds = useRef<Set<string>>(new Set(block.items.map((i) => i.id)))
+  const [highlightedItemIds, setHighlightedItemIds] = useState<Set<string>>(new Set())
+  const highlightTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+
+  // Detect newly added items from parent and highlight them.
+  useMemo(() => {
+    const newIds: string[] = []
+    for (const item of block.items) {
+      if (!knownItemIds.current.has(item.id)) {
+        knownItemIds.current.add(item.id)
+        newIds.push(item.id)
+      }
+    }
+    if (newIds.length > 0) {
+      setHighlightedItemIds((prev) => new Set([...prev, ...newIds]))
+      for (const id of newIds) {
+        const existing = highlightTimers.current.get(id)
+        if (existing) clearTimeout(existing)
+        highlightTimers.current.set(
+          id,
+          setTimeout(() => {
+            setHighlightedItemIds((prev) => {
+              const next = new Set(prev)
+              next.delete(id)
+              return next
+            })
+            highlightTimers.current.delete(id)
+          }, 2000),
+        )
+      }
+    }
+  }, [block.items])
+
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const nameRef = useRef<HTMLInputElement>(null)
@@ -406,27 +441,28 @@ export function BlockEditor({ block, accentColor = '#facc15', onDeleted, onItemU
           {items.length > 0 ? (
             <div className="divide-y divide-slate-800/50">
               {items.map((item) => (
-                <SetTable
-                  key={item.id}
-                  item={item}
-                  onDeleted={handleItemDeleted}
-                  onItemUpdated={(updated) => onItemUpdated(block.id, updated)}
-                />
+                <div key={item.id} data-highlight={highlightedItemIds.has(item.id) ? 'true' : undefined}>
+                  <SetTable
+                    item={item}
+                    onDeleted={handleItemDeleted}
+                    onItemUpdated={(updated) => onItemUpdated(block.id, updated)}
+                  />
+                </div>
               ))}
             </div>
           ) : (
-            <p className="text-xs text-slate-500">No exercises yet.</p>
+            <p className="mb-1 text-xs text-slate-500">Add your first exercise to this block</p>
           )}
 
-          {/* Browse library button */}
+          {/* Add exercise button */}
           <button
             onClick={onBrowseLibrary}
-            className="mt-4 flex items-center gap-2 rounded-lg border border-dashed border-slate-700 px-4 py-2.5 text-sm text-slate-400 transition-colors hover:border-slate-600 hover:text-white"
+            className="mt-4 flex items-center gap-2 rounded-lg border border-dashed border-slate-700 px-4 py-2.5 text-sm text-slate-400 transition-all duration-150 ease-out hover:border-[#c8f135] hover:text-[#c8f135]"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
-            Browse library
+            Add exercise
           </button>
         </div>
     </section>
