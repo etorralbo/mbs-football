@@ -45,6 +45,53 @@ afterEach(() => {
 })
 
 // ---------------------------------------------------------------------------
+// Tests — fetch states (loading / success / error)
+// ---------------------------------------------------------------------------
+
+describe('AssignPanel — fetch states', () => {
+  it('shows loading skeleton and no empty-state while athletes are loading', () => {
+    // Never-resolving promise → stays in loading state
+    mockRequest.mockReturnValue(new Promise(() => {}))
+    render(<AssignPanel templateId="tpl-1" />)
+
+    expect(screen.getByRole('status', { name: /loading athletes/i })).toBeInTheDocument()
+    expect(screen.queryByText(/no athletes in your team yet/i)).toBeNull()
+    expect(screen.getByRole('button', { name: /assign workout/i })).toBeDisabled()
+  })
+
+  it('shows athlete list after successful fetch', async () => {
+    mockRequest.mockResolvedValue(ATHLETES)
+    render(<AssignPanel templateId="tpl-1" />)
+
+    await waitFor(() => {
+      expect(screen.queryByRole('status', { name: /loading athletes/i })).toBeNull()
+    })
+    expect(screen.queryByText(/no athletes in your team yet/i)).toBeNull()
+  })
+
+  it('shows empty-state only after fetch resolves with []', async () => {
+    mockRequest.mockResolvedValue([])
+    render(<AssignPanel templateId="tpl-1" />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/no athletes in your team yet/i)).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('status', { name: /loading athletes/i })).toBeNull()
+  })
+
+  it('shows error message when fetch fails, not empty-state', async () => {
+    mockRequest.mockRejectedValue(new Error('network'))
+    render(<AssignPanel templateId="tpl-1" />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/could not load athletes/i)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/no athletes in your team yet/i)).toBeNull()
+    expect(screen.getByRole('button', { name: /assign workout/i })).toBeDisabled()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Tests — mode selection
 // ---------------------------------------------------------------------------
 
@@ -83,10 +130,13 @@ describe('AssignPanel — dynamic button labels', () => {
     expect(getSubmitButton()).not.toBeDisabled()
   })
 
-  it('team mode: disabled with generic label when team is empty', () => {
+  it('team mode: disabled with generic label when team is empty', async () => {
     mockRequest.mockResolvedValue([])
     render(<AssignPanel templateId="tpl-1" />)
 
+    await waitFor(() => {
+      expect(screen.getByText(/no athletes in your team yet/i)).toBeInTheDocument()
+    })
     expect(getSubmitButton()).toBeDisabled()
     expect(getSubmitButton()).toHaveTextContent('Assign workout')
   })
@@ -143,10 +193,13 @@ describe('AssignPanel — helper text', () => {
     })
   })
 
-  it('does not show helper when team is empty', () => {
+  it('does not show helper when team is empty', async () => {
     mockRequest.mockResolvedValue([])
     render(<AssignPanel templateId="tpl-1" />)
 
+    await waitFor(() => {
+      expect(screen.getByText(/no athletes in your team yet/i)).toBeInTheDocument()
+    })
     expect(screen.queryByText(/workout sessions will be created/i)).toBeNull()
   })
 

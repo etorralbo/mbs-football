@@ -22,6 +22,7 @@ interface AssignmentResult {
 
 export function AssignPanel({ templateId }: AssignPanelProps) {
   const [athletes, setAthletes] = useState<Athlete[]>([])
+  const [fetchStatus, setFetchStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [mode, setMode] = useState<Mode>('team')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [scheduledFor, setScheduledFor] = useState(() =>
@@ -33,7 +34,14 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
   const [showGoToSessions, setShowGoToSessions] = useState(false)
 
   useEffect(() => {
-    request<Athlete[]>('/v1/athletes').then(setAthletes).catch(() => {})
+    request<Athlete[]>('/v1/athletes')
+      .then((data) => {
+        setAthletes(data)
+        setFetchStatus('success')
+      })
+      .catch(() => {
+        setFetchStatus('error')
+      })
   }, [])
 
   const selectedCount = selected.size
@@ -123,6 +131,7 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
   const isTeamEmpty = teamCount === 0
   const canSubmit =
     !loading &&
+    fetchStatus === 'success' &&
     (mode === 'team' ? !isTeamEmpty : selectedCount > 0)
 
   const targetCount = mode === 'team' ? teamCount : selectedCount
@@ -189,8 +198,24 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
         />
       </div>
 
-      {/* Empty team warning */}
-      {mode === 'team' && isTeamEmpty && (
+      {/* Loading skeleton */}
+      {fetchStatus === 'loading' && (
+        <div className="space-y-2" role="status" aria-label="Loading athletes">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-5 w-2/3 animate-pulse rounded bg-slate-800" />
+          ))}
+        </div>
+      )}
+
+      {/* Fetch error */}
+      {fetchStatus === 'error' && (
+        <div className="rounded-xl border border-red-900/50 bg-red-950/30 px-5 py-4">
+          <p className="text-sm text-red-400">Could not load athletes. Please try again later.</p>
+        </div>
+      )}
+
+      {/* Empty team warning — only after successful load */}
+      {fetchStatus === 'success' && mode === 'team' && isTeamEmpty && (
         <div className="rounded-xl border border-slate-800 bg-slate-900/40 px-5 py-4">
           <p className="text-sm text-slate-400">No athletes in your team yet.</p>
           <p className="mt-0.5 text-xs text-slate-500">Add athletes to start assigning workouts.</p>
@@ -207,7 +232,7 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
       )}
 
       {/* Athlete checklist */}
-      {mode === 'athletes' && (
+      {fetchStatus === 'success' && mode === 'athletes' && (
         <div>
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Athletes</span>

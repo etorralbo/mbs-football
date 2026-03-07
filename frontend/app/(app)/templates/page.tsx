@@ -169,13 +169,15 @@ function NewTemplateDrawer({ onCreated, onClose }: NewTemplateDrawerProps) {
 function StatusBadge({ status }: { status: 'draft' | 'published' }) {
   if (status === 'published') {
     return (
-      <span className="rounded-full border border-green-500/20 bg-green-500/10 px-2.5 py-0.5 text-[10px] font-bold text-green-400">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-0.5 text-[10px] font-bold tracking-wide text-emerald-400">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
         PUBLISHED
       </span>
     )
   }
   return (
-    <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-400">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-500/25 bg-slate-500/10 px-3 py-0.5 text-[10px] font-bold tracking-wide text-slate-400">
+      <span className="h-1.5 w-1.5 rounded-full bg-slate-500" aria-hidden="true" />
       DRAFT
     </span>
   )
@@ -318,14 +320,16 @@ function TemplateCard({
   const incomplete = isIncomplete(template)
 
   return (
-    <div
+    <Link
+      href={`/templates/${template.id}`}
       data-highlight={highlighted ? 'true' : undefined}
-      className={`group relative flex flex-col rounded-xl border bg-[#131922] p-5 transition-all duration-150 ease-out hover:-translate-y-1 hover:border-white/20 hover:shadow-lg ${incomplete ? 'border-amber-500/20' : 'border-white/8'}`}
+      className={`group relative flex flex-col rounded-xl border bg-[#131922] p-5 transition-all duration-150 ease-out cursor-pointer hover:-translate-y-1 hover:border-white/20 hover:bg-[#131922]/80 hover:shadow-lg active:scale-[0.99] ${incomplete ? 'border-amber-500/20' : 'border-white/8'}`}
     >
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           {incomplete ? (
-            <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-0.5 text-[10px] font-bold tracking-wide text-amber-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden="true" />
               INCOMPLETE
             </span>
           ) : (
@@ -369,32 +373,20 @@ function TemplateCard({
           <KebabMenu onDuplicate={onDuplicate} onDelete={onDelete} />
         </div>
       </div>
-      <Link href={`/templates/${template.id}`} className="flex flex-1 flex-col">
-        <div className="flex-1">
-          <h3 className="text-base font-semibold text-white transition-colors group-hover:text-[#c8f135]">
-            {template.title}
-          </h3>
-          {template.description && (
-            <p className="mt-1 line-clamp-2 text-xs text-slate-400">
-              {template.description}
-            </p>
-          )}
-          {incomplete && (
-            <p className="mt-1 text-xs text-amber-400/80">
-              Add exercises to finish setup
-            </p>
-          )}
-          <p className="mt-1.5 text-[11px] text-slate-500">
-            Last edited {formatRelativeTime(template.updated_at)}
+      <div className="flex-1">
+        <h3 className="text-base font-semibold text-white transition-colors group-hover:text-[#c8f135]">
+          {template.title}
+        </h3>
+        {template.description && (
+          <p className="mt-1 line-clamp-2 text-xs text-slate-400">
+            {template.description}
           </p>
-        </div>
-        <div className="mt-4 border-t border-white/8 pt-3">
-          <span className="text-xs font-medium text-[#c8f135] group-hover:underline">
-            {template.status === 'draft' ? 'Edit template' : 'View template'}
-          </span>
-        </div>
-      </Link>
-    </div>
+        )}
+        <p className="mt-2 text-[11px] text-slate-500">
+          Last edited {formatRelativeTime(template.updated_at)}
+        </p>
+      </div>
+    </Link>
   )
 }
 

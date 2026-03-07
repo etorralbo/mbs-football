@@ -24,6 +24,7 @@ import { SkeletonList } from '@/app/_shared/components/Skeleton'
 import { AssignPanel } from './AssignPanel'
 import { ExercisePicker } from './ExercisePicker'
 import { SortableBlock } from './SortableBlock'
+import { DashedActionButton } from '@/src/components/DashedActionButton'
 import type {
   BlockItem,
   WorkoutBlock,
@@ -630,15 +631,9 @@ export default function TemplateDetailPage() {
                 onCancel={() => setShowAddBlock(false)}
               />
             ) : (
-              <button
-                onClick={() => setShowAddBlock(true)}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-800 py-4 text-sm font-medium text-slate-500 transition-all hover:border-slate-700 hover:bg-slate-900/40 hover:text-slate-400"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+              <DashedActionButton size="lg" onClick={() => setShowAddBlock(true)}>
                 Add new block
-              </button>
+              </DashedActionButton>
             )}
           </>
         ) : (

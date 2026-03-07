@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { NotFoundError, request } from '@/app/_shared/api/httpClient'
 import type { BlockItem, SetPrescription, WorkoutBlock } from '@/app/_shared/api/types'
+import { DashedActionButton } from '@/src/components/DashedActionButton'
 
 // ---------------------------------------------------------------------------
 // Local type — SetPrescription augmented with a stable client-side ID.
@@ -256,17 +257,15 @@ function SetTable({ item, onDeleted, onItemUpdated }: SetTableProps) {
         ))}
       </div>
 
-      <button
+      <DashedActionButton
+        size="sm"
         onClick={addSet}
         disabled={saving}
-        className="mt-2 flex items-center gap-1 text-xs text-slate-500 transition-colors hover:text-slate-300 disabled:opacity-40"
         aria-label={`Add set to ${item.exercise.name}`}
+        className="mt-4 px-4 py-2"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-        </svg>
         Add set
-      </button>
+      </DashedActionButton>
 
       {error && <p role="alert" className="mt-1 text-xs text-red-400">{error}</p>}
     </div>
@@ -469,15 +468,9 @@ export function BlockEditor({ block, accentColor = '#facc15', onDeleted, onItemU
           )}
 
           {/* Add exercise button */}
-          <button
-            onClick={onBrowseLibrary}
-            className="mt-4 flex items-center gap-2 rounded-lg border border-dashed border-slate-700 px-4 py-2.5 text-sm text-slate-400 transition-all duration-150 ease-out hover:border-[#c8f135] hover:text-[#c8f135]"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
+          <DashedActionButton size="md" onClick={onBrowseLibrary} className="mt-4">
             Add exercise
-          </button>
+          </DashedActionButton>
         </div>
     </section>
   )
