@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { request } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
+import { Badge } from '@/app/_shared/components/Badge'
 import { Button } from '@/app/_shared/components/Button'
 import { CreateButton } from '@/app/_shared/components/CreateButton'
 import { PageHeader } from '@/app/_shared/components/PageHeader'
@@ -167,19 +168,10 @@ function NewTemplateDrawer({ onCreated, onClose }: NewTemplateDrawerProps) {
 // ---------------------------------------------------------------------------
 
 function StatusBadge({ status }: { status: 'draft' | 'published' }) {
-  if (status === 'published') {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-0.5 text-[10px] font-bold tracking-wide text-emerald-400">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
-        PUBLISHED
-      </span>
-    )
-  }
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-500/25 bg-slate-500/10 px-3 py-0.5 text-[10px] font-bold tracking-wide text-slate-400">
-      <span className="h-1.5 w-1.5 rounded-full bg-slate-500" aria-hidden="true" />
-      DRAFT
-    </span>
+    <Badge variant={status === 'published' ? 'published' : 'draft'} dot>
+      {status === 'published' ? 'PUBLISHED' : 'DRAFT'}
+    </Badge>
   )
 }
 
@@ -328,10 +320,7 @@ function TemplateCard({
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           {incomplete ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-0.5 text-[10px] font-bold tracking-wide text-amber-300">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden="true" />
-              INCOMPLETE
-            </span>
+            <Badge variant="incomplete" dot>INCOMPLETE</Badge>
           ) : (
             <StatusBadge status={template.status} />
           )}

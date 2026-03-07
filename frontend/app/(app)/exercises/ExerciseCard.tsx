@@ -15,6 +15,7 @@
  * No dangerouslySetInnerHTML anywhere — all text via JSX.
  */
 
+import { Badge } from '@/app/_shared/components/Badge'
 import type { Exercise } from '@/app/_shared/api/types'
 
 interface Props {
@@ -43,9 +44,7 @@ export default function ExerciseCard({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
           {isOfficial && (
-            <span className="shrink-0 rounded-full bg-[#4f9cf9]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#4f9cf9] ring-1 ring-[#4f9cf9]/30">
-              Official
-            </span>
+            <Badge variant="info">Official</Badge>
           )}
           <p className="text-sm font-medium text-white">{exercise.name}</p>
         </div>

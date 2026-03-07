@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { request, ConflictError, ValidationError } from '@/app/_shared/api/httpClient'
 import type { ExecutionItem } from '@/app/_shared/api/types'
 import type { DraftAction, DraftState } from '@/src/features/session-execution/draftState'
+import { Badge } from '@/app/_shared/components/Badge'
 import { DashedActionButton } from '@/src/components/DashedActionButton'
 import { SetRow } from './SetRow'
 
@@ -149,9 +150,7 @@ export function ExerciseCard({
           </button>
         ) : (
           isAlreadyDone && (
-            <span className="rounded-full bg-[#c8f135]/15 px-2 py-0.5 text-xs font-semibold text-[#c8f135] ring-1 ring-[#c8f135]/30">
-              Done
-            </span>
+            <Badge variant="done">Done</Badge>
           )
         )}
       </div>
