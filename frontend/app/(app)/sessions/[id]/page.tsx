@@ -122,18 +122,22 @@ export default function SessionDetailPage() {
       <div className="mt-8 space-y-8 pb-24">
         {execution.blocks.map((block) => (
           <BlockSection key={block.key} name={block.name}>
-            {block.items.map((item) => (
-              <ExerciseCard
-                key={item.exercise_id}
-                sessionId={id}
-                item={item}
-                exerciseSets={draft[item.exercise_id] ?? { 1: { reps: '', weight: '', rpe: '', done: false } }}
-                isCompleted={isReadOnly}
-                completionEnabled={!isCoach}
-                dispatch={dispatch}
-                onSavingChange={handleSavingChange}
-              />
-            ))}
+            {block.items.map((item) => {
+              const exerciseSets = draft[item.exercise_id]
+              if (!exerciseSets) return null
+              return (
+                <ExerciseCard
+                  key={item.exercise_id}
+                  sessionId={id}
+                  item={item}
+                  exerciseSets={exerciseSets}
+                  isCompleted={isReadOnly}
+                  completionEnabled={!isCoach}
+                  dispatch={dispatch}
+                  onSavingChange={handleSavingChange}
+                />
+              )
+            })}
           </BlockSection>
         ))}
       </div>

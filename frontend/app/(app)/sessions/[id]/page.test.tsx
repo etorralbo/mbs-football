@@ -236,10 +236,11 @@ describe('SessionDetailPage — Athlete execution consistency', () => {
 
     render(<SessionDetailPage />)
 
-    await screen.findByText('Squat')
-    // Each set row has 3 inputs (reps, weight, rpe)
-    const inputs = screen.getAllByRole('spinbutton')
-    expect(inputs).toHaveLength(9) // 3 sets × 3 fields
+    // Wait for HYDRATE effect to populate draft from prescribed sets
+    await waitFor(() => {
+      const inputs = screen.getAllByRole('spinbutton')
+      expect(inputs).toHaveLength(9) // 3 sets × 3 fields
+    })
   })
 
   it('displays "3 sets" in prescription text when 3 sets prescribed', async () => {
@@ -257,7 +258,10 @@ describe('SessionDetailPage — Athlete execution consistency', () => {
 
     render(<SessionDetailPage />)
 
-    await screen.findByText('Squat')
+    // Wait for full render including HYDRATE
+    await waitFor(() => {
+      expect(screen.getAllByRole('spinbutton')).toHaveLength(9)
+    })
     expect(screen.queryByRole('button', { name: /add set/i })).toBeNull()
   })
 
@@ -266,9 +270,11 @@ describe('SessionDetailPage — Athlete execution consistency', () => {
 
     render(<SessionDetailPage />)
 
-    // Set 1: reps=10, weight=80, rpe=7
-    const repsInputs = await screen.findAllByLabelText(/set 1 reps/i)
-    expect((repsInputs[0] as HTMLInputElement).value).toBe('10')
+    // Wait for HYDRATE to populate prescribed values
+    await waitFor(() => {
+      const repsInputs = screen.getAllByLabelText(/set 1 reps/i)
+      expect((repsInputs[0] as HTMLInputElement).value).toBe('10')
+    })
 
     const weightInputs = screen.getAllByLabelText(/set 1 weight/i)
     expect((weightInputs[0] as HTMLInputElement).value).toBe('80')
@@ -279,7 +285,12 @@ describe('SessionDetailPage — Athlete execution consistency', () => {
 
     render(<SessionDetailPage />)
 
-    const repsInputs = await screen.findAllByLabelText(/set 1 reps/i)
+    // Wait for HYDRATE before interacting
+    await waitFor(() => {
+      expect(screen.getAllByRole('spinbutton')).toHaveLength(9)
+    })
+
+    const repsInputs = screen.getAllByLabelText(/set 1 reps/i)
     fireEvent.change(repsInputs[0], { target: { value: '12' } })
     await waitFor(() => {
       expect((repsInputs[0] as HTMLInputElement).value).toBe('12')
