@@ -157,8 +157,8 @@ export function ExerciseCard({
       </div>
 
       {/* Set rows */}
-      <div className="mt-3">
-        <div className="flex items-center gap-2 text-xs text-slate-500 mb-1.5">
+      <div className="mt-4">
+        <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
           <span className="w-5" />
           <span className="w-20">Reps</span>
           <span className="w-20">Weight (kg)</span>

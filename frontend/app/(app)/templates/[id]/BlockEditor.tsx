@@ -146,7 +146,7 @@ function SetTable({ item, onDeleted, onItemUpdated }: SetTableProps) {
   return (
     <div className="rounded-lg py-4 transition-all duration-150 ease-out first:pt-0 last:pb-0 hover:-translate-y-[1px] hover:bg-white/[0.02]">
       {/* Exercise name row */}
-      <div className="mb-3 flex items-center justify-between gap-2">
+      <div className="mb-4 flex items-center justify-between gap-2">
         <h4 className="flex items-center gap-2 text-sm font-bold text-white">
           <span className="h-2 w-2 shrink-0 rounded-full bg-[#137fec]" aria-hidden="true" />
           {item.exercise.name}
@@ -267,7 +267,7 @@ function SetTable({ item, onDeleted, onItemUpdated }: SetTableProps) {
         Add set
       </DashedActionButton>
 
-      {error && <p role="alert" className="mt-1 text-xs text-red-400">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-xs text-red-400">{error}</p>}
     </div>
   )
 }
