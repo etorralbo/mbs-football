@@ -351,7 +351,7 @@ export default function SessionsPage() {
         <WelcomeBannerWrapper />
       </Suspense>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold text-white">Workout Sessions</h1>
+        <h1 className="text-2xl font-bold text-white">Workout Sessions</h1>
         <div className="flex items-center gap-2">
           {/* Athlete filter — COACH only */}
           {role === 'COACH' && athleteOptions.length > 0 && (

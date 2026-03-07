@@ -147,7 +147,7 @@ function SetTable({ item, onDeleted, onItemUpdated }: SetTableProps) {
     <div className="rounded-lg py-4 transition-all duration-150 ease-out first:pt-0 last:pb-0 hover:-translate-y-[1px] hover:bg-white/[0.02]">
       {/* Exercise name row */}
       <div className="mb-4 flex items-center justify-between gap-2">
-        <h4 className="flex items-center gap-2 text-sm font-bold text-white">
+        <h4 className="flex items-center gap-2 text-sm font-semibold text-white">
           <span className="h-2 w-2 shrink-0 rounded-full bg-[#137fec]" aria-hidden="true" />
           {item.exercise.name}
           {saving && <span className="text-xs font-normal text-slate-500">Saving…</span>}

@@ -99,11 +99,11 @@ export default function SessionDetailPage() {
     <>
       {/* Breadcrumb */}
       <div className="flex items-center gap-2">
-        <Link href="/sessions" className="text-sm text-slate-400 hover:text-slate-300">
+        <Link href="/sessions" className="text-xs text-slate-500 hover:text-slate-300">
           Sessions
         </Link>
-        <span className="text-slate-600">/</span>
-        <span className="text-sm text-white">{execution.template_title}</span>
+        <span className="text-xs text-slate-600">/</span>
+        <span className="text-xs text-slate-300">{execution.template_title}</span>
       </div>
 
       {/* Header */}

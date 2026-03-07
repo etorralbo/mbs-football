@@ -382,7 +382,7 @@ function TemplateCard({
             {template.description}
           </p>
         )}
-        <p className="mt-2 text-[11px] text-slate-500">
+        <p className="mt-2 text-[11px] text-slate-600">
           Last edited {formatRelativeTime(template.updated_at)}
         </p>
       </div>

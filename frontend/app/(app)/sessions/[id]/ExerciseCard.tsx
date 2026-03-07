@@ -158,7 +158,7 @@ export function ExerciseCard({
 
       {/* Set rows */}
       <div className="mt-4">
-        <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
+        <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-slate-500 mb-2">
           <span className="w-5" />
           <span className="w-20">Reps</span>
           <span className="w-20">Weight (kg)</span>

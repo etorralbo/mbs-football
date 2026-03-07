@@ -373,7 +373,7 @@ export default function TemplateDetailPage() {
                     onFocus={() => setTitleHintVisible(false)}
                     onBlur={handleTitleBlur}
                     maxLength={255}
-                    className="flex-1 cursor-text border-b border-transparent bg-transparent p-0 text-3xl font-bold leading-tight text-white outline-none transition-colors group-hover:border-slate-600 focus:border-[#c8f135]"
+                    className="flex-1 cursor-text border-b border-transparent bg-transparent p-0 text-2xl font-bold leading-tight text-white outline-none transition-colors group-hover:border-slate-600 focus:border-[#c8f135]"
                   />
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -385,7 +385,7 @@ export default function TemplateDetailPage() {
                   </svg>
                 </>
               ) : (
-                <h1 className="text-3xl font-bold leading-tight text-white">{template.title}</h1>
+                <h1 className="text-2xl font-bold leading-tight text-white">{template.title}</h1>
               )}
             </div>
 
