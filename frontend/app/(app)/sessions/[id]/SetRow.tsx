@@ -6,6 +6,7 @@ interface Props {
   setNumber: number    // 1-based label
   draft: SetDraft
   disabled?: boolean   // when session is completed
+  readOnly?: boolean   // coach view — render values, not inputs
   completionEnabled?: boolean
   saving?: boolean
   onToggleDone?: () => void
@@ -17,44 +18,56 @@ const inputCls =
   'placeholder:text-slate-600 focus:border-[#4f9cf9] focus:outline-none focus:ring-1 focus:ring-[#4f9cf9] ' +
   'disabled:opacity-40'
 
-export function SetRow({ setNumber, draft, disabled, completionEnabled, saving, onToggleDone, onChange }: Props) {
+const valueCls = 'w-20 px-2 py-1.5 text-sm text-slate-300'
+
+export function SetRow({ setNumber, draft, disabled, readOnly, completionEnabled, saving, onToggleDone, onChange }: Props) {
   return (
     <div className="flex items-center gap-2">
       <span className="w-5 text-sm text-slate-500">{setNumber}</span>
 
-      <input
-        type="number"
-        value={draft.reps}
-        onChange={(e) => onChange('reps', e.target.value)}
-        placeholder="Reps"
-        min={0}
-        disabled={disabled || draft.done}
-        className={inputCls}
-        aria-label={`Set ${setNumber} reps`}
-      />
-      <input
-        type="number"
-        value={draft.weight}
-        onChange={(e) => onChange('weight', e.target.value)}
-        placeholder="kg"
-        min={0}
-        step={0.5}
-        disabled={disabled || draft.done}
-        className={inputCls}
-        aria-label={`Set ${setNumber} weight`}
-      />
-      <input
-        type="number"
-        value={draft.rpe}
-        onChange={(e) => onChange('rpe', e.target.value)}
-        placeholder="RPE"
-        min={1}
-        max={10}
-        step={0.5}
-        disabled={disabled || draft.done}
-        className={inputCls}
-        aria-label={`Set ${setNumber} rpe`}
-      />
+      {readOnly ? (
+        <>
+          <span className={valueCls}>{draft.reps || '—'}</span>
+          <span className={valueCls}>{draft.weight || '—'}</span>
+          <span className={valueCls}>{draft.rpe || '—'}</span>
+        </>
+      ) : (
+        <>
+          <input
+            type="number"
+            value={draft.reps}
+            onChange={(e) => onChange('reps', e.target.value)}
+            placeholder="Reps"
+            min={0}
+            disabled={disabled || draft.done}
+            className={inputCls}
+            aria-label={`Set ${setNumber} reps`}
+          />
+          <input
+            type="number"
+            value={draft.weight}
+            onChange={(e) => onChange('weight', e.target.value)}
+            placeholder="kg"
+            min={0}
+            step={0.5}
+            disabled={disabled || draft.done}
+            className={inputCls}
+            aria-label={`Set ${setNumber} weight`}
+          />
+          <input
+            type="number"
+            value={draft.rpe}
+            onChange={(e) => onChange('rpe', e.target.value)}
+            placeholder="RPE"
+            min={1}
+            max={10}
+            step={0.5}
+            disabled={disabled || draft.done}
+            className={inputCls}
+            aria-label={`Set ${setNumber} rpe`}
+          />
+        </>
+      )}
 
       {/* Per-set done toggle — athletes only */}
       {completionEnabled && !disabled ? (

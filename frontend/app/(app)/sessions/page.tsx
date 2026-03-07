@@ -195,7 +195,7 @@ function SessionCard({
   const badge = sessionBadge(s)
 
   return (
-    <li className="rounded-lg border border-white/8 bg-[#131922] p-4">
+    <li className="rounded-lg border border-white/8 bg-[#131922] p-4 transition-all duration-150 ease-out hover:border-white/15 hover:bg-[#131922]/80">
       <div className="flex items-start justify-between gap-3">
         {/* Left: workout info */}
         <div className="min-w-0 flex-1">
@@ -227,14 +227,14 @@ function SessionCard({
         {role === 'ATHLETE' && !s.completed_at ? (
           <Link
             href={`/sessions/${s.id}`}
-            className="inline-flex items-center rounded-md bg-[#c8f135] px-3 py-1.5 text-xs font-bold text-[#0a0d14] transition-colors hover:bg-[#d4f755]"
+            className="inline-flex items-center rounded-md bg-[#c8f135] px-3 py-1.5 text-xs font-bold text-[#0a0d14] transition-all hover:bg-[#d4f755] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1420] active:scale-[0.97]"
           >
             Start session
           </Link>
         ) : (
           <Link
             href={`/sessions/${s.id}`}
-            className="text-sm text-slate-400 hover:text-white"
+            className="rounded text-sm text-slate-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135]/50"
           >
             View →
           </Link>
@@ -351,7 +351,7 @@ export default function SessionsPage() {
         <WelcomeBannerWrapper />
       </Suspense>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold text-white">Workout Sessions</h1>
+        <h1 className="text-2xl font-bold text-white">Workout Sessions</h1>
         <div className="flex items-center gap-2">
           {/* Athlete filter — COACH only */}
           {role === 'COACH' && athleteOptions.length > 0 && (

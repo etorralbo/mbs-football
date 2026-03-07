@@ -25,40 +25,64 @@ export type DraftState = Record<string, Record<number, SetDraft>>
 // Pure functions
 // ---------------------------------------------------------------------------
 
-/** Build initial draft state from an execution response. */
+/** Extract the prescribed set count and per-set defaults from a prescription. */
+function parsePrescribedSets(p: Record<string, unknown>): Array<{ reps: string; weight: string; rpe: string }> {
+  if (Array.isArray(p.sets) && p.sets.length > 0) {
+    return p.sets.map((s: Record<string, unknown>) => ({
+      reps:   s.reps   != null ? String(s.reps)   : '',
+      weight: s.weight != null ? String(s.weight) : '',
+      rpe:    s.rpe    != null ? String(s.rpe)    : '',
+    }))
+  }
+  // Legacy format: sets as a count number, or missing
+  const n = typeof p.sets === 'number' && p.sets >= 1 ? p.sets : 1
+  return Array.from({ length: n }, () => ({
+    reps:   p.reps   != null ? String(p.reps)   : '',
+    weight: p.weight != null ? String(p.weight) : '',
+    rpe:    p.rpe    != null ? String(p.rpe)    : '',
+  }))
+}
+
+/**
+ * Build initial draft state from an execution response.
+ *
+ * Prescribed sets are the **single source of truth** for row count.
+ * Logs are merged as overrides: a logged value takes precedence over the
+ * prescribed default, but extra logs beyond the prescribed count are
+ * discarded (they come from legacy "Add set" usage).
+ */
 export function draftFromExecution(execution: SessionExecution): DraftState {
   const draft: DraftState = {}
 
   for (const block of execution.blocks) {
     for (const item of block.items) {
-      if (item.logs.length > 0) {
-        draft[item.exercise_id] = Object.fromEntries(
-          item.logs.map((log) => [
-            log.set_number,
-            {
-              reps: log.reps !== null ? String(log.reps) : '',
-              weight: log.weight !== null ? String(log.weight) : '',
-              rpe: log.rpe !== null ? String(log.rpe) : '',
-              done: true,
-            },
-          ]),
-        )
-      } else {
-        const p = item.prescription
-        const n =
-          typeof p.sets === 'number' && p.sets >= 1 ? p.sets : 1
-        draft[item.exercise_id] = Object.fromEntries(
-          Array.from({ length: n }, (_, i) => [
-            i + 1,
-            {
-              reps:   p.reps   != null ? String(p.reps)   : '',
-              weight: p.weight != null ? String(p.weight) : '',
-              rpe:    p.rpe    != null ? String(p.rpe)    : '',
-              done: false,
-            },
-          ]),
-        )
-      }
+      const prescribed = parsePrescribedSets(item.prescription)
+
+      // Index logs by 1-based set_number for O(1) lookup
+      const logBySetNumber = new Map(
+        item.logs.map((log) => [log.set_number, log]),
+      )
+
+      draft[item.exercise_id] = Object.fromEntries(
+        prescribed.map((defaults, i) => {
+          const setNumber = i + 1
+          const log = logBySetNumber.get(setNumber)
+
+          if (log) {
+            return [
+              setNumber,
+              {
+                reps:   log.reps   !== null ? String(log.reps)   : defaults.reps,
+                weight: log.weight !== null ? String(log.weight) : defaults.weight,
+                rpe:    log.rpe    !== null ? String(log.rpe)    : defaults.rpe,
+                done: true,
+              },
+            ]
+          }
+
+          return [setNumber, { ...defaults, done: false }]
+        }),
+      )
     }
   }
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { request } from '@/app/_shared/api/httpClient'
+import { Badge } from '@/app/_shared/components/Badge'
 import type { BlockItem, Exercise } from '@/app/_shared/api/types'
 import { FILTER_CHIPS } from '@/app/(app)/exercises/useExerciseFilters'
 
@@ -140,7 +141,7 @@ export function ExercisePicker({ blockId, onClose, onExercisesAdded }: ExerciseP
           <button
             onClick={onClose}
             aria-label="Close exercise picker"
-            className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200"
+            className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135]/50"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -170,7 +171,7 @@ export function ExercisePicker({ blockId, onClose, onExercisesAdded }: ExerciseP
                 key={value}
                 onClick={() => toggleTag(value)}
                 aria-pressed={active}
-                className={`shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                className={`shrink-0 cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4f9cf9]/50 ${
                   active
                     ? 'border-[#4f9cf9] bg-[#4f9cf9]/15 text-[#4f9cf9]'
                     : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-white'
@@ -254,7 +255,7 @@ export function ExercisePicker({ blockId, onClose, onExercisesAdded }: ExerciseP
           <button
             onClick={handleAddSelected}
             disabled={selectionCount === 0 || adding}
-            className="w-full rounded-lg bg-[#c8f135] px-4 py-2.5 text-sm font-bold text-[#0a0d14] transition-colors hover:bg-[#d4f755] disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full cursor-pointer rounded-lg bg-[#c8f135] px-4 py-2.5 text-sm font-bold text-[#0a0d14] transition-all hover:bg-[#d4f755] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1420] active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {adding
               ? 'Adding…'
@@ -292,7 +293,7 @@ function ExerciseList({ exercises, selectedIds, onToggle, disabled, showOfficial
               disabled={disabled}
               aria-label={`${selected ? 'Deselect' : 'Select'} ${ex.name}`}
               aria-pressed={selected}
-              className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors disabled:opacity-60 ${
+              className={`flex w-full cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135]/50 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed ${
                 selected
                   ? 'border-[#c8f135]/40 bg-[#c8f135]/10'
                   : 'border-white/5 bg-[#131922] hover:border-white/15 hover:bg-white/5'
@@ -319,9 +320,7 @@ function ExerciseList({ exercises, selectedIds, onToggle, disabled, showOfficial
                     {ex.name}
                   </span>
                   {showOfficialBadge && (
-                    <span className="shrink-0 rounded-full bg-[#4f9cf9]/15 px-1.5 py-0.5 text-xs font-medium text-[#4f9cf9]">
-                      Official
-                    </span>
+                    <Badge variant="info">Official</Badge>
                   )}
                 </div>
                 {ex.tags.length > 0 && (

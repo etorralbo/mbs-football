@@ -15,6 +15,7 @@
  * No dangerouslySetInnerHTML anywhere — all text via JSX.
  */
 
+import { Badge } from '@/app/_shared/components/Badge'
 import type { Exercise } from '@/app/_shared/api/types'
 
 interface Props {
@@ -43,9 +44,7 @@ export default function ExerciseCard({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
           {isOfficial && (
-            <span className="shrink-0 rounded-full bg-[#4f9cf9]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#4f9cf9] ring-1 ring-[#4f9cf9]/30">
-              Official
-            </span>
+            <Badge variant="info">Official</Badge>
           )}
           <p className="text-sm font-medium text-white">{exercise.name}</p>
         </div>
@@ -75,7 +74,7 @@ export default function ExerciseCard({
           type="button"
           onClick={() => onFavoriteToggle(exercise.id)}
           aria-label={exercise.is_favorite ? `Remove ${exercise.name} from favourites` : `Add ${exercise.name} to favourites`}
-          className="rounded p-1.5 text-slate-600 transition-colors hover:bg-white/5 hover:text-amber-400"
+          className="rounded p-1.5 text-slate-600 transition-colors hover:bg-white/8 hover:text-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135]/50"
         >
           <StarIcon filled={exercise.is_favorite} />
         </button>
@@ -86,7 +85,7 @@ export default function ExerciseCard({
             type="button"
             onClick={() => onEdit(exercise)}
             aria-label={`Edit ${exercise.name}`}
-            className="rounded p-1.5 text-slate-600 transition-colors hover:bg-white/5 hover:text-white"
+            className="rounded p-1.5 text-slate-600 transition-colors hover:bg-white/8 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135]/50"
           >
             <EditIcon />
           </button>
@@ -97,7 +96,7 @@ export default function ExerciseCard({
           type="button"
           onClick={() => onDuplicate(exercise)}
           aria-label={isOfficial ? `Duplicate ${exercise.name} to my library` : `Duplicate ${exercise.name}`}
-          className="rounded p-1.5 text-slate-600 transition-colors hover:bg-white/5 hover:text-white"
+          className="rounded p-1.5 text-slate-600 transition-colors hover:bg-white/8 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135]/50"
         >
           <DuplicateIcon />
         </button>
@@ -108,7 +107,7 @@ export default function ExerciseCard({
             type="button"
             onClick={() => onDelete(exercise)}
             aria-label={`Delete ${exercise.name}`}
-            className="rounded p-1.5 text-slate-600 transition-colors hover:bg-red-900/30 hover:text-red-400"
+            className="rounded p-1.5 text-slate-600 transition-colors hover:bg-red-900/30 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50"
           >
             <TrashIcon />
           </button>

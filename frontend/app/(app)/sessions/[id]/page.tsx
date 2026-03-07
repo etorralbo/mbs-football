@@ -91,7 +91,7 @@ export default function SessionDetailPage() {
   const execution = execState.data
   const isCompleted = execution.status === 'completed'
   const isCoach = role === 'COACH'
-  const isReadOnly = isCompleted
+  const isReadOnly = isCompleted || isCoach
   const progress = progressFromDraft(execution, draft)
   const canComplete = canMarkCompleted(draft) && savingExercises.size === 0
 
@@ -99,11 +99,11 @@ export default function SessionDetailPage() {
     <>
       {/* Breadcrumb */}
       <div className="flex items-center gap-2">
-        <Link href="/sessions" className="text-sm text-slate-400 hover:text-slate-300">
+        <Link href="/sessions" className="text-xs text-slate-500 hover:text-slate-300">
           Sessions
         </Link>
-        <span className="text-slate-600">/</span>
-        <span className="text-sm text-white">{execution.template_title}</span>
+        <span className="text-xs text-slate-600">/</span>
+        <span className="text-xs text-slate-300">{execution.template_title}</span>
       </div>
 
       {/* Header */}
@@ -122,18 +122,22 @@ export default function SessionDetailPage() {
       <div className="mt-8 space-y-8 pb-24">
         {execution.blocks.map((block) => (
           <BlockSection key={block.key} name={block.name}>
-            {block.items.map((item) => (
-              <ExerciseCard
-                key={item.exercise_id}
-                sessionId={id}
-                item={item}
-                exerciseSets={draft[item.exercise_id] ?? { 1: { reps: '', weight: '', rpe: '', done: false } }}
-                isCompleted={isReadOnly}
-                completionEnabled={!isCoach}
-                dispatch={dispatch}
-                onSavingChange={handleSavingChange}
-              />
-            ))}
+            {block.items.map((item) => {
+              const exerciseSets = draft[item.exercise_id]
+              if (!exerciseSets) return null
+              return (
+                <ExerciseCard
+                  key={item.exercise_id}
+                  sessionId={id}
+                  item={item}
+                  exerciseSets={exerciseSets}
+                  isCompleted={isReadOnly}
+                  completionEnabled={!isCoach}
+                  dispatch={dispatch}
+                  onSavingChange={handleSavingChange}
+                />
+              )
+            })}
           </BlockSection>
         ))}
       </div>

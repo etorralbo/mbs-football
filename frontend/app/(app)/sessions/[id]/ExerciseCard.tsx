@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { request, ConflictError, ValidationError } from '@/app/_shared/api/httpClient'
 import type { ExecutionItem } from '@/app/_shared/api/types'
 import type { DraftAction, DraftState } from '@/src/features/session-execution/draftState'
+import { Badge } from '@/app/_shared/components/Badge'
 import { SetRow } from './SetRow'
 
 interface Props {
@@ -20,11 +21,26 @@ interface Props {
 
 function prescriptionText(p: Record<string, unknown>): string {
   const parts: string[] = []
-  if (p.sets) parts.push(`${p.sets} sets`)
-  if (p.reps) parts.push(`${p.reps} reps`)
-  if (p.weight) parts.push(`@ ${p.weight} kg`)
-  else if (p.load) parts.push(`@ ${p.load}`)
-  if (p.rpe) parts.push(`RPE ${p.rpe}`)
+
+  if (Array.isArray(p.sets)) {
+    const count = p.sets.length
+    parts.push(`${count} ${count === 1 ? 'set' : 'sets'}`)
+    // Extract common values from first set for summary
+    const first = p.sets[0] as Record<string, unknown> | undefined
+    if (first) {
+      if (first.reps) parts.push(`${first.reps} reps`)
+      if (first.weight) parts.push(`@ ${first.weight} kg`)
+      if (first.rpe) parts.push(`RPE ${first.rpe}`)
+    }
+  } else {
+    // Legacy flat format
+    if (p.sets) parts.push(`${p.sets} sets`)
+    if (p.reps) parts.push(`${p.reps} reps`)
+    if (p.weight) parts.push(`@ ${p.weight} kg`)
+    else if (p.load) parts.push(`@ ${p.load}`)
+    if (p.rpe) parts.push(`RPE ${p.rpe}`)
+  }
+
   if (p.duration) parts.push(String(p.duration))
   if (p.rest) parts.push(`rest ${p.rest}`)
   return parts.join(' · ') || '—'
@@ -107,10 +123,6 @@ export function ExerciseCard({
     saveThenDispatch({ type: 'MARK_SET_DONE', exerciseId: item.exercise_id, setNumber })
   }
 
-  function handleAddSet() {
-    dispatch({ type: 'ADD_SET', exerciseId: item.exercise_id })
-  }
-
   return (
     <div className="rounded-lg border border-white/8 bg-[#131922] p-4">
       {/* Exercise name + prescription */}
@@ -143,16 +155,14 @@ export function ExerciseCard({
           </button>
         ) : (
           isAlreadyDone && (
-            <span className="rounded-full bg-[#c8f135]/15 px-2 py-0.5 text-xs font-semibold text-[#c8f135] ring-1 ring-[#c8f135]/30">
-              Done
-            </span>
+            <Badge variant="done">Done</Badge>
           )
         )}
       </div>
 
       {/* Set rows */}
-      <div className="mt-3">
-        <div className="flex items-center gap-2 text-xs text-slate-500 mb-1.5">
+      <div className="mt-4">
+        <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-slate-500 mb-2">
           <span className="w-5" />
           <span className="w-20">Reps</span>
           <span className="w-20">Weight (kg)</span>
@@ -165,6 +175,7 @@ export function ExerciseCard({
               setNumber={setNumber}
               draft={draft}
               disabled={isCompleted}
+              readOnly={isCompleted && !completionEnabled}
               completionEnabled={completionEnabled}
               saving={saving}
               onToggleDone={() => handleToggleSet(setNumber, draft.done)}
@@ -181,15 +192,6 @@ export function ExerciseCard({
           ))}
         </div>
 
-        {!isCompleted && !isAlreadyDone && (
-          <button
-            type="button"
-            onClick={handleAddSet}
-            className="mt-2 text-xs font-medium text-[#4f9cf9] hover:text-[#7ab5fb]"
-          >
-            + Add set
-          </button>
-        )}
       </div>
 
       {error && (

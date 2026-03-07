@@ -30,7 +30,7 @@ export function SessionHeader({
   return (
     <div>
       <h1 className="text-2xl font-bold text-white">{title}</h1>
-      <div className="mt-2 flex flex-wrap items-center gap-3">
+      <div className="mt-3 flex flex-wrap items-center gap-3">
         <Badge variant={isCompleted ? 'completed' : 'pending'}>
           {isCompleted ? 'Completed' : 'Pending'}
         </Badge>

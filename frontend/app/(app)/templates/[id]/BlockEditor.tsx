@@ -144,10 +144,10 @@ function SetTable({ item, onDeleted, onItemUpdated }: SetTableProps) {
   }
 
   return (
-    <div className="rounded-lg py-4 transition-all duration-150 ease-out first:pt-0 last:pb-0 hover:-translate-y-[1px] hover:bg-white/[0.02]">
+    <div className="rounded-xl px-2 py-5 transition-all duration-150 ease-out first:pt-0 last:pb-0 hover:-translate-y-[1px] hover:bg-white/[0.02]">
       {/* Exercise name row */}
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h4 className="flex items-center gap-2 text-sm font-bold text-white">
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <h4 className="flex items-center gap-2 text-sm font-semibold text-white">
           <span className="h-2 w-2 shrink-0 rounded-full bg-[#137fec]" aria-hidden="true" />
           {item.exercise.name}
           {saving && <span className="text-xs font-normal text-slate-500">Saving…</span>}
@@ -267,7 +267,7 @@ function SetTable({ item, onDeleted, onItemUpdated }: SetTableProps) {
         Add set
       </DashedActionButton>
 
-      {error && <p role="alert" className="mt-1 text-xs text-red-400">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-xs text-red-400">{error}</p>}
     </div>
   )
 }
@@ -450,9 +450,9 @@ export function BlockEditor({ block, accentColor = '#facc15', onDeleted, onItemU
         )}
 
         {/* Exercise items */}
-        <div className="p-5">
+        <div className="px-6 py-5">
           {items.length > 0 ? (
-            <div className="divide-y divide-slate-800/50">
+            <div className="space-y-6">
               {items.map((item) => (
                 <div key={item.id} data-highlight={highlightedItemIds.has(item.id) ? 'true' : undefined}>
                   <SetTable
@@ -468,7 +468,7 @@ export function BlockEditor({ block, accentColor = '#facc15', onDeleted, onItemU
           )}
 
           {/* Add exercise button */}
-          <DashedActionButton size="md" onClick={onBrowseLibrary} className="mt-4">
+          <DashedActionButton size="md" onClick={onBrowseLibrary} className="mt-6">
             Add exercise
           </DashedActionButton>
         </div>

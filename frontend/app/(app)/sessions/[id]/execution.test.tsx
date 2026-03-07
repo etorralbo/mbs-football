@@ -150,7 +150,9 @@ describe('SessionExecutionPage — guided blocks', () => {
     const repsInput = repsInputs[0]
     fireEvent.change(repsInput, { target: { value: '8' } })
 
-    expect((repsInput as HTMLInputElement).value).toBe('8')
+    await waitFor(() => {
+      expect((repsInput as HTMLInputElement).value).toBe('8')
+    })
   })
 })
 
