@@ -98,11 +98,11 @@ All routes in this group are wrapped by a guard stack (see Authentication sectio
 |---|---|---|
 | `/dashboard` | Coach | Team overview cards, activation checklist, funnel analytics |
 | `/templates` | Coach | Workout template list with AI draft panel and manual creation |
-| `/templates/[id]` | Coach | Template builder: block editor, exercise picker, drag-and-drop reordering, assignment panel |
+| `/templates/[id]` | Coach | Template builder: block editor, exercise picker (slide-in drawer), drag-and-drop reordering, assignment panel |
 | `/exercises` | Coach | Exercise library with tag-based filtering, favorites, and CRUD |
 | `/sessions` | Both | Session list with calendar view; coaches see all team sessions, athletes see their own |
 | `/sessions/[id]` | Both | Session detail with block-by-block exercise view and set logging (execution) |
-| `/team` | Coach | Team roster and invite link generation |
+| `/team` | Coach | Team roster, invite link generation, and team deletion (owner only) |
 | `/team/select` | Coach | Team selector for multi-team coaches |
 | `/create-team` | Coach | Team creation form |
 | `/onboarding` | Both | Post-signup profile setup (display name) |
@@ -213,10 +213,10 @@ Login/signup via email or Google OAuth → OAuth callback exchanges code for ses
 Athlete receives `/join/<token>` link → page shows invite preview (team name, coach name) → auto-accepts on load → redirects to sessions.
 
 ### 3. AI-Assisted Template Creation (Coach)
-Coach opens Templates page → clicks "AI Draft" → enters template name, workout description, and language → backend generates structured 6-block plan → coach reviews suggested exercises with relevance scores → confirms and saves → redirects to template builder for refinement.
+Coach opens Templates page → clicks "AI Draft" → enters template name, workout description, and language → backend calls OpenAI GPT to generate per-block training intents, then matches exercises from the library via keyword overlap → if the LLM is unavailable, the system falls back to a deterministic rule-based generator (the UI shows a warning banner) → coach reviews the 6-block plan with suggested exercises and relevance scores → confirms and saves → redirects to template builder for refinement.
 
 ### 4. Manual Template Building (Coach)
-Coach creates a template → opens the block editor → adds blocks with names and notes → opens exercise picker (full-screen modal with tag filtering, favorites, and search) → selects exercises → reorders blocks and items via drag-and-drop → publishes template.
+Coach creates a template → opens the block editor → adds blocks with names and notes → opens exercise picker (full-screen drawer with tag filtering, favorites, and search) → selects exercises → reorders blocks and items via drag-and-drop → publishes template.
 
 ### 5. Workout Assignment (Coach)
 From template detail, coach opens the Assign Panel → selects "Whole team" or specific athletes via checkbox list → sets optional scheduled date → creates assignment → backend generates one session per athlete.
@@ -226,6 +226,9 @@ Athlete opens session detail → views prescribed exercises organized by block �
 
 ### 7. Dashboard and Analytics (Coach)
 Coach views dashboard with team overview cards → activation checklist tracks onboarding progress (create team → create template → assign session) → funnel analytics card shows conversion through the engagement pipeline (team created → invite → template → assignment → first log → session completed).
+
+### 8. Team Deletion (Coach / Owner)
+From `/team`, the team owner sees a Danger Zone section → clicks "Delete team" → a confirmation modal requires typing the exact team name → on confirmation the team, all memberships, templates, sessions, logs, and invites are permanently deleted → user is redirected to team selector or team creation depending on remaining memberships.
 
 ## Environment Variables
 
