@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import { SignupForm } from './SignupForm'
 
@@ -21,22 +22,18 @@ export default function SignupPage() {
 
         {/* Logo */}
         <div className="relative z-10 flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </div>
+          <Image src="/favicon.svg" alt="Mettle Performance" width={32} height={32} className="h-8 w-8 rounded-lg" />
           <span className="text-lg font-bold text-white">Mettle Performance</span>
         </div>
 
         {/* Hero content */}
         <div className="relative z-10">
           <h1 className="text-4xl font-black leading-tight tracking-tight text-white">
-            Your team&apos;s training,<br />
-            <span className="text-indigo-400">all in one place.</span>
+            Train with purpose.<br />
+            <span className="text-indigo-400">Every session, measured.</span>
           </h1>
           <p className="mt-4 max-w-md text-base leading-relaxed text-slate-400">
-            Plan sessions, assign workouts, and track progress — built for football teams.
+            The platform that connects coaches and athletes to plan, log, and review every workout.
           </p>
         </div>
 
@@ -51,11 +48,7 @@ export default function SignupPage() {
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 sm:px-12">
         {/* Mobile logo */}
         <div className="mb-8 flex items-center gap-2.5 lg:hidden">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </div>
+          <Image src="/favicon.svg" alt="Mettle Performance" width={32} height={32} className="h-8 w-8 rounded-lg" />
           <span className="text-lg font-bold text-white">Mettle Performance</span>
         </div>
 

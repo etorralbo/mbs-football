@@ -1,6 +1,6 @@
 # MBS Football — Mettle Performance
 
-A multi-tenant football coaching platform. Coaches create teams, design sessions and templates, and invite athletes. Athletes join via invite code and access their team's content.
+A multi-tenant coaching and training platform. Coaches create teams, design sessions and templates, and invite athletes. Athletes join via invite link and access their team's content.
 
 ## Project Naming
 
