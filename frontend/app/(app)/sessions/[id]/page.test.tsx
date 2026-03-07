@@ -281,6 +281,8 @@ describe('SessionDetailPage — Athlete execution consistency', () => {
 
     const repsInputs = await screen.findAllByLabelText(/set 1 reps/i)
     fireEvent.change(repsInputs[0], { target: { value: '12' } })
-    expect((repsInputs[0] as HTMLInputElement).value).toBe('12')
+    await waitFor(() => {
+      expect((repsInputs[0] as HTMLInputElement).value).toBe('12')
+    })
   })
 })
