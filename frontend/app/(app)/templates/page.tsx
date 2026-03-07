@@ -318,9 +318,10 @@ function TemplateCard({
   const incomplete = isIncomplete(template)
 
   return (
-    <div
+    <Link
+      href={`/templates/${template.id}`}
       data-highlight={highlighted ? 'true' : undefined}
-      className={`group relative flex flex-col rounded-xl border bg-[#131922] p-5 transition-all duration-150 ease-out hover:-translate-y-1 hover:border-white/20 hover:shadow-lg ${incomplete ? 'border-amber-500/20' : 'border-white/8'}`}
+      className={`group relative flex flex-col rounded-xl border bg-[#131922] p-5 transition-all duration-150 ease-out cursor-pointer hover:-translate-y-1 hover:border-white/20 hover:bg-[#131922]/80 hover:shadow-lg active:scale-[0.99] ${incomplete ? 'border-amber-500/20' : 'border-white/8'}`}
     >
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
@@ -369,32 +370,25 @@ function TemplateCard({
           <KebabMenu onDuplicate={onDuplicate} onDelete={onDelete} />
         </div>
       </div>
-      <Link href={`/templates/${template.id}`} className="flex flex-1 flex-col">
-        <div className="flex-1">
-          <h3 className="text-base font-semibold text-white transition-colors group-hover:text-[#c8f135]">
-            {template.title}
-          </h3>
-          {template.description && (
-            <p className="mt-1 line-clamp-2 text-xs text-slate-400">
-              {template.description}
-            </p>
-          )}
-          {incomplete && (
-            <p className="mt-1 text-xs text-amber-400/80">
-              Add exercises to finish setup
-            </p>
-          )}
-          <p className="mt-1.5 text-[11px] text-slate-500">
-            Last edited {formatRelativeTime(template.updated_at)}
+      <div className="flex-1">
+        <h3 className="text-base font-semibold text-white transition-colors group-hover:text-[#c8f135]">
+          {template.title}
+        </h3>
+        {template.description && (
+          <p className="mt-1 line-clamp-2 text-xs text-slate-400">
+            {template.description}
           </p>
-        </div>
-        <div className="mt-4 border-t border-white/8 pt-3">
-          <span className="text-xs font-medium text-[#c8f135] group-hover:underline">
-            {template.status === 'draft' ? 'Edit template' : 'View template'}
-          </span>
-        </div>
-      </Link>
-    </div>
+        )}
+        {incomplete && (
+          <p className="mt-1 text-xs text-amber-400/80">
+            Add exercises to finish setup
+          </p>
+        )}
+        <p className="mt-1.5 text-[11px] text-slate-500">
+          Last edited {formatRelativeTime(template.updated_at)}
+        </p>
+      </div>
+    </Link>
   )
 }
 
