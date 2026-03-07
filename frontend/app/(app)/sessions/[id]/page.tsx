@@ -91,7 +91,7 @@ export default function SessionDetailPage() {
   const execution = execState.data
   const isCompleted = execution.status === 'completed'
   const isCoach = role === 'COACH'
-  const isReadOnly = isCompleted
+  const isReadOnly = isCompleted || isCoach
   const progress = progressFromDraft(execution, draft)
   const canComplete = canMarkCompleted(draft) && savingExercises.size === 0
 

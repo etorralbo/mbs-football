@@ -170,6 +170,7 @@ export function ExerciseCard({
               setNumber={setNumber}
               draft={draft}
               disabled={isCompleted}
+              readOnly={isCompleted && !completionEnabled}
               completionEnabled={completionEnabled}
               saving={saving}
               onToggleDone={() => handleToggleSet(setNumber, draft.done)}

@@ -144,7 +144,7 @@ function SetTable({ item, onDeleted, onItemUpdated }: SetTableProps) {
   }
 
   return (
-    <div className="rounded-lg py-4 transition-all duration-150 ease-out first:pt-0 last:pb-0 hover:-translate-y-[1px] hover:bg-white/[0.02]">
+    <div className="rounded-xl px-2 py-5 transition-all duration-150 ease-out first:pt-0 last:pb-0 hover:-translate-y-[1px] hover:bg-white/[0.02]">
       {/* Exercise name row */}
       <div className="mb-4 flex items-center justify-between gap-2">
         <h4 className="flex items-center gap-2 text-sm font-semibold text-white">
@@ -450,9 +450,9 @@ export function BlockEditor({ block, accentColor = '#facc15', onDeleted, onItemU
         )}
 
         {/* Exercise items */}
-        <div className="p-5">
+        <div className="px-6 py-5">
           {items.length > 0 ? (
-            <div className="divide-y divide-slate-800/50">
+            <div className="space-y-6">
               {items.map((item) => (
                 <div key={item.id} data-highlight={highlightedItemIds.has(item.id) ? 'true' : undefined}>
                   <SetTable
@@ -468,7 +468,7 @@ export function BlockEditor({ block, accentColor = '#facc15', onDeleted, onItemU
           )}
 
           {/* Add exercise button */}
-          <DashedActionButton size="md" onClick={onBrowseLibrary} className="mt-4">
+          <DashedActionButton size="md" onClick={onBrowseLibrary} className="mt-6">
             Add exercise
           </DashedActionButton>
         </div>
