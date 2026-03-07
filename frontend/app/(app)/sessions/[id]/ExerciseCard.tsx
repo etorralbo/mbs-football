@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { request, ConflictError, ValidationError } from '@/app/_shared/api/httpClient'
 import type { ExecutionItem } from '@/app/_shared/api/types'
 import type { DraftAction, DraftState } from '@/src/features/session-execution/draftState'
+import { DashedActionButton } from '@/src/components/DashedActionButton'
 import { SetRow } from './SetRow'
 
 interface Props {
@@ -187,13 +188,13 @@ export function ExerciseCard({
         </div>
 
         {!isCompleted && !isAlreadyDone && (
-          <button
-            type="button"
+          <DashedActionButton
+            size="sm"
             onClick={handleAddSet}
-            className="mt-2 text-xs font-medium text-[#4f9cf9] hover:text-[#7ab5fb]"
+            className="mt-4 px-4 py-2"
           >
-            + Add set
-          </button>
+            Add set
+          </DashedActionButton>
         )}
       </div>
 
