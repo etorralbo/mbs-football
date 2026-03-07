@@ -236,15 +236,54 @@ All client-side variables use the `NEXT_PUBLIC_` prefix (required by Next.js for
 
 | Variable | Required | Description |
 |---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anonymous/public API key |
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL (`https://<project-id>.supabase.co`) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anonymous/public API key (safe to expose client-side) |
 | `NEXT_PUBLIC_API_BASE_URL` | Yes | Backend API base URL (e.g., `http://localhost:8000`) |
 
 A template file is provided at `.env.local.example`. Copy it to `.env.local` for local development:
 
 ```bash
 cp .env.local.example .env.local
+# Then fill in NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
+# from Supabase Dashboard → Project Settings → API
 ```
+
+No secrets are stored in the frontend. The Supabase anon key is designed to be public — it only grants access controlled by Row Level Security policies on the Supabase side.
+
+### Full-Stack Environment Setup
+
+The monorepo uses three environment files that work together:
+
+| File | Scope | Purpose |
+|---|---|---|
+| `.env` (root) | `docker-compose.yml` | Shared variables injected into backend and frontend containers |
+| `backend/.env` | Backend (FastAPI) | Backend-specific config (DATABASE_URL, SUPABASE_URL, AI settings) |
+| `frontend/.env.local` | Frontend (Next.js) | Frontend-specific config (NEXT_PUBLIC_* variables) |
+
+Each has a corresponding `.example` template. To set up from scratch:
+
+```bash
+# Root (for docker-compose)
+cp .env.example .env
+
+# Backend
+cp backend/.env.example backend/.env
+
+# Frontend
+cp frontend/.env.local.example frontend/.env.local
+```
+
+### AI Configuration
+
+The backend supports three AI modes controlled by environment variables:
+
+| Mode | `AI_ENABLED` | `AI_STUB` | `OPENAI_API_KEY` | Behavior |
+|---|---|---|---|---|
+| **Stub** (default for local dev) | `true` | `true` | Not needed | Deterministic rule-based drafts, no LLM calls |
+| **Live AI** | `true` | `false` | Required | Real OpenAI GPT calls for template generation |
+| **AI disabled** | `false` | — | Not needed | AI endpoints return 404 |
+
+To run locally without an OpenAI API key, no changes are needed — `AI_STUB=true` is the default.
 
 ## Running the Project
 
