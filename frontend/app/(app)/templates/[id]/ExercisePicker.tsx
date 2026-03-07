@@ -132,7 +132,7 @@ export function ExercisePicker({ blockId, onClose, onExercisesAdded }: ExerciseP
         role="dialog"
         aria-modal="true"
         aria-label="Browse exercise library"
-        className="relative flex h-full w-full max-w-md animate-[slideIn_200ms_ease-out] flex-col bg-slate-950 shadow-2xl"
+        className="relative flex h-full w-full max-w-md min-w-0 animate-[slideIn_200ms_ease-out] flex-col overflow-hidden bg-slate-950 shadow-2xl"
       >
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-slate-800 px-5 py-4">
@@ -162,7 +162,7 @@ export function ExercisePicker({ blockId, onClose, onExercisesAdded }: ExerciseP
         </div>
 
         {/* Tag filter chips */}
-        <div className="flex shrink-0 gap-2 overflow-x-auto px-5 py-3 scrollbar-none">
+        <div className="flex min-w-0 shrink-0 gap-2 overflow-x-auto overflow-y-hidden px-5 py-3 scrollbar-none">
           {FILTER_CHIPS.map(({ label, value }) => {
             const active = selectedTags.includes(value)
             return (
@@ -183,7 +183,7 @@ export function ExercisePicker({ blockId, onClose, onExercisesAdded }: ExerciseP
         </div>
 
         {/* Exercise list — sole scrollable area */}
-        <div className="flex-1 overflow-y-auto px-5 py-2">
+        <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-5 py-2">
           {/* Error / Loading */}
           {loadError && (
             <p role="alert" className="py-2 text-sm text-red-400">{loadError}</p>
