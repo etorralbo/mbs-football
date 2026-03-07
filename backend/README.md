@@ -124,6 +124,25 @@ For the full architectural decision record, see [ADR-001: Transport Layer](../do
 
 No path conflicts exist between the two layers — they share the `/v1` prefix but use distinct endpoint paths.
 
+## Architecture Guardrails
+
+The transition from legacy to clean architecture is enforced by automated tests in `tests/test_architecture_guard.py` (24 tests, ~0.03s, no database required):
+
+| Rule | What it checks | Violation message |
+|---|---|---|
+| **Legacy layer frozen** | No new `.py` modules may be added to `api/v1/endpoints/` | Lists the extra modules that must be relocated to `transport/http/v1/` |
+| **Use cases are framework-free** | No `fastapi`, `starlette`, or `HTTPException` imports in `domain/use_cases/` | Names the offending file and import |
+| **Transport avoids ORM models** | `transport/http/v1/` modules must not import SQLAlchemy table classes from `app.models` | Lists the forbidden import (shared enums like `Role` are allowed; `me.py` and `invites.py` are acknowledged exceptions for direct-query endpoints) |
+
+Run the guard standalone (no Docker/database needed):
+
+```bash
+cd backend
+python -m pytest tests/test_architecture_guard.py -v
+```
+
+Every legacy endpoint module also carries a `FROZEN (see ADR-001)` docstring banner as a human-readable reminder.
+
 ## Authentication and Authorization
 
 ### JWT Verification
