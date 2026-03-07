@@ -41,8 +41,8 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('next/link', () => ({
-  default: ({ href, children }: { href: string; children: React.ReactNode }) => (
-    <a href={href}>{children}</a>
+  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode; [key: string]: unknown }) => (
+    <a href={href} {...rest}>{children}</a>
   ),
 }))
 
@@ -197,12 +197,12 @@ describe('TemplatesPage — Template cards', () => {
     expect(screen.getByText('PUBLISHED')).toBeInTheDocument()
   })
 
-  it('shows "Edit template" for draft and "View template" for published', async () => {
+  it('cards link to template detail page', async () => {
     renderAsCoach(TEMPLATES)
 
     await screen.findByText('Strength A')
-    expect(screen.getByText('Edit template')).toBeInTheDocument()
-    expect(screen.getByText('View template')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /strength a/i })).toHaveAttribute('href', '/templates/t1')
+    expect(screen.getByRole('link', { name: /speed b/i })).toHaveAttribute('href', '/templates/t2')
   })
 
   it('shows "Last edited" metadata on cards', async () => {
