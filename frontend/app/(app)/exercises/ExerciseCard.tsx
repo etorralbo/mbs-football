@@ -74,7 +74,7 @@ export default function ExerciseCard({
           type="button"
           onClick={() => onFavoriteToggle(exercise.id)}
           aria-label={exercise.is_favorite ? `Remove ${exercise.name} from favourites` : `Add ${exercise.name} to favourites`}
-          className="rounded p-1.5 text-slate-600 transition-colors hover:bg-white/5 hover:text-amber-400"
+          className="rounded p-1.5 text-slate-600 transition-colors hover:bg-white/8 hover:text-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135]/50"
         >
           <StarIcon filled={exercise.is_favorite} />
         </button>
@@ -85,7 +85,7 @@ export default function ExerciseCard({
             type="button"
             onClick={() => onEdit(exercise)}
             aria-label={`Edit ${exercise.name}`}
-            className="rounded p-1.5 text-slate-600 transition-colors hover:bg-white/5 hover:text-white"
+            className="rounded p-1.5 text-slate-600 transition-colors hover:bg-white/8 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135]/50"
           >
             <EditIcon />
           </button>
@@ -96,7 +96,7 @@ export default function ExerciseCard({
           type="button"
           onClick={() => onDuplicate(exercise)}
           aria-label={isOfficial ? `Duplicate ${exercise.name} to my library` : `Duplicate ${exercise.name}`}
-          className="rounded p-1.5 text-slate-600 transition-colors hover:bg-white/5 hover:text-white"
+          className="rounded p-1.5 text-slate-600 transition-colors hover:bg-white/8 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135]/50"
         >
           <DuplicateIcon />
         </button>
@@ -107,7 +107,7 @@ export default function ExerciseCard({
             type="button"
             onClick={() => onDelete(exercise)}
             aria-label={`Delete ${exercise.name}`}
-            className="rounded p-1.5 text-slate-600 transition-colors hover:bg-red-900/30 hover:text-red-400"
+            className="rounded p-1.5 text-slate-600 transition-colors hover:bg-red-900/30 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50"
           >
             <TrashIcon />
           </button>

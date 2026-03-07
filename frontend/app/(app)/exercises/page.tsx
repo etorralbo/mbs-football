@@ -440,11 +440,11 @@ export default function ExercisesPage() {
               onClick={() => toggleTag(value)}
               aria-pressed={active}
               disabled={count === 0 && !active}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-all duration-150 ${
+              className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135]/50 ${
                 active
                   ? 'border-[#c8f135] bg-[#c8f135]/10 text-[#c8f135]'
                   : count === 0
-                    ? 'border-white/5 text-slate-600 cursor-not-allowed opacity-50'
+                    ? 'border-white/5 text-slate-600 !cursor-not-allowed opacity-50'
                     : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-slate-300'
               }`}
             >

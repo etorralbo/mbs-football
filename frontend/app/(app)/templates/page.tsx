@@ -315,7 +315,7 @@ function TemplateCard({
     <Link
       href={`/templates/${template.id}`}
       data-highlight={highlighted ? 'true' : undefined}
-      className={`group relative flex flex-col rounded-xl border bg-[#131922] p-5 transition-all duration-150 ease-out cursor-pointer hover:-translate-y-1 hover:border-white/20 hover:bg-[#131922]/80 hover:shadow-lg active:scale-[0.99] ${incomplete ? 'border-amber-500/20' : 'border-white/8'}`}
+      className={`group relative flex flex-col rounded-xl border bg-[#131922] p-5 transition-all duration-150 ease-out cursor-pointer hover:-translate-y-1 hover:border-white/20 hover:bg-[#131922]/80 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1420] active:scale-[0.99] ${incomplete ? 'border-amber-500/20' : 'border-white/8'}`}
     >
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
@@ -332,7 +332,7 @@ function TemplateCard({
               type="button"
               aria-label="Edit"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit() }}
-              className="rounded p-1.5 text-slate-500 transition-colors hover:bg-white/8 hover:text-white"
+              className="rounded p-1.5 text-slate-500 transition-colors hover:bg-white/8 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135]/50"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -342,7 +342,7 @@ function TemplateCard({
               type="button"
               aria-label="Assign"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAssign() }}
-              className="rounded p-1.5 text-slate-500 transition-colors hover:bg-white/8 hover:text-white"
+              className="rounded p-1.5 text-slate-500 transition-colors hover:bg-white/8 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135]/50"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -352,7 +352,7 @@ function TemplateCard({
               type="button"
               aria-label="Duplicate"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDuplicate() }}
-              className="rounded p-1.5 text-slate-500 transition-colors hover:bg-white/8 hover:text-white"
+              className="rounded p-1.5 text-slate-500 transition-colors hover:bg-white/8 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135]/50"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />

@@ -24,9 +24,10 @@ const sizeStyles: Record<Size, string> = {
 }
 
 const base =
-  'inline-flex items-center border-dashed text-slate-400 transition-all duration-150 ease-out ' +
+  'inline-flex cursor-pointer items-center border-dashed text-slate-400 transition-all duration-150 ease-out ' +
   'hover:border-[#c8f135] hover:text-[#c8f135] ' +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1420] ' +
+  'active:scale-[0.97] ' +
   'disabled:pointer-events-none disabled:opacity-40'
 
 const idleBorder: Record<Size, string> = {
