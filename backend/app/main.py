@@ -100,7 +100,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Fail fast if critical env vars are missing in non-local environments.
     cfg.validate_production_env()
 
-    app = FastAPI(title="Football MVP API")
+    app = FastAPI(title="Mettle Performance API")
 
     _configure_cors(app, cfg)
 

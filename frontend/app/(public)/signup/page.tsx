@@ -29,11 +29,11 @@ export default function SignupPage() {
         {/* Hero content */}
         <div className="relative z-10">
           <h1 className="text-4xl font-black leading-tight tracking-tight text-white">
-            Your team&apos;s training,<br />
-            <span className="text-indigo-400">all in one place.</span>
+            Train with purpose.<br />
+            <span className="text-indigo-400">Every session, measured.</span>
           </h1>
           <p className="mt-4 max-w-md text-base leading-relaxed text-slate-400">
-            Plan sessions, assign workouts, and track progress — built for football teams.
+            The platform that connects coaches and athletes to plan, log, and review every workout.
           </p>
         </div>
 

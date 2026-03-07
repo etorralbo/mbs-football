@@ -9,7 +9,7 @@ from app.db.base import Base, TimestampMixin
 
 class Team(Base, TimestampMixin):
     """
-    Team model representing a football team in the app.
+    Team model representing a team in the app.
 
     Team names are unique per creator (case-insensitive).
     """
