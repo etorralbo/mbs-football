@@ -382,12 +382,7 @@ function TemplateCard({
             {template.description}
           </p>
         )}
-        {incomplete && (
-          <p className="mt-1 text-xs text-amber-400/80">
-            Add exercises to finish setup
-          </p>
-        )}
-        <p className="mt-1.5 text-[11px] text-slate-500">
+        <p className="mt-2 text-[11px] text-slate-500">
           Last edited {formatRelativeTime(template.updated_at)}
         </p>
       </div>
