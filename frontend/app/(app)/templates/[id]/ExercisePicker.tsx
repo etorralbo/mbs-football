@@ -119,7 +119,7 @@ export function ExercisePicker({ blockId, onClose, onExercisesAdded }: ExerciseP
   const selectionCount = selectedIds.size
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className="fixed inset-0 z-50 flex justify-end overflow-hidden">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -132,7 +132,7 @@ export function ExercisePicker({ blockId, onClose, onExercisesAdded }: ExerciseP
         role="dialog"
         aria-modal="true"
         aria-label="Browse exercise library"
-        className="relative flex w-full max-w-md animate-[slideIn_200ms_ease-out] flex-col bg-slate-950 shadow-2xl"
+        className="relative flex h-full w-full max-w-md animate-[slideIn_200ms_ease-out] flex-col bg-slate-950 shadow-2xl"
       >
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-slate-800 px-5 py-4">
@@ -182,21 +182,20 @@ export function ExercisePicker({ blockId, onClose, onExercisesAdded }: ExerciseP
           })}
         </div>
 
-        {/* Error / Loading */}
-        {loadError && (
-          <p role="alert" className="px-5 py-2 text-sm text-red-400">{loadError}</p>
-        )}
-        {loadingList && (
-          <p className="px-5 py-4 text-sm text-slate-500">Loading exercises…</p>
-        )}
-
-        {/* Add error */}
-        {addError && (
-          <p role="alert" className="px-5 py-1 text-xs text-red-400">{addError}</p>
-        )}
-
-        {/* Exercise list */}
+        {/* Exercise list — sole scrollable area */}
         <div className="flex-1 overflow-y-auto px-5 py-2">
+          {/* Error / Loading */}
+          {loadError && (
+            <p role="alert" className="py-2 text-sm text-red-400">{loadError}</p>
+          )}
+          {loadingList && (
+            <p className="py-4 text-sm text-slate-500">Loading exercises…</p>
+          )}
+
+          {/* Add error */}
+          {addError && (
+            <p role="alert" className="py-1 text-xs text-red-400">{addError}</p>
+          )}
           {!loadingList && !loadError && filtered.length === 0 && (
             <p className="mt-8 text-center text-sm text-slate-500">
               No exercises match your filters.
