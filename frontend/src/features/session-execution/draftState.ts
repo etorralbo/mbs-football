@@ -25,6 +25,24 @@ export type DraftState = Record<string, Record<number, SetDraft>>
 // Pure functions
 // ---------------------------------------------------------------------------
 
+/** Extract the prescribed set count and per-set defaults from a prescription. */
+function parsePrescribedSets(p: Record<string, unknown>): Array<{ reps: string; weight: string; rpe: string }> {
+  if (Array.isArray(p.sets) && p.sets.length > 0) {
+    return p.sets.map((s: Record<string, unknown>) => ({
+      reps:   s.reps   != null ? String(s.reps)   : '',
+      weight: s.weight != null ? String(s.weight) : '',
+      rpe:    s.rpe    != null ? String(s.rpe)    : '',
+    }))
+  }
+  // Legacy format: sets as a count number, or missing
+  const n = typeof p.sets === 'number' && p.sets >= 1 ? p.sets : 1
+  return Array.from({ length: n }, () => ({
+    reps:   p.reps   != null ? String(p.reps)   : '',
+    weight: p.weight != null ? String(p.weight) : '',
+    rpe:    p.rpe    != null ? String(p.rpe)    : '',
+  }))
+}
+
 /** Build initial draft state from an execution response. */
 export function draftFromExecution(execution: SessionExecution): DraftState {
   const draft: DraftState = {}
@@ -44,18 +62,11 @@ export function draftFromExecution(execution: SessionExecution): DraftState {
           ]),
         )
       } else {
-        const p = item.prescription
-        const n =
-          typeof p.sets === 'number' && p.sets >= 1 ? p.sets : 1
+        const prescribed = parsePrescribedSets(item.prescription)
         draft[item.exercise_id] = Object.fromEntries(
-          Array.from({ length: n }, (_, i) => [
+          prescribed.map((s, i) => [
             i + 1,
-            {
-              reps:   p.reps   != null ? String(p.reps)   : '',
-              weight: p.weight != null ? String(p.weight) : '',
-              rpe:    p.rpe    != null ? String(p.rpe)    : '',
-              done: false,
-            },
+            { ...s, done: false },
           ]),
         )
       }

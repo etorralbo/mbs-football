@@ -5,7 +5,6 @@ import { request, ConflictError, ValidationError } from '@/app/_shared/api/httpC
 import type { ExecutionItem } from '@/app/_shared/api/types'
 import type { DraftAction, DraftState } from '@/src/features/session-execution/draftState'
 import { Badge } from '@/app/_shared/components/Badge'
-import { DashedActionButton } from '@/src/components/DashedActionButton'
 import { SetRow } from './SetRow'
 
 interface Props {
@@ -22,16 +21,26 @@ interface Props {
 
 function prescriptionText(p: Record<string, unknown>): string {
   const parts: string[] = []
+
   if (Array.isArray(p.sets)) {
     const count = p.sets.length
     parts.push(`${count} ${count === 1 ? 'set' : 'sets'}`)
-  } else if (p.sets) {
-    parts.push(`${p.sets} sets`)
+    // Extract common values from first set for summary
+    const first = p.sets[0] as Record<string, unknown> | undefined
+    if (first) {
+      if (first.reps) parts.push(`${first.reps} reps`)
+      if (first.weight) parts.push(`@ ${first.weight} kg`)
+      if (first.rpe) parts.push(`RPE ${first.rpe}`)
+    }
+  } else {
+    // Legacy flat format
+    if (p.sets) parts.push(`${p.sets} sets`)
+    if (p.reps) parts.push(`${p.reps} reps`)
+    if (p.weight) parts.push(`@ ${p.weight} kg`)
+    else if (p.load) parts.push(`@ ${p.load}`)
+    if (p.rpe) parts.push(`RPE ${p.rpe}`)
   }
-  if (p.reps) parts.push(`${p.reps} reps`)
-  if (p.weight) parts.push(`@ ${p.weight} kg`)
-  else if (p.load) parts.push(`@ ${p.load}`)
-  if (p.rpe) parts.push(`RPE ${p.rpe}`)
+
   if (p.duration) parts.push(String(p.duration))
   if (p.rest) parts.push(`rest ${p.rest}`)
   return parts.join(' · ') || '—'
@@ -114,10 +123,6 @@ export function ExerciseCard({
     saveThenDispatch({ type: 'MARK_SET_DONE', exerciseId: item.exercise_id, setNumber })
   }
 
-  function handleAddSet() {
-    dispatch({ type: 'ADD_SET', exerciseId: item.exercise_id })
-  }
-
   return (
     <div className="rounded-lg border border-white/8 bg-[#131922] p-4">
       {/* Exercise name + prescription */}
@@ -187,15 +192,6 @@ export function ExerciseCard({
           ))}
         </div>
 
-        {!isCompleted && !isAlreadyDone && (
-          <DashedActionButton
-            size="sm"
-            onClick={handleAddSet}
-            className="mt-4 px-4 py-2"
-          >
-            Add set
-          </DashedActionButton>
-        )}
       </div>
 
       {error && (

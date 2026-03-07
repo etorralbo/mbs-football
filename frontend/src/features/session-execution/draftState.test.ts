@@ -77,6 +77,57 @@ const EXECUTION_WITH_PRESCRIPTION: SessionExecution = {
   ],
 }
 
+/** Array-format sets (post-migration): prescription.sets is an array of set objects. */
+const EXECUTION_ARRAY_SETS: SessionExecution = {
+  ...EXECUTION_EMPTY,
+  blocks: [
+    {
+      name: 'Primary Strength',
+      key: 'PRIMARY_STRENGTH',
+      order: 0,
+      items: [
+        {
+          exercise_id: 'ex-1',
+          exercise_name: 'Squat',
+          prescription: {
+            sets: [
+              { order: 0, reps: 10, weight: 80, rpe: 7 },
+              { order: 1, reps: 8, weight: 90, rpe: 8 },
+              { order: 2, reps: 6, weight: 100, rpe: 9 },
+            ],
+          },
+          logs: [],
+        },
+      ],
+    },
+  ],
+}
+
+/** Array-format sets with some null fields. */
+const EXECUTION_ARRAY_PARTIAL: SessionExecution = {
+  ...EXECUTION_EMPTY,
+  blocks: [
+    {
+      name: 'Recovery',
+      key: 'RECOVERY',
+      order: 0,
+      items: [
+        {
+          exercise_id: 'ex-4',
+          exercise_name: 'Plank',
+          prescription: {
+            sets: [
+              { order: 0, reps: null, weight: null, rpe: null },
+              { order: 1, reps: null, weight: null, rpe: null },
+            ],
+          },
+          logs: [],
+        },
+      ],
+    },
+  ],
+}
+
 const EXECUTION_WITH_LOGS: SessionExecution = {
   ...EXECUTION_EMPTY,
   blocks: [
@@ -160,6 +211,31 @@ describe('draftFromExecution', () => {
     expect(draft['ex-2']).toEqual({
       1: { reps: '', weight: '', rpe: '', done: false },
     })
+  })
+
+  it('creates one row per set when prescription.sets is an array (post-migration format)', () => {
+    const draft = draftFromExecution(EXECUTION_ARRAY_SETS)
+
+    expect(Object.keys(draft['ex-1'])).toHaveLength(3)
+    expect(draft['ex-1'][1]).toEqual({ reps: '10', weight: '80', rpe: '7', done: false })
+    expect(draft['ex-1'][2]).toEqual({ reps: '8', weight: '90', rpe: '8', done: false })
+    expect(draft['ex-1'][3]).toEqual({ reps: '6', weight: '100', rpe: '9', done: false })
+  })
+
+  it('handles array sets with null fields as empty strings', () => {
+    const draft = draftFromExecution(EXECUTION_ARRAY_PARTIAL)
+
+    expect(Object.keys(draft['ex-4'])).toHaveLength(2)
+    expect(draft['ex-4'][1]).toEqual({ reps: '', weight: '', rpe: '', done: false })
+    expect(draft['ex-4'][2]).toEqual({ reps: '', weight: '', rpe: '', done: false })
+  })
+
+  it('row count matches array length — single source of truth', () => {
+    const draft = draftFromExecution(EXECUTION_ARRAY_SETS)
+    const prescription = EXECUTION_ARRAY_SETS.blocks[0].items[0].prescription
+    const prescribedCount = (prescription.sets as unknown[]).length
+
+    expect(Object.keys(draft['ex-1'])).toHaveLength(prescribedCount)
   })
 })
 

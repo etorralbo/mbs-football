@@ -75,6 +75,25 @@ const UNDONE_EXECUTION: SessionExecution = {
   }],
 }
 
+/** Execution with array-format sets (3 prescribed sets). */
+const ARRAY_SETS_EXECUTION: SessionExecution = {
+  ...EMPTY_EXECUTION,
+  blocks: [{
+    name: 'Primary Strength', key: 'PRIMARY_STRENGTH', order: 0,
+    items: [{
+      exercise_id: 'ex-1', exercise_name: 'Squat',
+      prescription: {
+        sets: [
+          { order: 0, reps: 10, weight: 80, rpe: 7 },
+          { order: 1, reps: 8, weight: 90, rpe: 8 },
+          { order: 2, reps: 6, weight: 100, rpe: 9 },
+        ],
+      },
+      logs: [],
+    }],
+  }],
+}
+
 // ---------------------------------------------------------------------------
 // Setup / teardown
 // ---------------------------------------------------------------------------
@@ -175,28 +194,25 @@ describe('SessionDetailPage — COACH role', () => {
     expect(screen.queryByRole('button', { name: /mark as completed/i })).toBeNull()
   })
 
-  it('enables set inputs when viewer is COACH and session is pending', async () => {
+  it('renders read-only values (not inputs) when viewer is COACH and session is pending', async () => {
     mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
     mockRequest.mockResolvedValueOnce(UNDONE_EXECUTION)
 
     render(<SessionDetailPage />)
 
     await screen.findByText('Squat')
-    screen.getAllByRole('spinbutton').forEach((input) =>
-      expect(input).not.toBeDisabled(),
-    )
+    // Coach sees static text, not editable inputs
+    expect(screen.queryAllByRole('spinbutton')).toHaveLength(0)
   })
 
-  it('disables set inputs when viewer is COACH and session is completed', async () => {
+  it('renders read-only values (not inputs) when viewer is COACH and session is completed', async () => {
     mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
     mockRequest.mockResolvedValueOnce({ ...LOGGED_EXECUTION, status: 'completed' })
 
     render(<SessionDetailPage />)
 
     await screen.findByText('Squat')
-    screen.getAllByRole('spinbutton').forEach((input) =>
-      expect(input).toBeDisabled(),
-    )
+    expect(screen.queryAllByRole('spinbutton')).toHaveLength(0)
   })
 
   it('hides Undo button when viewer is COACH and exercise is done', async () => {
@@ -207,5 +223,64 @@ describe('SessionDetailPage — COACH role', () => {
 
     await screen.findByText('Squat')
     expect(screen.queryByRole('button', { name: /undo squat/i })).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Athlete execution consistency — prescribed sets
+// ---------------------------------------------------------------------------
+
+describe('SessionDetailPage — Athlete execution consistency', () => {
+  it('renders exactly 3 set rows when coach prescribed 3 sets (array format)', async () => {
+    mockRequest.mockResolvedValueOnce(ARRAY_SETS_EXECUTION)
+
+    render(<SessionDetailPage />)
+
+    await screen.findByText('Squat')
+    // Each set row has 3 inputs (reps, weight, rpe)
+    const inputs = screen.getAllByRole('spinbutton')
+    expect(inputs).toHaveLength(9) // 3 sets × 3 fields
+  })
+
+  it('displays "3 sets" in prescription text when 3 sets prescribed', async () => {
+    mockRequest.mockResolvedValueOnce(ARRAY_SETS_EXECUTION)
+
+    render(<SessionDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/3 sets/)).toBeInTheDocument()
+    })
+  })
+
+  it('does not show "Add set" button for athlete', async () => {
+    mockRequest.mockResolvedValueOnce(ARRAY_SETS_EXECUTION)
+
+    render(<SessionDetailPage />)
+
+    await screen.findByText('Squat')
+    expect(screen.queryByRole('button', { name: /add set/i })).toBeNull()
+  })
+
+  it('pre-fills prescribed values in athlete inputs', async () => {
+    mockRequest.mockResolvedValueOnce(ARRAY_SETS_EXECUTION)
+
+    render(<SessionDetailPage />)
+
+    // Set 1: reps=10, weight=80, rpe=7
+    const repsInputs = await screen.findAllByLabelText(/set 1 reps/i)
+    expect((repsInputs[0] as HTMLInputElement).value).toBe('10')
+
+    const weightInputs = screen.getAllByLabelText(/set 1 weight/i)
+    expect((weightInputs[0] as HTMLInputElement).value).toBe('80')
+  })
+
+  it('athlete can log values for prescribed sets', async () => {
+    mockRequest.mockResolvedValueOnce(ARRAY_SETS_EXECUTION)
+
+    render(<SessionDetailPage />)
+
+    const repsInputs = await screen.findAllByLabelText(/set 1 reps/i)
+    fireEvent.change(repsInputs[0], { target: { value: '12' } })
+    expect((repsInputs[0] as HTMLInputElement).value).toBe('12')
   })
 })
