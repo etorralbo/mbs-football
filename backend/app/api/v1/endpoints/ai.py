@@ -1,5 +1,6 @@
 """
-AI-assisted workout endpoints.
+AI-assisted workout endpoints — FROZEN (see ADR-001).
+Do not add new endpoints here; use app/transport/http/v1/ instead.
 
 No coach role required: these are read-only generation endpoints
 that do not persist anything to the database.

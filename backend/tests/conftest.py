@@ -99,7 +99,7 @@ def _check_db_reachable() -> None:
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session", autouse=True)
-def setup_test_database():
+def setup_test_database(request):
     """
     1. Verify Postgres is reachable (fail fast with a helpful message).
     2. Create the test database if it does not yet exist (idempotent).
@@ -107,7 +107,13 @@ def setup_test_database():
 
     Runs once per pytest session. Schema reflects the real migration history,
     not just the current ORM metadata snapshot.
+
+    Skipped when every collected test is marked ``no_db``.
     """
+    all_items = request.session.items
+    if all_items and all(item.get_closest_marker("no_db") for item in all_items):
+        yield
+        return
     _check_db_reachable()
 
     # --- Ensure test database exists ---

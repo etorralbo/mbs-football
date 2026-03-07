@@ -1,6 +1,6 @@
 """
-WorkoutTemplate CRUD endpoints + block-level builder operations
-that are nested under a template URL.
+WorkoutTemplate CRUD endpoints + block-level builder operations — FROZEN (see ADR-001).
+Do not add new endpoints here; use app/transport/http/v1/ instead.
 
 Prefix: /workout-templates
 """

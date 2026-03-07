@@ -1,5 +1,6 @@
 """
-Exercise CRUD endpoints.
+Exercise CRUD endpoints — FROZEN (see ADR-001).
+Do not add new endpoints here; use app/transport/http/v1/ instead.
 
 All endpoints are secured with JWT authentication.
 All operations require COACH role — athletes see exercises only through

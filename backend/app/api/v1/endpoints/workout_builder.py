@@ -1,5 +1,6 @@
 """
-Block and item-level builder endpoints.
+Block and item-level builder endpoints — FROZEN (see ADR-001).
+Do not add new endpoints here; use app/transport/http/v1/ instead.
 
 These routes operate on already-existing blocks and items.
 The prefix is intentionally absent here; full paths are declared in
