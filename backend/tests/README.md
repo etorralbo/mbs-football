@@ -1,6 +1,6 @@
 # Backend Tests
 
-Integration tests for the MBS Football API. All tests hit a real PostgreSQL database
+Integration tests for the Mettle Performance API. All tests hit a real PostgreSQL database
 (`app_test`) and mock only the JWT layer — no Supabase calls are made.
 
 ## Running tests

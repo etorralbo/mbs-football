@@ -1,6 +1,6 @@
 # Frontend Architecture
 
-The frontend of MBS Football is a single-page application that serves as the coaching and athlete management interface. It allows coaches to design workout templates (manually or with AI assistance), assign them to athletes, and track session completion. Athletes use the same application to view their assigned sessions and log exercise execution data.
+The frontend of Mettle Performance is a single-page application that serves as the coaching and athlete management interface. It allows coaches to design workout templates (manually or with AI assistance), assign them to athletes, and track session completion. Athletes use the same application to view their assigned sessions and log exercise execution data.
 
 The application communicates exclusively with a FastAPI backend via a REST API, delegating all business logic, persistence, and authorization to the server.
 

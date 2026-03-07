@@ -1,6 +1,6 @@
 # Backend Architecture
 
-The backend of MBS Football is a REST API that serves as the single source of truth for all data, business logic, authorization, and multi-tenant isolation. It exposes a versioned API (`/v1`) consumed by the Next.js frontend.
+The backend of Mettle Performance is a REST API that serves as the single source of truth for all data, business logic, authorization, and multi-tenant isolation. It exposes a versioned API (`/v1`) consumed by the Next.js frontend.
 
 ## Tech Stack
 

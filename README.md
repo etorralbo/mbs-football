@@ -1,6 +1,15 @@
-# MBS Football
+# MBS Football — Mettle Performance
 
 A multi-tenant football coaching platform. Coaches create teams, design sessions and templates, and invite athletes. Athletes join via invite code and access their team's content.
+
+## Project Naming
+
+| Context | Name | Rationale |
+|---|---|---|
+| Product branding (UI, documentation, user-facing text) | **Mettle Performance** | The product name shown to coaches, athletes, and evaluators |
+| Repository and infrastructure (paths, Docker images, service IDs, Vercel URLs) | **mbs-football** | The original project codename; changing it would break deployment URLs, CI pipelines, and git history |
+
+The repository was created under the working title "MBS Football" during early development. The product was later branded **Mettle Performance** for its public-facing identity. Both names coexist intentionally: the codebase and infrastructure retain the original codename, while all user-visible surfaces use the product name.
 
 ---
 
