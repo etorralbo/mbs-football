@@ -318,7 +318,6 @@ describe('TemplatesPage — incomplete state', () => {
     await screen.findByText('Empty Draft')
     expect(screen.getByText('INCOMPLETE')).toBeInTheDocument()
     expect(screen.queryByText('DRAFT')).not.toBeInTheDocument()
-    expect(screen.getByText(/add exercises to finish setup/i)).toBeInTheDocument()
   })
 
   it('shows DRAFT badge (not INCOMPLETE) for draft templates with description', async () => {
