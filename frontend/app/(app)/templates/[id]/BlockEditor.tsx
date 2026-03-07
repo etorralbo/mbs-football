@@ -262,7 +262,7 @@ function SetTable({ item, onDeleted, onItemUpdated }: SetTableProps) {
         onClick={addSet}
         disabled={saving}
         aria-label={`Add set to ${item.exercise.name}`}
-        className="mt-2"
+        className="mt-4 px-4 py-2"
       >
         Add set
       </DashedActionButton>
