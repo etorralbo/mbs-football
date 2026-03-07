@@ -20,7 +20,12 @@ interface Props {
 
 function prescriptionText(p: Record<string, unknown>): string {
   const parts: string[] = []
-  if (p.sets) parts.push(`${p.sets} sets`)
+  if (Array.isArray(p.sets)) {
+    const count = p.sets.length
+    parts.push(`${count} ${count === 1 ? 'set' : 'sets'}`)
+  } else if (p.sets) {
+    parts.push(`${p.sets} sets`)
+  }
   if (p.reps) parts.push(`${p.reps} reps`)
   if (p.weight) parts.push(`@ ${p.weight} kg`)
   else if (p.load) parts.push(`@ ${p.load}`)
