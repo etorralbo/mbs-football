@@ -169,13 +169,15 @@ function NewTemplateDrawer({ onCreated, onClose }: NewTemplateDrawerProps) {
 function StatusBadge({ status }: { status: 'draft' | 'published' }) {
   if (status === 'published') {
     return (
-      <span className="rounded-full border border-green-500/20 bg-green-500/10 px-2.5 py-0.5 text-[10px] font-bold text-green-400">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-0.5 text-[10px] font-bold tracking-wide text-emerald-400">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
         PUBLISHED
       </span>
     )
   }
   return (
-    <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-400">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-500/25 bg-slate-500/10 px-3 py-0.5 text-[10px] font-bold tracking-wide text-slate-400">
+      <span className="h-1.5 w-1.5 rounded-full bg-slate-500" aria-hidden="true" />
       DRAFT
     </span>
   )
@@ -326,7 +328,8 @@ function TemplateCard({
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           {incomplete ? (
-            <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-0.5 text-[10px] font-bold tracking-wide text-amber-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden="true" />
               INCOMPLETE
             </span>
           ) : (
