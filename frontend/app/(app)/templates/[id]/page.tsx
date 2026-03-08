@@ -349,7 +349,7 @@ export default function TemplateDetailPage() {
   return (
     <div className="mx-auto max-w-4xl">
       {/* ── Sticky header ── */}
-      <div className="sticky top-0 z-30 -mx-4 border-b border-slate-800 bg-slate-950/80 px-4 pb-4 pt-4 backdrop-blur">
+      <div className="-mx-4 border-b border-slate-800 bg-slate-950/80 px-4 pb-3 pt-3 md:sticky md:top-0 md:z-30 md:pb-4 md:pt-4 md:backdrop-blur">
         {/* Breadcrumb */}
         <div className="flex min-w-0 items-center gap-2">
           <Link href="/templates" className="shrink-0 text-xs text-slate-500 hover:text-slate-300">
@@ -360,7 +360,7 @@ export default function TemplateDetailPage() {
         </div>
 
         {/* Title area */}
-        <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div className="mt-2 flex flex-col gap-2 md:mt-3 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0 flex-1 space-y-1">
             <div className={`flex min-w-0 items-center gap-2${editMode ? ' group' : ''}`}>
               {editMode ? (
@@ -496,7 +496,7 @@ export default function TemplateDetailPage() {
 
         {/* Block jump navigation chips */}
         {template.blocks.length > 0 && (
-          <nav aria-label="Block navigation" className="mt-3 flex min-w-0 flex-wrap gap-2">
+          <nav aria-label="Block navigation" className="mt-2 flex min-w-0 flex-wrap gap-2 md:mt-3">
             {template.blocks.map((block, idx) => (
               <button
                 key={block.id}
