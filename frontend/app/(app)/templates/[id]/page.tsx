@@ -486,7 +486,7 @@ export default function TemplateDetailPage() {
             className="mt-3 rounded-2xl border border-amber-800/40 bg-amber-900/20 px-5 py-3"
           >
             <p className="text-sm font-medium text-amber-400">
-              This template is already used in athlete sessions.
+              This template is published.
             </p>
             <p className="mt-0.5 text-sm text-amber-400/70">
               Changes you make will only affect future assignments. Existing sessions will remain unchanged.
