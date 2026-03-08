@@ -496,14 +496,14 @@ export default function TemplateDetailPage() {
 
         {/* Block jump navigation chips */}
         {template.blocks.length > 0 && (
-          <nav aria-label="Block navigation" className="mt-3 flex min-w-0 gap-2 overflow-x-auto">
+          <nav aria-label="Block navigation" className="mt-3 flex min-w-0 flex-wrap gap-2">
             {template.blocks.map((block, idx) => (
               <button
                 key={block.id}
                 onClick={() =>
                   document.getElementById(`block-${block.id}`)?.scrollIntoView({ behavior: 'smooth' })
                 }
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800/60 px-3 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800/60 px-3 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
               >
                 <span
                   className="inline-block h-2 w-2 rounded-full"
