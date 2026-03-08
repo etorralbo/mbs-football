@@ -66,16 +66,23 @@ export function ExerciseCard({
   const isAlreadyDone = sortedSets.every((s) => s.draft.done)
 
   // Saves all logged entries for this exercise, then dispatches the given action.
-  // If there is nothing to save (all fields empty), skips the API call.
+  // Includes sets that have data, are already done (must be re-sent because the
+  // backend replaces all entries atomically), or are being marked done by this action.
   async function saveThenDispatch(action: DraftAction) {
+    const isMarkingAll = action.type === 'MARK_DONE'
+    const markingSet = action.type === 'MARK_SET_DONE' ? action.setNumber : null
+
     const validEntries = sortedSets
+      .filter(({ setNumber, draft }) => {
+        const hasData = parseOpt(draft.reps) !== null || parseOpt(draft.weight) !== null || parseOpt(draft.rpe) !== null
+        return hasData || draft.done || isMarkingAll || setNumber === markingSet
+      })
       .map(({ setNumber, draft }) => ({
         set_number: setNumber,
         reps: parseOpt(draft.reps),
         weight: parseOpt(draft.weight),
         rpe: parseOpt(draft.rpe),
       }))
-      .filter((e) => e.reps !== null || e.weight !== null || e.rpe !== null)
 
     setError(null)
     setSaving(true)

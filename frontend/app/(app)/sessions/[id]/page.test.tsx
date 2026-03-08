@@ -461,6 +461,70 @@ describe('SessionDetailPage — Auto-save on complete', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Mark-done persistence — sets marked done must be persisted even with empty values
+// ---------------------------------------------------------------------------
+
+describe('SessionDetailPage — Mark-done persistence', () => {
+  it('sends PUT /logs when athlete marks a set done with empty values', async () => {
+    // UNDONE_EXECUTION has prescription: {} → 1 set with all-empty defaults
+    mockRequest
+      .mockResolvedValueOnce(UNDONE_EXECUTION) // GET /execution
+      .mockResolvedValueOnce(undefined)        // PUT /logs
+
+    render(<SessionDetailPage />)
+
+    // Wait for hydration — 3 inputs (reps, weight, rpe) for the single set
+    await waitFor(() => {
+      expect(screen.getAllByRole('spinbutton')).toHaveLength(3)
+    })
+
+    // Mark set 1 done without entering any values
+    fireEvent.click(screen.getByRole('button', { name: /mark set 1 done/i }))
+
+    // PUT /logs must be called (the set is persisted even with null values)
+    await waitFor(() => {
+      const putCalls = mockRequest.mock.calls.filter(
+        (call) =>
+          (call[0] as string).includes('/logs') &&
+          (call[1] as Record<string, string>)?.method === 'PUT',
+      )
+      expect(putCalls).toHaveLength(1)
+
+      const body = JSON.parse(putCalls[0][1].body as string)
+      expect(body.exercise_id).toBe('ex-1')
+      expect(body.entries).toHaveLength(1)
+      expect(body.entries[0].set_number).toBe(1)
+    })
+  })
+
+  it('coach sees done badge after athlete marks set done with empty values', async () => {
+    // Simulate: athlete marked set done with null values → backend stored a log entry
+    const EMPTY_DONE_EXECUTION: SessionExecution = {
+      ...EMPTY_EXECUTION,
+      blocks: [{
+        name: 'Primary Strength', key: 'PRIMARY_STRENGTH', order: 0,
+        items: [{
+          exercise_id: 'ex-1', exercise_name: 'Squat', prescription: {},
+          logs: [{ set_number: 1, reps: null, weight: null, rpe: null, done: true }],
+        }],
+      }],
+    }
+
+    mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
+    mockRequest.mockResolvedValueOnce(EMPTY_DONE_EXECUTION)
+
+    render(<SessionDetailPage />)
+
+    await screen.findByText('Squat')
+
+    // Coach should see the set-level done indicator
+    expect(screen.getByLabelText('Set 1 done')).toBeInTheDocument()
+    // And the exercise-level Done badge
+    expect(screen.getByText('Done')).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Session isolation — execution values scoped to session instance
 // ---------------------------------------------------------------------------
 
