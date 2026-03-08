@@ -1,117 +1,195 @@
 # Mettle Performance
 
-A multi-tenant coaching and training platform. Coaches create teams, design sessions and templates, and invite athletes. Athletes join via invite link and access their team's content.
+A multi-tenant training and coaching platform designed to help coaches plan workouts, assign sessions to athletes, and track training execution in a structured environment.
 
-## Project Naming
+> **Note on repository name:** The repository is named `mbs-football` (the original working title). The product name is **Mettle Performance**. Both names coexist intentionally — infrastructure retains the codename while all user-facing surfaces use the product name.
 
-| Context | Name | Rationale |
+---
+
+## Quick Links
+
+- **Repository:** https://github.com/etorralbo/mbs-football
+- **Live demo:** <!-- TODO: add production URL -->
+- **Slides:** [`docs/slides.pdf`](docs/slides.pdf)
+- **API docs (local):** http://localhost:8000/docs
+
+---
+
+## TFM Evaluation Overview
+
+| Requirement | Section |
+|---|---|
+| Quick evaluation guide | [How to Evaluate This Project](#how-to-evaluate-this-project) |
+| Academic context | [Academic Context](#academic-context) |
+| Project description | [Project Description](#project-description) |
+| Main features | [Main Features](#main-features) |
+| Technology stack | [Technology Stack](#technology-stack) |
+| Architecture | [Architecture Overview](#architecture-overview) |
+| Project structure | [Project Structure](#project-structure) |
+| Installation and execution | [Running the Project Locally](#running-the-project-locally) |
+| Deployment / public URL | [Deployment](#deployment) |
+| Code repository | [This repository](.) |
+| Slides presentation | [Slides Presentation](#slides-presentation) |
+
+---
+
+## How to Evaluate This Project
+
+If you want to quickly review the functionality of the platform, follow these steps:
+
+1. Open the deployed application (see [Deployment](#deployment) section)
+2. Create a coach account at `/signup`
+3. Create a team
+4. Create a workout template (manually or using AI draft)
+5. Assign the template to an athlete
+6. Log in as the athlete and execute the workout
+7. Mark the session as completed
+8. Verify completion from the coach view
+
+This flow demonstrates the core lifecycle of the system:
+**Template creation → Assignment → Athlete execution → Completion tracking.**
+
+---
+
+## Academic Context
+
+This project was developed as the final Master's thesis (TFM).
+
+The objective was to design and implement a full-stack web application that demonstrates:
+
+- Multi-tenant SaaS architecture
+- Role-based access control
+- Modern web frontend development
+- REST API backend design
+- AI-assisted functionality integration
+- Automated testing strategies
+
+The project includes both a production-ready application and the full technical documentation required for evaluation.
+
+---
+
+## Project Description
+
+Mettle Performance is a web application designed for strength and conditioning coaches and their athletes. It solves the problem of planning, distributing, and tracking training sessions in a structured, multi-tenant environment.
+
+**Coaches** create a team, build an exercise library, design reusable workout templates (manually or with AI assistance), and assign sessions to individual athletes or the entire team. **Athletes** join a team via a secure invite link, view their assigned sessions, execute workouts, and log sets/reps/load in real time.
+
+The platform enforces strict role-based access control (COACH / ATHLETE) and multi-tenant isolation — every query is scoped to the authenticated user's team.
+
+---
+
+## Main Features
+
+### Coach capabilities
+
+- Create and manage a team
+- Build and maintain an exercise library (with tags, search, and favorites)
+- Design workout templates using a block-based editor
+- Generate workout templates using AI assistance (OpenAI-powered draft generation)
+- Assign templates to individual athletes or the entire team
+- Monitor athlete sessions and completion status
+- View activation funnel analytics (team-scoped product events)
+- Generate secure, time-limited invite links for athletes
+
+### Athlete capabilities
+
+- Join a team via a secure invite link
+- View assigned workout sessions
+- Execute sessions with a guided block-by-block interface
+- Log sets, reps, and load for each exercise
+- Mark sessions as completed
+
+---
+
+## AI Integration
+
+The platform includes an AI-assisted template creation feature (`POST /v1/workout-templates/from-ai`). When a coach provides a training goal (e.g. "upper body strength session"), the system:
+
+1. Sends the goal to an OpenAI-compatible chat API with a structured prompt
+2. The LLM generates a title and intent for each predefined block (Preparation to Movement, Plyometrics, Primary Strength, etc.)
+3. The backend performs keyword-based exercise matching against the team's exercise library — no LLM involvement in exercise selection
+4. Returns a complete draft template that the coach can review and edit before saving
+
+The AI layer is stateless and non-persistent: it generates a draft but never writes directly to the database.
+
+---
+
+## Technology Stack
+
+### Frontend
+
+| Technology | Version | Purpose |
 |---|---|---|
-| Product branding (UI, documentation, user-facing text) | **Mettle Performance** | The product name shown to coaches, athletes, and evaluators |
-| Repository and infrastructure (paths, Docker images, service IDs, Vercel URLs) | **mbs-football** | The original project codename; changing it would break deployment URLs, CI pipelines, and git history |
+| Next.js | 16.1.6 | React framework (App Router) |
+| React | 19.2.3 | UI library |
+| TypeScript | 5.x | Type safety |
+| Tailwind CSS | 4.x | Styling |
+| Vitest | 4.x | Unit and integration testing |
+| React Testing Library | 16.x | Component testing |
+| @dnd-kit | 6.x / 10.x | Drag-and-drop for template builder |
+| Recharts | 3.x | Analytics charts |
+| Supabase JS | 2.x | Authentication client |
 
-The repository was created under the working title "MBS Football" during early development. The product was later branded **Mettle Performance** for its public-facing identity. Both names coexist intentionally: the codebase and infrastructure retain the original codename, while all user-visible surfaces use the product name.
+### Backend
 
----
+| Technology | Version | Purpose |
+|---|---|---|
+| FastAPI | 0.115.6 | Web framework |
+| SQLAlchemy | 2.0.36 | ORM |
+| Alembic | 1.14.0 | Database migrations |
+| PostgreSQL | 16 | Database |
+| Pydantic | 2.10.3 | Request/response validation |
+| PyJWT | 2.10.1 | JWT verification (ES256 + JWKS) |
+| OpenAI SDK | 1.57.4 | AI template draft generation |
+| psycopg | 3.2.3 | PostgreSQL driver |
+| pytest | 9.x | Testing |
+| Python | 3.12+ | Runtime |
 
-## Table of Contents
+### Infrastructure
 
-1. [Architecture](#architecture)
-2. [Activation Strategy & Product Analytics](#activation-strategy--product-analytics)
-3. [Project Structure](#project-structure)
-4. [Environments](#environments)
-5. [Development Workflow](#development-workflow)
-6. [Database Migrations](#database-migrations)
-7. [Environment Variables](#environment-variables)
-8. [API Reference](#api-reference)
-9. [Production Smoke Test Checklist](#production-smoke-test-checklist)
-10. [Security Principles](#security-principles)
-11. [Golden Rules](#golden-rules)
-
----
-
-## Architecture
-
-```
-                        ┌─────────────────────────────┐
-                        │         Supabase Auth         │
-                        │   (email/password, JWKS/JWT)  │
-                        └───────────┬─────────────────┘
-                                    │ access_token (ES256)
-                    ┌───────────────▼───────────────┐
-                    │         Frontend (Vercel)       │
-                    │   Next.js 16 · App Router       │
-                    │   TypeScript · Tailwind CSS     │
-                    └───────────────┬───────────────┘
-                                    │ Bearer <token>
-                    ┌───────────────▼───────────────┐
-                    │         Backend (Render)        │
-                    │   FastAPI · SQLAlchemy 2.0      │
-                    │   Clean architecture layers     │
-                    └───────────────┬───────────────┘
-                                    │ SQLAlchemy ORM
-                    ┌───────────────▼───────────────┐
-                    │         PostgreSQL 16           │
-                    │   (Render managed / local)      │
-                    └───────────────────────────────┘
-```
-
-### Authentication flow
-
-1. User authenticates with Supabase (signup or login).
-2. Supabase issues a signed JWT (`access_token`). The `sub` claim holds the Supabase user UUID.
-3. The frontend stores the session in the Supabase JS client (localStorage/cookies) and attaches `Authorization: Bearer <token>` to every API call via `httpClient.ts`.
-4. The backend fetches Supabase's public JWKS once and caches it for 10 minutes. Every request is validated against that key set — no Supabase SDK dependency on the backend.
-5. `get_auth_user_id()` returns the UUID from `sub` (works before onboarding). `get_current_user()` additionally loads the `UserProfile` row and returns a `CurrentUser` dataclass with role + team context.
-
-### Multi-tenant isolation
-
-All domain tables carry a `team_id` column. Every query in the service/use-case layer filters by the `team_id` derived from the authenticated user's `UserProfile`, never from client input.
-
-### RBAC
-
-Two roles: `COACH` and `ATHLETE`. Roles are stored server-side in `memberships` (and mirrored in `user_profiles` for backward compatibility). The client never sends its own role.
+| Service | Platform | Purpose |
+|---|---|---|
+| Frontend hosting | Vercel | Auto-deploy on push to `main` |
+| Backend hosting | Render | Docker-based web service |
+| Database | Render | Managed PostgreSQL 16 |
+| Authentication | Supabase | Email/password auth, JWT (ES256) |
+| Local development | Docker Compose | Full-stack local environment |
 
 ---
 
-## Activation Strategy & Product Analytics
+## Architecture Overview
 
-The MVP is designed around a measurable activation funnel, not only feature completeness.
-
-### North Star Metric
-
-> Percentage of users reaching `SESSION_COMPLETED` within 48 hours of signup.
-
-This ensures the platform is evaluated not only by functionality, but by successful onboarding and real usage.
-
-### Tracked Product Events
-
-The backend persists product events in a dedicated `product_events` table:
-
-- `TEAM_CREATED`
-- `INVITE_ACCEPTED`
-- `SESSION_COMPLETED`
-
-Design principles:
-
-- Server-side tracking only (no public event endpoint)
-- Transactional (event is written in the same DB transaction as the business action)
-- Multi-tenant scoped (`team_id`)
-- Auth identity scoped (`supabase_user_id`)
-- Append-only table (immutable rows)
-- PostgreSQL native ENUM (`funnel_event`)
-- JSONB metadata (no PII stored)
-
-This allows computing activation and conversion metrics directly from PostgreSQL without external analytics tools.
-
-### Funnel Example Query
-
-```sql
-SELECT event_name, COUNT(DISTINCT user_id)
-FROM product_events
-GROUP BY event_name;
+```
+                    ┌─────────────────────────────┐
+                    │         Supabase Auth         │
+                    │   (email/password, JWKS/JWT)  │
+                    └───────────┬─────────────────┘
+                                │ access_token (ES256)
+                ┌───────────────▼───────────────┐
+                │         Frontend (Vercel)       │
+                │   Next.js 16 · App Router       │
+                │   TypeScript · Tailwind CSS     │
+                └───────────────┬───────────────┘
+                                │ Bearer <token>
+                ┌───────────────▼───────────────┐
+                │         Backend (Render)        │
+                │   FastAPI · SQLAlchemy 2.0      │
+                │   Clean architecture layers     │
+                └───────────────┬───────────────┘
+                                │ SQLAlchemy ORM
+                ┌───────────────▼───────────────┐
+                │         PostgreSQL 16           │
+                │   (Render managed / local)      │
+                └───────────────────────────────┘
 ```
 
-This provides a minimal but production-grade funnel measurement layer.
+The backend follows a three-layer clean architecture:
+
+- **Transport** (`transport/http/v1/`): FastAPI route handlers — request parsing, dependency injection, HTTP error mapping
+- **Domain** (`domain/use_cases/`): Business logic — one class per use case, no framework dependencies
+- **Persistence** (`persistence/repositories/`): Database access — abstract interfaces + SQLAlchemy implementations
+
+Authentication flow: Users authenticate via Supabase → the frontend attaches a Bearer token to every API call → the backend verifies the JWT against Supabase's public JWKS (no Supabase SDK dependency on the backend). Multi-tenant isolation is enforced by resolving `team_id` from the authenticated user's profile on every request.
 
 ---
 
@@ -121,59 +199,48 @@ This provides a minimal but production-grade funnel measurement layer.
 mbs-football/
 ├── backend/                  FastAPI application
 │   ├── app/
-│   │   ├── api/v1/           Route registration (router.py)
-│   │   ├── core/             Config, dependencies, security (JWT/JWKS)
+│   │   ├── api/v1/           Route registration
+│   │   ├── core/             Config, dependencies, security (JWT/JWKS), AI client
 │   │   ├── db/               SQLAlchemy engine + session factory
 │   │   ├── domain/
-│   │   │   └── use_cases/    Business logic (one class per use case)
+│   │   │   ├── use_cases/    Business logic (one class per use case)
+│   │   │   └── events/       Product analytics events
 │   │   ├── models/           SQLAlchemy ORM models
 │   │   ├── persistence/
 │   │   │   └── repositories/ DB access (abstract + SQLAlchemy impl)
 │   │   ├── schemas/          Pydantic v2 request/response schemas
+│   │   ├── services/         AI template generation service
 │   │   ├── transport/http/v1 FastAPI route handlers (thin layer)
 │   │   └── main.py           Application entry point
-│   ├── alembic/              Migration scripts
+│   ├── alembic/              Database migration scripts
+│   ├── scripts/              Utility scripts (seed data, etc.)
 │   ├── tests/                pytest integration tests
 │   ├── Dockerfile
+│   ├── entrypoint.sh         Container startup (migrations + server)
 │   └── requirements.txt
 │
 ├── frontend/                 Next.js application
 │   ├── app/
 │   │   ├── (public)/         Unauthenticated routes: /login, /signup
-│   │   ├── (app)/            Authenticated routes: /onboarding, /create-team,
-│   │   │                     /join, /templates, /sessions
+│   │   ├── (app)/            Authenticated routes:
+│   │   │   ├── dashboard/      Coach analytics dashboard
+│   │   │   ├── exercises/      Exercise library (CRUD, tags, favorites)
+│   │   │   ├── templates/      Template builder (blocks, drag-and-drop, AI)
+│   │   │   ├── sessions/       Workout sessions (list + execution)
+│   │   │   ├── team/           Team management
+│   │   │   └── onboarding/     Role selection + team creation/join
 │   │   └── _shared/          Auth helpers, API client, shared components
 │   ├── vitest.config.ts
 │   └── Dockerfile
 │
-└── docker-compose.yml        Local full-stack environment
+├── docs/                     Architecture decision records
+├── docker-compose.yml        Local full-stack environment
+└── CLAUDE.md                 AI assistant instructions
 ```
 
 ---
 
-## Environments
-
-### Local development
-
-| Service    | URL                      | How it runs            |
-|------------|--------------------------|------------------------|
-| Frontend   | http://localhost:3000    | `npm run dev`          |
-| Backend    | http://localhost:8000    | `uvicorn` via Docker   |
-| PostgreSQL | localhost:5432           | Docker Compose         |
-| Supabase   | remote project           | shared dev project     |
-
-### Production
-
-| Service    | Platform  | Notes                                   |
-|------------|-----------|-----------------------------------------|
-| Frontend   | Vercel    | Auto-deploy on push to `main`           |
-| Backend    | Render    | Web Service, Docker-based               |
-| PostgreSQL | Render    | Managed Postgres 16                     |
-| Auth       | Supabase  | Production project (separate from dev)  |
-
----
-
-## Development Workflow
+## Running the Project Locally
 
 ### Prerequisites
 
@@ -181,320 +248,121 @@ mbs-football/
 - Node.js 20+
 - Python 3.12+
 
-### 1. Clone and configure
+### Backend setup
 
 ```bash
+# 1. Clone the repository
 git clone <repo-url>
 cd mbs-football
-cp backend/.env.example backend/.env   # fill in values (see Environment Variables)
-cp frontend/.env.local.example frontend/.env.local
-```
 
-### 2. Start the local stack
+# 2. Configure environment variables
+cp backend/.env.example backend/.env   # fill in Supabase URL and DATABASE_URL
 
-There are two modes depending on where you run the frontend:
-
-#### Option A — Full Docker stack (frontend + backend + DB)
-
-```bash
-docker compose up --build
-```
-
-The frontend container uses `NEXT_PUBLIC_API_BASE_URL=http://backend:8000`.
-Docker's internal DNS resolves `backend` to the correct container.
-Open http://localhost:3000.
-
-#### Option B — Local frontend + Dockerised backend/DB (recommended for fast HMR)
-
-```bash
-# 1. Start Postgres + backend in Docker
+# 3. Start PostgreSQL and backend via Docker
 docker compose up -d db backend
 
-# 2. Create frontend/.env.local so the browser can reach the backend
-echo "NEXT_PUBLIC_API_BASE_URL=http://localhost:8000" > frontend/.env.local
+# 4. Apply database migrations
+docker compose exec backend alembic upgrade head
 
-# 3. Run Next.js locally
+# 5. (Optional) Seed default exercises for AI draft suggestions
+docker compose exec backend python scripts/seed_default_exercises.py <team-uuid>
+
+# 6. Run backend tests
+docker compose up -d db
+cd backend && pytest -q
+```
+
+The backend runs at http://localhost:8000. API docs are available at http://localhost:8000/docs.
+
+#### Backend environment variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `DATABASE_URL` | Yes | PostgreSQL connection string (`postgresql+psycopg://...`) |
+| `SUPABASE_URL` | Yes | Supabase project URL |
+| `FRONTEND_URL` | No | Used to build invite URLs (default: `http://localhost:3000`) |
+| `ENV` | No | `local` or `production` (default: `local`) |
+
+### Frontend setup
+
+```bash
+# 1. Configure environment variables
+cp frontend/.env.local.example frontend/.env.local
+# Set NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+
+# 2. Install dependencies and start
 cd frontend
 npm install
 npm run dev
 ```
 
-Open http://localhost:3000.
-The backend is reachable at http://localhost:8000 (port mapped by Docker Compose).
+The frontend runs at http://localhost:3000.
 
-### 3. Apply migrations
+#### Frontend environment variables
 
-```bash
-cd backend
-alembic upgrade head
-```
-
-### 4. Run backend tests
-
-Tests use a dedicated `app_test` database on the same Docker Postgres instance.
-`conftest.py` loads `backend/.env.test` via python-dotenv before any app module is
-imported, so `DATABASE_URL=postgresql+psycopg://app:app@localhost:5432/app_test`
-takes effect before pydantic-settings reads it.
-
-`app_test` is provisioned automatically by the init script
-`backend/docker/postgres-init/01-create-test-db.sql`, which Postgres runs once
-when the `pgdata` volume is first created.
-
-**First time, or after changing init scripts — reset the volume:**
-
-```bash
-docker compose down -v          # destroys pgdata (all local data is lost)
-docker compose up -d db         # recreates volume + runs init scripts
-```
-
-**Normal workflow (volume already exists):**
-
-```bash
-docker compose up -d db         # only the db service is required
-cd backend && pytest -q
-```
-
-**Troubleshooting**
-
-| Symptom | Cause | Fix |
+| Variable | Required | Description |
 |---|---|---|
-| `password authentication failed for user "app"` | Another Postgres on port 5432 | `brew services stop postgresql@16` then `docker compose up -d db` |
-| `database "app_test" does not exist` | Volume predates the init script | `docker compose down -v && docker compose up -d db` |
-| `connection refused` | Docker not running or `db` service not started | `docker compose up -d db` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anonymous (public) key |
+| `NEXT_PUBLIC_API_BASE_URL` | Yes | Backend URL (`http://localhost:8000` locally) |
 
-### 5. Run frontend tests
-
-```bash
-cd frontend
-npm test           # run once
-npm run test:watch # watch mode
-```
-
-### 6. Seed default exercises (optional)
-
-If a team has 0 exercises, seed 30 curated sport-generic exercises so the AI draft can suggest them immediately.
-The script is idempotent — re-running it skips exercises that already exist.
+### Running tests
 
 ```bash
-# Get the team UUID first (from /v1/me response or the DB)
+# Backend tests
+cd backend && pytest -q
 
-# Local Docker stack
-docker compose exec backend \
-  python scripts/seed_default_exercises.py <team-uuid>
-
-# Local venv (backend/ directory)
-cd backend
-DATABASE_URL=postgresql+psycopg://app:app@localhost:5432/app \
-  python scripts/seed_default_exercises.py <team-uuid>
-```
-
-### 7. Lint and type-check
-
-```bash
-# Backend
-cd backend
-# (add ruff / mypy if configured)
-
-# Frontend
-cd frontend
-npm run lint
-npx tsc --noEmit
+# Frontend tests
+cd frontend && npm test
 ```
 
 ---
 
-## Database Migrations
+## Deployment
 
-### Strategy
+The application is deployed and publicly accessible.
+Evaluators can access the running system using the URLs below.
 
-- Migrations live in `backend/alembic/versions/`.
-- Every schema change requires a new migration file. Never edit an existing migration that has been applied to any environment.
-- Naming convention: `<short_hash>_<descriptive_slug>.py`.
+| Service | Platform | URL |
+|---|---|---|
+| Frontend | Vercel | <!-- TODO: add production URL --> |
+| Backend | Render | <!-- TODO: add production URL --> |
+| Database | Render | Managed PostgreSQL 16 |
+| Authentication | Supabase | Managed auth service |
 
-### Local
-
-```bash
-cd backend
-
-# Generate a new migration after changing a model
-alembic revision --autogenerate -m "describe_the_change"
-
-# Apply all pending migrations
-alembic upgrade head
-
-# Roll back one step
-alembic downgrade -1
-```
-
-### Production (Render)
-
-Render runs DB migrations on container startup via `entrypoint.sh` (`alembic upgrade head`). If the migration fails, the container exits and uvicorn never starts.
-
-`entrypoint.sh` (in `backend/`) is copied into the image by the Dockerfile and set as the container `CMD`. It runs:
-
-```
-alembic -c /app/alembic.ini upgrade head
-uvicorn app.main:app ...
-```
-
-> `DATABASE_URL` must be set as an environment variable in the Render service dashboard.
+- The **frontend** deploys automatically to Vercel on every push to `main`.
+- The **backend** runs as a Docker container on Render. On startup, `entrypoint.sh` runs `alembic upgrade head` before starting the server — if migrations fail, the container exits and the application never starts.
+- Environment variables (`DATABASE_URL`, `SUPABASE_URL`, etc.) are configured in each platform's dashboard.
 
 ---
 
-## Environment Variables
+## Demo Workflow
 
-### Backend — `backend/.env` (local) / Render env vars (production)
+To test the main functionality end-to-end:
 
-| Variable              | Required | Default              | Description                                         |
-|-----------------------|----------|----------------------|-----------------------------------------------------|
-| `DATABASE_URL`        | Yes      | —                    | PostgreSQL connection string (`postgresql+psycopg://...`) |
-| `SUPABASE_URL`        | Yes      | —                    | Supabase project URL (`https://<ref>.supabase.co`)  |
-| `SUPABASE_JWT_AUD`    | No       | `authenticated`      | Expected JWT audience claim                         |
-| `SUPABASE_JWT_ISSUER` | No       | derived from URL     | Expected JWT issuer claim                           |
-| `SUPABASE_JWKS_URL`   | No       | derived from URL     | JWKS endpoint for public key fetch                  |
-| `FRONTEND_URL`        | No       | `http://localhost:3000` | Used to build invite join URLs                   |
-| `ENV`                 | No       | `local`              | `local` or `production`                             |
-
-### Frontend — `frontend/.env.local` (local) / Vercel env vars (production)
-
-| Variable                        | Required | Description                                    |
-|---------------------------------|----------|------------------------------------------------|
-| `NEXT_PUBLIC_SUPABASE_URL`      | Yes      | Supabase project URL                           |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes      | Supabase anonymous (public) key                |
-| `NEXT_PUBLIC_API_BASE_URL`      | Yes      | Backend base URL (`http://localhost:8000` locally, Render URL in prod) |
-
-### Security rules
-
-- Never commit `.env` or `.env.local` files. Both are in `.gitignore`.
-- The Supabase `service_role` key must never appear in frontend code or environment variables.
-- Rotate secrets immediately if they are accidentally exposed.
+1. **Sign up** at `/signup` with an email and password
+2. **Choose role**: select "I'm a coach" on the onboarding screen
+3. **Create a team**: enter a team name on `/create-team`
+4. **Add exercises**: go to `/exercises` and create exercises (or seed defaults via the script)
+5. **Create a template**: go to `/templates`, create a new template — either manually using the block editor or via "AI Draft" by providing a training goal
+6. **Invite an athlete**: go to `/team`, generate an invite link, and share it
+7. **Athlete joins**: the athlete signs up and visits the invite link to join the team
+8. **Assign a session**: back as coach, assign the template to the athlete (or the whole team)
+9. **Execute the session**: as the athlete, go to `/sessions`, open the assigned session, log sets/reps/load, and mark it as completed
+10. **Review**: as the coach, verify the session shows as completed in the sessions list
 
 ---
 
-## API Reference
+## Slides Presentation
 
-All API endpoints are prefixed with `/v1`, except the public health check at `/health`.
+<!-- TODO: add link to the slides file once included in the repository -->
 
-### Auth-free
-
-| Method | Path      | Description                  |
-|--------|-----------|------------------------------|
-| GET    | `/health` | Liveness probe               |
-
-### Require valid JWT (`get_auth_user_id` — no UserProfile needed)
-
-| Method | Path                  | Role  | Description                        |
-|--------|-----------------------|-------|------------------------------------|
-| GET    | `/v1/me`              | Any   | Current user memberships           |
-| POST   | `/v1/teams`           | —     | Create team + become COACH         |
-| POST   | `/v1/team-invites`                | COACH | Generate invite token for a team         |
-| POST   | `/v1/team-invites/{token}/accept` | —     | Accept invite token, become ATHLETE      |
-
-### Require UserProfile (`get_current_user`)
-
-| Method | Path                                          | Role    | Description                              |
-|--------|-----------------------------------------------|---------|------------------------------------------|
-| GET    | `/v1/analytics/funnel`                        | COACH   | Team-scoped funnel metrics               |
-| GET    | `/v1/exercises`                               | Any     | List exercises (team-scoped)             |
-| POST   | `/v1/exercises`                               | COACH   | Create exercise                          |
-| GET    | `/v1/exercises/{id}`                          | Any     | Get exercise                             |
-| PATCH  | `/v1/exercises/{id}`                          | COACH   | Update exercise                          |
-| DELETE | `/v1/exercises/{id}`                          | COACH   | Delete exercise                          |
-| GET    | `/v1/workout-templates`                       | Any     | List templates (team-scoped)             |
-| POST   | `/v1/workout-templates`                       | COACH   | Create template                          |
-| POST   | `/v1/workout-templates/from-ai`               | COACH   | Create template via AI draft             |
-| POST   | `/v1/workout-assignments`                     | COACH   | Assign template to athlete(s) or team    |
-| GET    | `/v1/workout-sessions`                        | Any     | List sessions (athlete: own; coach: all) |
-| PATCH  | `/v1/workout-sessions/{id}/complete`          | ATHLETE | Mark session as completed                |
-| GET    | `/v1/workout-sessions/{id}/execution`         | Any     | Session execution view (blocks + logs)   |
-| PUT    | `/v1/workout-sessions/{id}/logs`              | ATHLETE | Save set logs for an exercise            |
-| GET    | `/v1/athletes`                                | COACH   | List athletes in the team                |
-
-## Production Smoke Test Checklist
-
-Run this checklist after every production deploy.
-
-### Auth
-
-- [ ] `GET /health` returns `200 OK`
-- [ ] `GET /v1/me` without a token returns `401`
-- [ ] `GET /v1/me` with an expired token returns `401`
-
-### COACH flow
-
-- [ ] New user can sign up at `/signup`
-- [ ] After signup, redirect lands on `/onboarding`
-- [ ] `/onboarding` shows "I'm a coach" and "I'm an athlete" CTAs
-- [ ] Clicking "I'm a coach" navigates to `/create-team`
-- [ ] Submitting the create-team form redirects to `/team`
-- [ ] `GET /v1/me` returns the new team in `memberships` with role `COACH`
-- [ ] Attempting to create a second team returns `409`
-
-### ATHLETE flow
-
-- [ ] Coach generates an invite token via `POST /v1/team-invites`
-- [ ] New athlete signs up and visits `/join/<token>`
-- [ ] Submitting the join form redirects to `/sessions`
-- [ ] `GET /v1/me` returns the team in `memberships` with role `ATHLETE`
-- [ ] Submitting the same invite token a second time returns `409` (already used)
-- [ ] Submitting an expired invite token returns `410`
-
-### Returning user
-
-- [ ] Existing user with memberships is redirected from `/onboarding` to `/templates`
-- [ ] Sign out from the NavBar clears the session and redirects to `/login`
-
-### Sessions & workout flow
-
-- [ ] Coach can assign a template to an athlete via `POST /v1/workout-assignments`
-- [ ] Assigned session appears in `GET /v1/workout-sessions` for both coach and athlete
-- [ ] Coach session list includes `athlete_name` to distinguish between athletes
-- [ ] Athlete can log sets via `PUT /v1/workout-sessions/{id}/logs`
-- [ ] Athlete can mark session complete via `PATCH /v1/workout-sessions/{id}/complete`
-- [ ] Coach sees the session as read-only (no "Start session" / no "Mark as completed")
-
-### Multi-tenant isolation
-
-- [ ] Coach from Team A cannot read exercises belonging to Team B
-- [ ] Athlete cannot create or delete exercises (`403`)
-- [ ] Athlete cannot see sessions belonging to other teams
+The slides for the TFM presentation are available at: `docs/slides.pdf`
 
 ---
 
-## Security Principles
+## Author
 
-1. **JWT verified server-side.** The backend fetches Supabase's JWKS and validates every token locally. No token is trusted on face value.
+Estibaliz Torralbo
 
-2. **No client-supplied roles.** User role is determined from `memberships` on the server. The request body never contains `role`.
-
-3. **Team ID from auth context, not request body.** `team_id` is always resolved from `get_current_user()`. Client input is ignored for tenant resolution.
-
-4. **Least privilege by default.** New dependencies return the minimum information needed. `get_auth_user_id()` grants pre-onboarding access only. Full data access requires `get_current_user()`.
-
-5. **Invite codes are unguessable.** Codes are generated with `secrets.token_urlsafe(18)` (24 characters of base64url-safe entropy, ~108 bits). Codes are single-use and support optional expiry.
-
-6. **Idempotent membership creation.** Accepting an invite twice is safe: the second call returns the existing membership without creating duplicate rows.
-
-7. **No secret leakage.** The Supabase `service_role` key is never used in the backend or frontend. JWT validation uses the public JWKS endpoint only.
-
-8. **Input validation at the boundary.** Pydantic v2 schemas validate all incoming data at the transport layer. Internal layers trust validated types.
-
----
-
-## Golden Rules
-
-1. **Tests before code.** Write a failing test, then write the minimum code to make it pass. Never merge untested behaviour.
-
-2. **Small, safe commits.** Each commit represents one coherent change. Never commit secrets, never commit broken code.
-
-3. **Backend owns tenant context.** If a piece of data could be spoofed by the client to access another user's data, it must be server-resolved.
-
-4. **Migrations are append-only.** Never modify a migration that has been applied to any shared environment. Add a new migration instead.
-
-5. **One source of truth.** Environment variables live in `.env` (backend) and `.env.local` (frontend) locally, and in the hosting platform's secrets manager in production. They are never duplicated in code.
-
-6. **Prefer explicit over implicit.** Dependency injection (`Depends(...)`) makes security requirements visible at the function signature. Avoid middleware-based auth that hides the contract.
-
-7. **Fail closed.** When in doubt about authorization, return `403`. Do not expose data because an edge case was not considered.
-
-8. **No auto-commits.** Commits are made manually at meaningful milestones, with a descriptive message. Automated tooling never pushes to `main` without review.
+Master's Thesis (TFM) — 2026
