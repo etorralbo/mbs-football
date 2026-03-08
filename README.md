@@ -15,6 +15,12 @@ A multi-tenant training and coaching platform designed to help coaches plan work
 
 ---
 
+## Notes for Evaluators
+
+The deployed backend uses free-tier hosting. If the application has been inactive, the first request may take a few extra seconds due to cold start. Subsequent interactions are faster once the service is active.
+
+---
+
 ## TFM Evaluation Overview
 
 | Requirement | Section |
