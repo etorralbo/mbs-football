@@ -68,13 +68,15 @@ export default function SessionDetailPage() {
       const savePromises: Promise<unknown>[] = []
       for (const [exerciseId, sets] of Object.entries(draft)) {
         const entries = Object.entries(sets)
+          .filter(([, s]) =>
+            parseOpt(s.reps) !== null || parseOpt(s.weight) !== null || parseOpt(s.rpe) !== null || s.done
+          )
           .map(([setNum, s]) => ({
             set_number: Number(setNum),
             reps: parseOpt(s.reps),
             weight: parseOpt(s.weight),
             rpe: parseOpt(s.rpe),
           }))
-          .filter((e) => e.reps !== null || e.weight !== null || e.rpe !== null)
 
         if (entries.length > 0) {
           savePromises.push(
