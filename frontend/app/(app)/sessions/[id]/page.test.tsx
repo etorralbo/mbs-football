@@ -421,8 +421,9 @@ describe('SessionDetailPage — Auto-save on complete', () => {
 
     // No PUT /logs should have been called (only GET + PATCH)
     const putCalls = mockRequest.mock.calls.filter(
-      ([url, opts]: [string, Record<string, string>]) =>
-        url.includes('/logs') && opts?.method === 'PUT',
+      (call) =>
+        (call[0] as string).includes('/logs') &&
+        (call[1] as Record<string, string>)?.method === 'PUT',
     )
     expect(putCalls).toHaveLength(0)
   })
