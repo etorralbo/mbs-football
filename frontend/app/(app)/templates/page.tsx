@@ -588,7 +588,7 @@ export default function TemplatesPage() {
       )}
 
       {/* Empty state */}
-      {!loading && !error && templates.length === 0 && (
+      {!loading && !error && templates.length === 0 && !showDrawer && !showAiPanel && (
         role === 'ATHLETE' ? (
           <EmptyState
             title="No templates yet"
