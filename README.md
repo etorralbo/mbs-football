@@ -372,7 +372,7 @@ To test the main functionality end-to-end:
 
 <!-- TODO: add link to the slides file once included in the repository -->
 
-The slides for the TFM presentation are available at: `docs/slides.pdf`
+The slides for the TFM presentation are available at: `docs/08032026_MettlePerformance_Sliders.pdf`
 
 ---
 
