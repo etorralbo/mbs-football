@@ -37,17 +37,26 @@ A multi-tenant training and coaching platform designed to help coaches plan work
 
 If you want to quickly review the functionality of the platform, follow these steps:
 
-1. Open the deployed application (see [Deployment](#deployment) section)
-2. Create a coach account at `/signup`
-3. Create a team
-4. Create a workout template (manually or using AI draft)
-5. Assign the template to an athlete
-6. Log in as the athlete and execute the workout
-7. Mark the session as completed
-8. Verify completion from the coach view
+1. Open the deployed application (see [Deployment](#deployment) section).
+2. Create a **coach account** at `/signup`.
+3. Create a **team**.
+4. Create a **workout template** (manually or using the **AI draft** feature).
+
+5. Go to the **Team** section and **invite an athlete using their email address**.
+6. Open the invite link (or use another browser/incognito window) and **register the athlete using the same email from the invitation**.  
+   The athlete will automatically join the team.
+7. Switch back to the **coach account**.
+8. **Assign the template** to the athlete.
+
+9. Log in as the **athlete** and open the assigned session in **/sessions**.
+10. **Execute the workout**, logging sets/reps/load.
+11. **Mark the session as completed**.
+
+12. Switch back to the **coach account** and verify that the **session appears as completed**.
 
 This flow demonstrates the core lifecycle of the system:
-**Template creation → Assignment → Athlete execution → Completion tracking.**
+
+**Template creation → Athlete invitation → Session assignment → Workout execution → Completion tracking.**
 
 ---
 
