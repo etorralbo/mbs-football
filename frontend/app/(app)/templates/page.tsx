@@ -564,7 +564,7 @@ export default function TemplatesPage() {
         ) : undefined}
       />
 
-      {showAiPanel && <AiDraftPanel />}
+      {showAiPanel && <div className="mb-8"><AiDraftPanel /></div>}
 
       {/* Loading */}
       {loading && (
