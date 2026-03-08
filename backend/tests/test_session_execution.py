@@ -66,12 +66,16 @@ def template_a(db_session: Session, team_a, exercise_team_a, exercise_b):
     db_session.add(BlockExercise(
         id=uuid.uuid4(), workout_block_id=block0.id,
         exercise_id=exercise_team_a.id, order_index=0,
-        prescription_json={"sets": 3, "reps": "5", "load": "85%"},
+        prescription_json={"sets": [
+            {"order": 0, "reps": 5, "weight": 85.0},
+            {"order": 1, "reps": 5, "weight": 85.0},
+            {"order": 2, "reps": 5, "weight": 85.0},
+        ]},
     ))
     db_session.add(BlockExercise(
         id=uuid.uuid4(), workout_block_id=block1.id,
         exercise_id=exercise_b.id, order_index=0,
-        prescription_json={"duration": "60s"},
+        prescription_json={"sets": [{"order": 0}], "duration": "60s"},
     ))
     db_session.commit()
     db_session.refresh(tpl)
@@ -274,7 +278,8 @@ class TestSessionExecutionShape:
 
         primary_block = next(b for b in data["blocks"] if b["name"] == "Primary Strength")
         item = primary_block["items"][0]
-        assert item["prescription"] == {"sets": 3, "reps": "5", "load": "85%"}
+        assert item["prescription"]["sets"][0]["reps"] == 5
+        assert item["prescription"]["sets"][0]["weight"] == 85.0
 
 
 # ---------------------------------------------------------------------------
@@ -404,3 +409,144 @@ class TestSessionExecutionLogMerge:
         item = next(i for i in primary_block["items"] if i["exercise_id"] == str(exercise_team_a.id))
         set_numbers = [s["set_number"] for s in item["logs"]]
         assert set_numbers == sorted(set_numbers)
+
+
+# ---------------------------------------------------------------------------
+# Tests — Template isolation (execution logs do NOT leak into template)
+# ---------------------------------------------------------------------------
+
+class TestSessionExecutionTemplateIsolation:
+    """After an athlete logs sets in a session, the source template must remain unchanged."""
+
+    def test_template_prescription_unchanged_after_execution_log(
+        self, client: TestClient, mock_jwt, coach_a,
+        session_a_with_log, template_a, exercise_team_a,
+    ):
+        """GET /workout-templates/{id} returns original prescription, NOT logged values."""
+        mock_jwt(str(coach_a.supabase_user_id))
+
+        # Verify execution view has the athlete's logged values
+        exec_data = client.get(
+            f"/v1/workout-sessions/{session_a_with_log.id}/execution",
+            headers=HEADERS,
+        ).json()
+        primary_block = next(b for b in exec_data["blocks"] if b["name"] == "Primary Strength")
+        exec_item = next(i for i in primary_block["items"] if i["exercise_id"] == str(exercise_team_a.id))
+        assert len(exec_item["logs"]) == 2
+        assert exec_item["logs"][0]["reps"] == 5
+        assert exec_item["logs"][0]["weight"] == 100.0
+
+        # Now fetch the template — it must show only the original prescription
+        tpl_data = client.get(
+            f"/v1/workout-templates/{template_a.id}",
+            headers=HEADERS,
+        ).json()
+        tpl_block = next(b for b in tpl_data["blocks"] if b["name"] == "Primary Strength")
+        tpl_item = tpl_block["items"][0]
+        # Template returns prescribed sets, NOT execution logs
+        assert "logs" not in tpl_item
+        # Prescribed values are unchanged (reps=5, weight=85 — not the logged 100.0)
+        assert tpl_item["sets"][0]["reps"] == 5
+        assert tpl_item["sets"][0]["weight"] == 85.0
+
+
+# ---------------------------------------------------------------------------
+# Tests — Session-scoped execution (two sessions from same template)
+# ---------------------------------------------------------------------------
+
+class TestSessionExecutionScopeIsolation:
+    """Execution logs are scoped to the session instance, not shared across sessions."""
+
+    @pytest.fixture
+    def athlete_a2(self, db_session: Session, team_a):
+        """Second athlete in team A."""
+        athlete = UserProfile(
+            id=uuid.uuid4(), supabase_user_id=uuid.uuid4(),
+            team_id=team_a.id, role=Role.ATHLETE, name="Athlete A2",
+        )
+        db_session.add(athlete)
+        db_session.flush()
+        db_session.add(Membership(
+            id=uuid.uuid4(), user_id=athlete.supabase_user_id,
+            team_id=team_a.id, role=Role.ATHLETE,
+        ))
+        db_session.commit()
+        db_session.refresh(athlete)
+        return athlete
+
+    @pytest.fixture
+    def session_b(self, db_session: Session, assignment_a, athlete_a2, template_a):
+        """Second session from the same assignment for athlete_a2."""
+        sess = WorkoutSession(
+            id=uuid.uuid4(), assignment_id=assignment_a.id,
+            athlete_id=athlete_a2.id, workout_template_id=template_a.id,
+        )
+        db_session.add(sess)
+        db_session.commit()
+        return sess
+
+    def test_logs_scoped_to_session_instance(
+        self, client: TestClient, mock_jwt, coach_a, db_session: Session,
+        session_a_with_log, session_b, exercise_team_a, team_a,
+    ):
+        """session_a has logs; session_b (same template) must have empty logs."""
+        mock_jwt(str(coach_a.supabase_user_id))
+
+        # Session A: has logged sets
+        data_a = client.get(
+            f"/v1/workout-sessions/{session_a_with_log.id}/execution",
+            headers=HEADERS,
+        ).json()
+        block_a = next(b for b in data_a["blocks"] if b["name"] == "Primary Strength")
+        item_a = next(i for i in block_a["items"] if i["exercise_id"] == str(exercise_team_a.id))
+        assert len(item_a["logs"]) == 2
+
+        # Session B: same template, different athlete → no logs
+        data_b = client.get(
+            f"/v1/workout-sessions/{session_b.id}/execution",
+            headers=HEADERS,
+        ).json()
+        block_b = next(b for b in data_b["blocks"] if b["name"] == "Primary Strength")
+        item_b = next(i for i in block_b["items"] if i["exercise_id"] == str(exercise_team_a.id))
+        assert item_b["logs"] == []
+
+    def test_logging_in_one_session_does_not_affect_other(
+        self, client: TestClient, mock_jwt, coach_a, db_session: Session,
+        session_a_with_log, session_b, exercise_team_a, team_a, athlete_a2,
+    ):
+        """Log sets in session_b — session_a's logs must remain unchanged."""
+        # Add a log to session_b with different values
+        log_b = WorkoutSessionLog(
+            id=uuid.uuid4(), team_id=team_a.id, session_id=session_b.id,
+            block_name="Primary Strength", exercise_id=exercise_team_a.id,
+            notes=None, created_by_profile_id=athlete_a2.id,
+        )
+        db_session.add(log_b)
+        db_session.flush()
+        db_session.add(WorkoutSessionLogEntry(
+            id=uuid.uuid4(), log_id=log_b.id, set_number=1, reps=8, weight=120.0, rpe=9.0,
+        ))
+        db_session.commit()
+
+        mock_jwt(str(coach_a.supabase_user_id))
+
+        # Session A: still has its original logs (reps=5, weight=100)
+        data_a = client.get(
+            f"/v1/workout-sessions/{session_a_with_log.id}/execution",
+            headers=HEADERS,
+        ).json()
+        block_a = next(b for b in data_a["blocks"] if b["name"] == "Primary Strength")
+        item_a = next(i for i in block_a["items"] if i["exercise_id"] == str(exercise_team_a.id))
+        assert item_a["logs"][0]["reps"] == 5
+        assert item_a["logs"][0]["weight"] == 100.0
+
+        # Session B: has its own logs (reps=8, weight=120)
+        data_b = client.get(
+            f"/v1/workout-sessions/{session_b.id}/execution",
+            headers=HEADERS,
+        ).json()
+        block_b = next(b for b in data_b["blocks"] if b["name"] == "Primary Strength")
+        item_b = next(i for i in block_b["items"] if i["exercise_id"] == str(exercise_team_a.id))
+        assert len(item_b["logs"]) == 1
+        assert item_b["logs"][0]["reps"] == 8
+        assert item_b["logs"][0]["weight"] == 120.0

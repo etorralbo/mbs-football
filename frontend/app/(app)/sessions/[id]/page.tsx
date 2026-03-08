@@ -12,6 +12,7 @@ import {
   draftReducer,
   canMarkCompleted,
   progressFromDraft,
+  parseOpt,
 } from '@/src/features/session-execution/draftState'
 import { SessionHeader } from './SessionHeader'
 import { BlockSection } from './BlockSection'
@@ -61,6 +62,33 @@ export default function SessionDetailPage() {
     setCompleting(true)
 
     try {
+      // Auto-save all exercises that have non-empty entries before completing.
+      // This ensures athlete-entered values are persisted even if individual
+      // sets were not explicitly marked "done".
+      const savePromises: Promise<unknown>[] = []
+      for (const [exerciseId, sets] of Object.entries(draft)) {
+        const entries = Object.entries(sets)
+          .map(([setNum, s]) => ({
+            set_number: Number(setNum),
+            reps: parseOpt(s.reps),
+            weight: parseOpt(s.weight),
+            rpe: parseOpt(s.rpe),
+          }))
+          .filter((e) => e.reps !== null || e.weight !== null || e.rpe !== null)
+
+        if (entries.length > 0) {
+          savePromises.push(
+            request(`/v1/workout-sessions/${id}/logs`, {
+              method: 'PUT',
+              body: JSON.stringify({ exercise_id: exerciseId, entries }),
+            }),
+          )
+        }
+      }
+      if (savePromises.length > 0) {
+        await Promise.all(savePromises)
+      }
+
       await request(`/v1/workout-sessions/${id}/complete`, { method: 'PATCH' })
       router.push('/sessions')
     } catch (err: unknown) {

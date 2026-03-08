@@ -22,6 +22,16 @@ export type SetDraft = {
 export type DraftState = Record<string, Record<number, SetDraft>>
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Parse a draft string to a number, or null if empty/NaN. */
+export function parseOpt(value: string): number | null {
+  const n = parseFloat(value)
+  return isNaN(n) ? null : n
+}
+
+// ---------------------------------------------------------------------------
 // Pure functions
 // ---------------------------------------------------------------------------
 

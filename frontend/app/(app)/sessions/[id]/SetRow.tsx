@@ -27,9 +27,9 @@ export function SetRow({ setNumber, draft, disabled, readOnly, completionEnabled
 
       {readOnly ? (
         <>
-          <span className={valueCls}>{draft.reps || '—'}</span>
-          <span className={valueCls}>{draft.weight || '—'}</span>
-          <span className={valueCls}>{draft.rpe || '—'}</span>
+          <span className={valueCls}>{draft.reps !== '' ? draft.reps : '—'}</span>
+          <span className={valueCls}>{draft.weight !== '' ? draft.weight : '—'}</span>
+          <span className={valueCls}>{draft.rpe !== '' ? draft.rpe : '—'}</span>
         </>
       ) : (
         <>

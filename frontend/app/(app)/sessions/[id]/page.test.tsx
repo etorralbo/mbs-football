@@ -227,6 +227,273 @@ describe('SessionDetailPage — COACH role', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Coach sees executed values (not prescribed) — session feedback projection
+// ---------------------------------------------------------------------------
+
+/** Completed session where athlete logged different values than prescribed. */
+const EXECUTED_SESSION: SessionExecution = {
+  ...EMPTY_EXECUTION,
+  status: 'completed',
+  blocks: [{
+    name: 'Primary Strength', key: 'PRIMARY_STRENGTH', order: 0,
+    items: [{
+      exercise_id: 'ex-1', exercise_name: 'Squat',
+      prescription: {
+        sets: [
+          { order: 0, reps: 10, weight: 80, rpe: 7 },
+          { order: 1, reps: 10, weight: 80, rpe: 7 },
+        ],
+      },
+      logs: [
+        { set_number: 1, reps: 12, weight: 95, rpe: 8, done: true },
+        { set_number: 2, reps: 11, weight: 87, rpe: 9, done: true },
+      ],
+    }],
+  }],
+}
+
+/** Pending session with prescribed sets but no execution logs yet. */
+const PRESCRIBED_ONLY_SESSION: SessionExecution = {
+  ...EMPTY_EXECUTION,
+  blocks: [{
+    name: 'Primary Strength', key: 'PRIMARY_STRENGTH', order: 0,
+    items: [{
+      exercise_id: 'ex-1', exercise_name: 'Squat',
+      prescription: {
+        sets: [{ order: 0, reps: 10, weight: 80, rpe: 7 }],
+      },
+      logs: [],
+    }],
+  }],
+}
+
+describe('SessionDetailPage — Coach sees executed values', () => {
+  it('shows athlete-executed values (not prescribed) for completed session', async () => {
+    mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
+    mockRequest.mockResolvedValueOnce(EXECUTED_SESSION)
+
+    render(<SessionDetailPage />)
+
+    await screen.findByText('Squat')
+
+    // Executed values should be displayed (not the prescribed 10, 80, 7)
+    expect(screen.getByText('12')).toBeInTheDocument()
+    expect(screen.getByText('95')).toBeInTheDocument()
+    expect(screen.getByText('11')).toBeInTheDocument()
+    expect(screen.getByText('87')).toBeInTheDocument()
+  })
+
+  it('shows prescribed values when session has no execution logs', async () => {
+    mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
+    mockRequest.mockResolvedValueOnce(PRESCRIBED_ONLY_SESSION)
+
+    render(<SessionDetailPage />)
+
+    await screen.findByText('Squat')
+
+    // Prescribed values should be displayed as fallback
+    expect(screen.getByText('10')).toBeInTheDocument()
+    expect(screen.getByText('80')).toBeInTheDocument()
+    expect(screen.getByText('7')).toBeInTheDocument()
+  })
+
+  it('displays "0" correctly (not dash) when athlete logs zero reps', async () => {
+    mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
+    const ZERO_REPS_SESSION: SessionExecution = {
+      ...EMPTY_EXECUTION,
+      status: 'completed',
+      blocks: [{
+        name: 'Block A', key: 'BLOCK_A', order: 0,
+        items: [{
+          exercise_id: 'ex-1', exercise_name: 'Squat',
+          prescription: { sets: [{ order: 0, reps: 5, weight: 60, rpe: 6 }] },
+          logs: [{ set_number: 1, reps: 0, weight: 60, rpe: 6, done: true }],
+        }],
+      }],
+    }
+    mockRequest.mockResolvedValueOnce(ZERO_REPS_SESSION)
+
+    render(<SessionDetailPage />)
+
+    await screen.findByText('Squat')
+    // "0" should render as "0", not as the dash placeholder
+    expect(screen.getByText('0')).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Auto-save on complete — dirty entries persisted before PATCH /complete
+// ---------------------------------------------------------------------------
+
+describe('SessionDetailPage — Auto-save on complete', () => {
+  it('saves unsaved draft entries before marking session complete', async () => {
+    mockRequest
+      .mockResolvedValueOnce(ARRAY_SETS_EXECUTION) // GET /execution
+      .mockResolvedValue(undefined) // PUT /logs + PATCH /complete
+
+    render(<SessionDetailPage />)
+
+    // Wait for hydration
+    await waitFor(() => {
+      expect(screen.getAllByRole('spinbutton')).toHaveLength(9)
+    })
+
+    // Edit set 1 reps (prescribed is 10, change to 15) — but don't mark done
+    const repsInput = screen.getAllByLabelText(/set 1 reps/i)[0]
+    fireEvent.change(repsInput, { target: { value: '15' } })
+
+    // Complete without toggling individual sets done
+    const completeBtn = screen.getByRole('button', { name: /mark as completed/i })
+    fireEvent.click(completeBtn)
+
+    await waitFor(() => {
+      // Should have auto-saved draft via PUT /logs
+      const putCalls = mockRequest.mock.calls.filter(
+        (call) =>
+          (call[0] as string).includes('/logs') && (call[1] as Record<string, string>)?.method === 'PUT',
+      )
+      expect(putCalls.length).toBeGreaterThan(0)
+
+      // And then completed
+      expect(mockRequest).toHaveBeenCalledWith(
+        '/v1/workout-sessions/sess-1/complete',
+        { method: 'PATCH' },
+      )
+    })
+
+    expect(mockPush).toHaveBeenCalledWith('/sessions')
+  })
+
+  it('includes correct entry values in auto-save payload', async () => {
+    mockRequest
+      .mockResolvedValueOnce(ARRAY_SETS_EXECUTION) // GET /execution
+      .mockResolvedValue(undefined) // PUT + PATCH
+
+    render(<SessionDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('spinbutton')).toHaveLength(9)
+    })
+
+    // Edit set 1 reps to 15
+    const repsInput = screen.getAllByLabelText(/set 1 reps/i)[0]
+    fireEvent.change(repsInput, { target: { value: '15' } })
+
+    fireEvent.click(screen.getByRole('button', { name: /mark as completed/i }))
+
+    await waitFor(() => {
+      const putCalls = mockRequest.mock.calls.filter(
+        (call) =>
+          (call[0] as string).includes('/logs') && (call[1] as Record<string, string>)?.method === 'PUT',
+      )
+      expect(putCalls.length).toBe(1)
+
+      const body = JSON.parse(putCalls[0][1].body as string)
+      expect(body.exercise_id).toBe('ex-1')
+      // All 3 prescribed sets should be saved (all have non-empty values)
+      expect(body.entries).toHaveLength(3)
+      // First entry should have the edited reps value
+      expect(body.entries[0].reps).toBe(15)
+      expect(body.entries[0].set_number).toBe(1)
+    })
+  })
+
+  it('skips auto-save when all entries are empty', async () => {
+    mockRequest
+      .mockResolvedValueOnce(UNDONE_EXECUTION) // prescription: {}, no logs -> 1 empty set
+      .mockResolvedValue(undefined) // PATCH /complete only
+
+    render(<SessionDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('spinbutton')).toHaveLength(3)
+    })
+
+    // Don't edit anything — just complete
+    fireEvent.click(screen.getByRole('button', { name: /mark as completed/i }))
+
+    await waitFor(() => {
+      expect(mockRequest).toHaveBeenCalledWith(
+        '/v1/workout-sessions/sess-1/complete',
+        { method: 'PATCH' },
+      )
+    })
+
+    // No PUT /logs should have been called (only GET + PATCH)
+    const putCalls = mockRequest.mock.calls.filter(
+      (call) =>
+        (call[0] as string).includes('/logs') &&
+        (call[1] as Record<string, string>)?.method === 'PUT',
+    )
+    expect(putCalls).toHaveLength(0)
+  })
+
+  it('does NOT call PATCH /complete when PUT /logs fails', async () => {
+    mockRequest
+      .mockResolvedValueOnce(ARRAY_SETS_EXECUTION) // GET /execution
+      .mockRejectedValueOnce(new Error('network error')) // PUT /logs fails
+
+    render(<SessionDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('spinbutton')).toHaveLength(9)
+    })
+
+    // Edit a value so auto-save has something to PUT
+    const repsInput = screen.getAllByLabelText(/set 1 reps/i)[0]
+    fireEvent.change(repsInput, { target: { value: '15' } })
+
+    fireEvent.click(screen.getByRole('button', { name: /mark as completed/i }))
+
+    // Should show error
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/failed to complete/i)
+    })
+
+    // PATCH /complete must NOT have been called
+    const patchCalls = mockRequest.mock.calls.filter(
+      (call) =>
+        (call[0] as string).includes('/complete') && (call[1] as Record<string, string>)?.method === 'PATCH',
+    )
+    expect(patchCalls).toHaveLength(0)
+    expect(mockPush).not.toHaveBeenCalled()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Session isolation — execution values scoped to session instance
+// ---------------------------------------------------------------------------
+
+describe('SessionDetailPage — Session isolation', () => {
+  it('renders execution values from this session only (different sessions independent)', async () => {
+    // Session A: athlete logged reps=12, weight=95 for Squat
+    const SESSION_A: SessionExecution = {
+      ...EMPTY_EXECUTION,
+      session_id: 'sess-A',
+      status: 'completed',
+      blocks: [{
+        name: 'Primary Strength', key: 'PRIMARY_STRENGTH', order: 0,
+        items: [{
+          exercise_id: 'ex-1', exercise_name: 'Squat',
+          prescription: { sets: [{ order: 0, reps: 10, weight: 80, rpe: 7 }] },
+          logs: [{ set_number: 1, reps: 12, weight: 95, rpe: 8, done: true }],
+        }],
+      }],
+    }
+    mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
+    mockRequest.mockResolvedValueOnce(SESSION_A)
+
+    render(<SessionDetailPage />)
+
+    await screen.findByText('Squat')
+
+    // Shows session A's executed values
+    expect(screen.getByText('12')).toBeInTheDocument()
+    expect(screen.getByText('95')).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Athlete execution consistency — prescribed sets
 // ---------------------------------------------------------------------------
 
