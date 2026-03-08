@@ -351,18 +351,18 @@ export default function TemplateDetailPage() {
       {/* ── Sticky header ── */}
       <div className="sticky top-0 z-30 -mx-4 border-b border-slate-800 bg-slate-950/80 px-4 pb-4 pt-4 backdrop-blur">
         {/* Breadcrumb */}
-        <div className="flex items-center gap-2">
-          <Link href="/templates" className="text-xs text-slate-500 hover:text-slate-300">
+        <div className="flex min-w-0 items-center gap-2">
+          <Link href="/templates" className="shrink-0 text-xs text-slate-500 hover:text-slate-300">
             Templates
           </Link>
-          <span className="text-xs text-slate-600">/</span>
-          <span className="text-xs text-slate-300">{template.title}</span>
+          <span className="shrink-0 text-xs text-slate-600">/</span>
+          <span className="truncate text-xs text-slate-300">{template.title}</span>
         </div>
 
         {/* Title area */}
-        <div className="mt-3 flex items-end justify-between">
-          <div className="flex-1 space-y-1">
-            <div className={`flex items-center gap-2${editMode ? ' group' : ''}`}>
+        <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className={`flex min-w-0 items-center gap-2${editMode ? ' group' : ''}`}>
               {editMode ? (
                 <>
                   <input
@@ -373,7 +373,7 @@ export default function TemplateDetailPage() {
                     onFocus={() => setTitleHintVisible(false)}
                     onBlur={handleTitleBlur}
                     maxLength={255}
-                    className="flex-1 cursor-text border-b border-transparent bg-transparent p-0 text-2xl font-bold leading-tight text-white outline-none transition-colors group-hover:border-slate-600 focus:border-[#c8f135]"
+                    className="min-w-0 flex-1 cursor-text border-b border-transparent bg-transparent p-0 text-2xl font-bold leading-tight text-white outline-none transition-colors group-hover:border-slate-600 focus:border-[#c8f135]"
                   />
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -385,7 +385,7 @@ export default function TemplateDetailPage() {
                   </svg>
                 </>
               ) : (
-                <h1 className="text-2xl font-bold leading-tight text-white">{template.title}</h1>
+                <h1 className="break-words text-2xl font-bold leading-tight text-white">{template.title}</h1>
               )}
             </div>
 
@@ -415,7 +415,7 @@ export default function TemplateDetailPage() {
             )}
           </div>
 
-          <div className="ml-4 flex shrink-0 items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 md:ml-4 md:shrink-0">
             {/* Assign button */}
             <button
               onClick={() => setAssignOpen(true)}
@@ -496,14 +496,14 @@ export default function TemplateDetailPage() {
 
         {/* Block jump navigation chips */}
         {template.blocks.length > 0 && (
-          <nav aria-label="Block navigation" className="mt-3 flex gap-2 overflow-x-auto">
+          <nav aria-label="Block navigation" className="mt-3 flex min-w-0 flex-wrap gap-2">
             {template.blocks.map((block, idx) => (
               <button
                 key={block.id}
                 onClick={() =>
                   document.getElementById(`block-${block.id}`)?.scrollIntoView({ behavior: 'smooth' })
                 }
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800/60 px-3 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800/60 px-3 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
               >
                 <span
                   className="inline-block h-2 w-2 rounded-full"
