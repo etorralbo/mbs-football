@@ -66,12 +66,16 @@ def template_a(db_session: Session, team_a, exercise_team_a, exercise_b):
     db_session.add(BlockExercise(
         id=uuid.uuid4(), workout_block_id=block0.id,
         exercise_id=exercise_team_a.id, order_index=0,
-        prescription_json={"sets": 3, "reps": "5", "load": "85%"},
+        prescription_json={"sets": [
+            {"order": 0, "reps": 5, "weight": 85.0},
+            {"order": 1, "reps": 5, "weight": 85.0},
+            {"order": 2, "reps": 5, "weight": 85.0},
+        ]},
     ))
     db_session.add(BlockExercise(
         id=uuid.uuid4(), workout_block_id=block1.id,
         exercise_id=exercise_b.id, order_index=0,
-        prescription_json={"duration": "60s"},
+        prescription_json={"sets": [{"order": 0}], "duration": "60s"},
     ))
     db_session.commit()
     db_session.refresh(tpl)
@@ -274,7 +278,8 @@ class TestSessionExecutionShape:
 
         primary_block = next(b for b in data["blocks"] if b["name"] == "Primary Strength")
         item = primary_block["items"][0]
-        assert item["prescription"] == {"sets": 3, "reps": "5", "load": "85%"}
+        assert item["prescription"]["sets"][0]["reps"] == 5
+        assert item["prescription"]["sets"][0]["weight"] == 85.0
 
 
 # ---------------------------------------------------------------------------
@@ -438,10 +443,11 @@ class TestSessionExecutionTemplateIsolation:
         ).json()
         tpl_block = next(b for b in tpl_data["blocks"] if b["name"] == "Primary Strength")
         tpl_item = tpl_block["items"][0]
-        # Template has the original prescription, not the logged values
-        assert tpl_item["sets"][0]["reps"] is None or "logs" not in tpl_item
-        # prescription_json was {sets: 3, reps: "5", load: "85%"} — no "logs" key
+        # Template returns prescribed sets, NOT execution logs
         assert "logs" not in tpl_item
+        # Prescribed values are unchanged (reps=5, weight=85 — not the logged 100.0)
+        assert tpl_item["sets"][0]["reps"] == 5
+        assert tpl_item["sets"][0]["weight"] == 85.0
 
 
 # ---------------------------------------------------------------------------
