@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { request, ConflictError, ValidationError } from '@/app/_shared/api/httpClient'
 import type { ExecutionItem } from '@/app/_shared/api/types'
+import { parseOpt } from '@/src/features/session-execution/draftState'
 import type { DraftAction, DraftState } from '@/src/features/session-execution/draftState'
 import { Badge } from '@/app/_shared/components/Badge'
 import { SetRow } from './SetRow'
@@ -44,11 +45,6 @@ function prescriptionText(p: Record<string, unknown>): string {
   if (p.duration) parts.push(String(p.duration))
   if (p.rest) parts.push(`rest ${p.rest}`)
   return parts.join(' · ') || '—'
-}
-
-function parseOpt(value: string): number | null {
-  const n = parseFloat(value)
-  return isNaN(n) ? null : n
 }
 
 export function ExerciseCard({
