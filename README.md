@@ -10,7 +10,7 @@ A multi-tenant training and coaching platform designed to help coaches plan work
 
 - **Repository:** https://github.com/etorralbo/mbs-football
 - **Video demo:** https://drive.google.com/file/d/1DYzwmwYkf0BtVjtve1dIEtArHhAnDdvi/view?usp=sharing
-- **Slides:** [`docs/slides.pdf`](docs/slides.pdf)
+- **Slides:** [`docs/08032026_MettlePerformance-Sliders.pdf`](docs/08032026_MettlePerformance-Sliders.pdf)
 - **API docs (local):** http://localhost:8000/docs
 
 ---
