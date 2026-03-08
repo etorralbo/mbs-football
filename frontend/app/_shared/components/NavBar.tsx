@@ -7,7 +7,12 @@ import { supabase } from '@/app/_shared/auth/supabaseClient'
 import { TeamSwitcher } from '@/app/_shared/components/TeamSwitcher'
 import { useAuth } from '@/src/shared/auth/AuthContext'
 
-export function NavBar() {
+interface NavBarProps {
+  /** Called after a nav link or sign-out is clicked (mobile drawer uses this to close). */
+  onNavigate?: () => void
+}
+
+export function NavBar({ onNavigate }: NavBarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { role } = useAuth()
@@ -18,11 +23,12 @@ export function NavBar() {
   }
 
   function handleSignOut() {
+    onNavigate?.()
     supabase.auth.signOut().then(() => router.replace('/login'))
   }
 
   return (
-    <aside data-testid="app-navbar" className="flex w-64 flex-shrink-0 flex-col border-r border-slate-800 bg-[#0b1117]">
+    <aside data-testid="app-navbar" className="flex h-full flex-col border-r border-slate-800 bg-[#0b1117]">
       {/* Branding */}
       <div className="flex items-center gap-3 p-6">
         <Image src="/favicon.svg" alt="Mettle Performance" width={36} height={36} className="h-9 w-9 rounded-lg" />
@@ -40,29 +46,29 @@ export function NavBar() {
       {/* Navigation */}
       <nav className="flex-1 space-y-1 overflow-y-auto px-4" aria-label="Main navigation">
         {isCoach && (
-          <SidebarLink href="/dashboard" active={isActive('/dashboard')}>
+          <SidebarLink href="/dashboard" active={isActive('/dashboard')} onNavigate={onNavigate}>
             <DashboardIcon />
             Dashboard
           </SidebarLink>
         )}
         {isCoach && (
-          <SidebarLink href="/templates" active={isActive('/templates')}>
+          <SidebarLink href="/templates" active={isActive('/templates')} onNavigate={onNavigate}>
             <TemplatesIcon />
             Templates
           </SidebarLink>
         )}
-        <SidebarLink href="/sessions" active={isActive('/sessions')}>
+        <SidebarLink href="/sessions" active={isActive('/sessions')} onNavigate={onNavigate}>
           <SessionsIcon />
           Sessions
         </SidebarLink>
         {isCoach && (
-          <SidebarLink href="/exercises" active={isActive('/exercises')}>
+          <SidebarLink href="/exercises" active={isActive('/exercises')} onNavigate={onNavigate}>
             <ExercisesIcon />
             Exercises
           </SidebarLink>
         )}
         {isCoach && (
-          <SidebarLink href="/team" active={isActive('/team')}>
+          <SidebarLink href="/team" active={isActive('/team')} onNavigate={onNavigate}>
             <TeamIcon />
             Teams
           </SidebarLink>
@@ -87,14 +93,17 @@ function SidebarLink({
   href,
   children,
   active,
+  onNavigate,
 }: {
   href: string
   children: React.ReactNode
   active: boolean
+  onNavigate?: () => void
 }) {
   return (
     <Link
       href={href}
+      onClick={onNavigate}
       className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
         active
           ? 'bg-slate-800 text-[#c8f135]'

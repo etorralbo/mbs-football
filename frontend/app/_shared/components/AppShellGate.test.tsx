@@ -126,7 +126,8 @@ describe('AppShellGate — ready', () => {
     render(<AppShellGate><p>child</p></AppShellGate>)
 
     expect(screen.queryByTestId('app-shell-skeleton')).not.toBeInTheDocument()
-    expect(screen.getByTestId('app-navbar')).toBeInTheDocument()
+    // Desktop sidebar + MobileNav drawer both render NavBar
+    expect(screen.getAllByTestId('app-navbar').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByRole('link', { name: /sessions/i })).toBeInTheDocument()
     expect(screen.getByText('child')).toBeInTheDocument()
   })

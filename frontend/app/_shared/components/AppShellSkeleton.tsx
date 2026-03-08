@@ -9,11 +9,17 @@
 export function AppShellSkeleton({ children }: { children?: React.ReactNode }) {
   return (
     <div
-      className="flex h-screen overflow-hidden bg-[#0d141c]"
+      className="flex h-screen flex-col overflow-hidden bg-[#0d141c] md:flex-row"
       data-testid="app-shell-skeleton"
     >
-      {/* ── Sidebar skeleton ──────────────────────────────────────────── */}
-      <aside className="flex w-64 flex-shrink-0 flex-col border-r border-slate-800 bg-[#0b1117]">
+      {/* ── Mobile top bar skeleton ─────────────────────────────────── */}
+      <div className="flex items-center gap-3 border-b border-slate-800 bg-[#0b1117] px-4 py-3 md:hidden">
+        <div className="h-6 w-6 rounded bg-slate-800 animate-pulse" />
+        <div className="h-3 w-28 rounded bg-slate-800 animate-pulse" />
+      </div>
+
+      {/* ── Sidebar skeleton (desktop only) ─────────────────────────── */}
+      <aside className="hidden w-64 flex-shrink-0 flex-col border-r border-slate-800 bg-[#0b1117] md:flex">
         {/* Logo */}
         <div className="flex items-center gap-3 p-6">
           <div className="h-9 w-9 rounded-lg bg-slate-800 animate-pulse" />
@@ -38,7 +44,7 @@ export function AppShellSkeleton({ children }: { children?: React.ReactNode }) {
       </aside>
 
       {/* ── Content skeleton ──────────────────────────────────────────── */}
-      <main className="flex-1 overflow-y-auto p-8">
+      <main className="flex-1 overflow-y-auto p-4 md:p-8">
         {/* Header */}
         <div className="h-6 w-48 rounded bg-slate-800 animate-pulse" />
         <div className="mt-2 h-4 w-72 rounded bg-slate-800 animate-pulse" />
