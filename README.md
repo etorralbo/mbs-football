@@ -39,7 +39,7 @@ The repository was created under the working title "MBS Football" during early d
                                     │ access_token (ES256)
                     ┌───────────────▼───────────────┐
                     │         Frontend (Vercel)       │
-                    │   Next.js 15 · App Router       │
+                    │   Next.js 16 · App Router       │
                     │   TypeScript · Tailwind CSS     │
                     └───────────────┬───────────────┘
                                     │ Bearer <token>
@@ -139,9 +139,9 @@ mbs-football/
 │
 ├── frontend/                 Next.js application
 │   ├── app/
-│   │   ├── (public)/         Unauthenticated routes: /login, /signup
+│   │   ├── (public)/         Unauthenticated routes: /login, /signup, /join/[token]
 │   │   ├── (app)/            Authenticated routes: /onboarding, /create-team,
-│   │   │                     /join, /templates, /sessions
+│   │   │                     /templates, /sessions
 │   │   └── _shared/          Auth helpers, API client, shared components
 │   ├── vitest.config.ts
 │   └── Dockerfile
@@ -186,7 +186,8 @@ mbs-football/
 ```bash
 git clone <repo-url>
 cd mbs-football
-cp backend/.env.example backend/.env   # fill in values (see Environment Variables)
+cp .env.example .env                   # for docker compose (frontend + backend)
+cp backend/.env.example backend/.env   # optional for backend-only local runs
 cp frontend/.env.local.example frontend/.env.local
 ```
 
@@ -373,7 +374,7 @@ uvicorn app.main:app ...
 
 ## API Reference
 
-All endpoints are prefixed with `/v1`.
+All API endpoints are prefixed with `/v1`, except the public health check at `/health`.
 
 ### Auth-free
 
@@ -387,13 +388,14 @@ All endpoints are prefixed with `/v1`.
 |--------|-----------------------|-------|------------------------------------|
 | GET    | `/v1/me`              | Any   | Current user memberships           |
 | POST   | `/v1/teams`           | —     | Create team + become COACH         |
-| POST   | `/v1/invites`         | COACH | Generate invite code for a team    |
-| POST   | `/v1/invites/accept`  | —     | Accept invite, become ATHLETE      |
+| POST   | `/v1/team-invites`                | COACH | Generate invite token for a team         |
+| POST   | `/v1/team-invites/{token}/accept` | —     | Accept invite token, become ATHLETE      |
 
 ### Require UserProfile (`get_current_user`)
 
 | Method | Path                                          | Role    | Description                              |
 |--------|-----------------------------------------------|---------|------------------------------------------|
+| GET    | `/v1/analytics/funnel`                        | COACH   | Team-scoped funnel metrics               |
 | GET    | `/v1/exercises`                               | Any     | List exercises (team-scoped)             |
 | POST   | `/v1/exercises`                               | COACH   | Create exercise                          |
 | GET    | `/v1/exercises/{id}`                          | Any     | Get exercise                             |
@@ -402,23 +404,12 @@ All endpoints are prefixed with `/v1`.
 | GET    | `/v1/workout-templates`                       | Any     | List templates (team-scoped)             |
 | POST   | `/v1/workout-templates`                       | COACH   | Create template                          |
 | POST   | `/v1/workout-templates/from-ai`               | COACH   | Create template via AI draft             |
-| GET    | `/v1/workout-assignments`                     | COACH   | List assignments                         |
 | POST   | `/v1/workout-assignments`                     | COACH   | Assign template to athlete(s) or team    |
 | GET    | `/v1/workout-sessions`                        | Any     | List sessions (athlete: own; coach: all) |
 | PATCH  | `/v1/workout-sessions/{id}/complete`          | ATHLETE | Mark session as completed                |
 | GET    | `/v1/workout-sessions/{id}/execution`         | Any     | Session execution view (blocks + logs)   |
 | PUT    | `/v1/workout-sessions/{id}/logs`              | ATHLETE | Save set logs for an exercise            |
 | GET    | `/v1/athletes`                                | COACH   | List athletes in the team                |
-
-### Planned analytics endpoint
-
-Add this endpoint to the table above when implemented:
-
-| Method | Path                   | Role  | Description                           |
-|--------|------------------------|-------|---------------------------------------|
-| GET    | `/v1/analytics/funnel` | COACH | Returns team-scoped funnel metrics    |
-
----
 
 ## Production Smoke Test Checklist
 
@@ -442,12 +433,12 @@ Run this checklist after every production deploy.
 
 ### ATHLETE flow
 
-- [ ] Coach generates an invite code via `POST /v1/invites`
-- [ ] New athlete signs up and visits `/join?code=<code>`
+- [ ] Coach generates an invite token via `POST /v1/team-invites`
+- [ ] New athlete signs up and visits `/join/<token>`
 - [ ] Submitting the join form redirects to `/sessions`
 - [ ] `GET /v1/me` returns the team in `memberships` with role `ATHLETE`
-- [ ] Submitting the same invite code a second time returns `409` (already used)
-- [ ] Submitting an expired invite code returns `410`
+- [ ] Submitting the same invite token a second time returns `409` (already used)
+- [ ] Submitting an expired invite token returns `410`
 
 ### Returning user
 

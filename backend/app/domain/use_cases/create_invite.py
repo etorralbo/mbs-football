@@ -1,4 +1,4 @@
-"""Domain use case: COACH generates an invite code for their team."""
+"""Domain use case: COACH generates an invite token for their team."""
 import secrets
 import uuid
 from dataclasses import dataclass
@@ -59,7 +59,7 @@ class CreateInviteUseCase:
         )
         if membership is None or membership.role != Role.COACH:
             raise NotACoachError(
-                "Only coaches can create invite codes for their team."
+                "Only coaches can create invite tokens for their team."
             )
 
         expires_at: Optional[datetime] = None
