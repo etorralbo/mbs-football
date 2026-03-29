@@ -15,8 +15,10 @@
  * No dangerouslySetInnerHTML anywhere — all text via JSX.
  */
 
+import { useState } from 'react'
 import { Badge } from '@/app/_shared/components/Badge'
-import type { Exercise } from '@/app/_shared/api/types'
+import { VideoModal } from '@/app/_shared/components/VideoModal'
+import type { Exercise, ExerciseVideo } from '@/app/_shared/api/types'
 
 interface Props {
   exercise: Exercise
@@ -35,19 +37,24 @@ export default function ExerciseCard({
   onDuplicate,
   onDelete,
 }: Props) {
+  const [watchingVideo, setWatchingVideo] = useState<ExerciseVideo | null>(null)
   const isOfficial = exercise.owner_type === 'COMPANY'
   const canMutate = exercise.is_editable !== false
 
   return (
     <li data-highlight={highlighted ? 'true' : undefined} className="group relative flex items-start justify-between gap-3 rounded-lg border border-white/8 bg-[#131922] px-4 py-3 transition-all duration-150 hover:border-white/20 hover:shadow-md">
+      {watchingVideo && (
+        <VideoModal
+          video={watchingVideo}
+          title={exercise.name}
+          onClose={() => setWatchingVideo(null)}
+        />
+      )}
       {/* Left: content */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
           {isOfficial && (
             <Badge variant="info">Official</Badge>
-          )}
-          {exercise.video && (
-            <Badge variant="default">Video</Badge>
           )}
           <p className="text-sm font-medium text-white">{exercise.name}</p>
         </div>
@@ -67,6 +74,35 @@ export default function ExerciseCard({
               </span>
             ))}
           </div>
+        )}
+
+        {/* Video thumbnail chip — shown only when video is attached */}
+        {exercise.video && (
+          <button
+            type="button"
+            onClick={() => setWatchingVideo(exercise.video!)}
+            aria-label={`Watch video demo for ${exercise.name}`}
+            className="group/chip mt-2 flex items-center gap-2 rounded-md border border-white/8 bg-white/[0.03] px-2 py-1.5 transition-all hover:border-white/20 hover:bg-white/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135]/50"
+          >
+            {/* Thumbnail with play overlay */}
+            <div className="relative h-9 w-16 shrink-0 overflow-hidden rounded">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`https://img.youtube.com/vi/${exercise.video.external_id}/mqdefault.jpg`}
+                alt=""
+                aria-hidden="true"
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 transition-colors group-hover/chip:bg-black/30">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" className="text-white drop-shadow">
+                  <path d="M6 4.5l6 3.5-6 3.5V4.5z" />
+                </svg>
+              </div>
+            </div>
+            <span className="text-[11px] text-slate-500 transition-colors group-hover/chip:text-slate-300">
+              Watch demo
+            </span>
+          </button>
         )}
       </div>
 
