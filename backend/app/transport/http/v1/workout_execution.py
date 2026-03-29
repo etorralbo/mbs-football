@@ -321,6 +321,7 @@ def _build_execution_use_case(db: Session) -> GetSessionExecutionViewUseCase:
         session_repo=SqlAlchemyWorkoutSessionRepository(db),
         template_repo=SqlAlchemyWorkoutTemplateRepository(db),
         log_repo=SqlAlchemyWorkoutSessionLogRepository(db),
+        exercise_repo=SqlAlchemyExerciseRepository(db),
     )
 
 

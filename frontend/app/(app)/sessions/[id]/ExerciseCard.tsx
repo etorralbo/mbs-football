@@ -147,10 +147,26 @@ export function ExerciseCard({
             <button
               type="button"
               onClick={() => setWatchingVideo(item.video!)}
-              aria-label={`Watch demo for ${item.exercise_name}`}
-              className="mt-1 rounded px-2 py-0.5 text-xs text-slate-400 transition-colors hover:bg-white/8 hover:text-white"
+              aria-label={`Watch video demo for ${item.exercise_name}`}
+              className="group/chip mt-2 flex items-center gap-2 rounded-md border border-white/8 bg-white/[0.03] px-2 py-1.5 transition-all hover:border-white/20 hover:bg-white/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135]/50"
             >
-              ▶ Watch demo
+              <div className="relative h-9 w-16 shrink-0 overflow-hidden rounded">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`https://img.youtube.com/vi/${item.video.external_id}/mqdefault.jpg`}
+                  alt=""
+                  aria-hidden="true"
+                  className="h-full w-full object-cover"
+                />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/50 transition-colors group-hover/chip:bg-black/30">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" className="text-white drop-shadow">
+                    <path d="M6 4.5l6 3.5-6 3.5V4.5z" />
+                  </svg>
+                </div>
+              </div>
+              <span className="text-[11px] text-slate-500 transition-colors group-hover/chip:text-slate-300">
+                Watch demo
+              </span>
             </button>
           )}
         </div>
