@@ -56,6 +56,14 @@ export interface WorkoutTemplate {
   updated_at: string
 }
 
+export interface ExerciseVideo {
+  provider: 'YOUTUBE'
+  /** Canonical YouTube watch URL: https://www.youtube.com/watch?v={external_id} */
+  url: string
+  /** 11-character YouTube video ID. Derive embed URLs from this — never from raw user input. */
+  external_id: string
+}
+
 export interface Exercise {
   id: string
   /** Null for company (official) exercises. */
@@ -69,6 +77,9 @@ export interface Exercise {
   tags: string[]
   /** True if the requesting coach has bookmarked this exercise. */
   is_favorite: boolean
+  /** Attached YouTube video, or null if none. */
+  video: ExerciseVideo | null
+  /** Legacy internal media asset ID — kept for backward compatibility. */
   video_asset_id: string | null
   created_at: string
   updated_at: string

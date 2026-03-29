@@ -38,6 +38,7 @@ function makeExercise(overrides: Partial<Exercise>): Exercise {
     description: overrides.description ?? 'A standard push up exercise with full range of motion.',
     tags: overrides.tags ?? ['strength', 'upper-body'],
     is_favorite: overrides.is_favorite ?? false,
+    video: null,
     video_asset_id: null,
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',

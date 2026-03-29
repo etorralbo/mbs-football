@@ -28,6 +28,7 @@ from app.models.block_exercise import BlockExercise
 from app.models.exercise import Exercise, OwnerType
 from app.models.exercise_favorite import ExerciseFavorite
 from app.schemas.exercise import ExerciseCreate, ExerciseUpdate
+from app.utils.video import assert_video_columns_consistent, parse_video_url
 
 
 class ExerciseInUseError(Exception):
@@ -37,6 +38,25 @@ class ExerciseInUseError(Exception):
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+def _build_video_dict(item: dict) -> dict | None:
+    """
+    Return a VideoOut-compatible dict if all three video columns are set.
+
+    Validates the invariant before returning to catch any pre-existing
+    inconsistent rows early (logs a warning rather than crashing the response).
+    """
+    provider = item.get("video_provider")
+    url = item.get("video_url")
+    external_id = item.get("video_external_id")
+    try:
+        assert_video_columns_consistent(provider, url, external_id)
+    except ValueError:
+        # Defensive: inconsistent row in DB — treat as no video rather than 500.
+        return None
+    if provider and url and external_id:
+        return {"provider": provider, "url": url, "external_id": external_id}
+    return None
 
 def _company_or_own(coach_id: uuid.UUID):
     """SQLAlchemy WHERE clause: COMPANY exercises OR this coach's exercises."""
@@ -84,10 +104,11 @@ def _attach_is_favorite(exercises: list[Exercise], coach_id: uuid.UUID, db: Sess
     result = []
     for ex in exercises:
         # Pydantic from_attributes reads plain dicts too — build a proxy that
-        # exposes all ORM attributes plus is_favorite.
+        # exposes all ORM attributes plus computed fields.
         item = ex.__dict__.copy()
         item.pop("_sa_instance_state", None)
         item["is_favorite"] = ex.id in favorite_ids
+        item["video"] = _build_video_dict(item)
         result.append(item)
     return result
 
@@ -109,6 +130,14 @@ def create_exercise(
     Raises:
         IntegrityError: if name already exists for this coach.
     """
+    video_provider = video_url = video_external_id = None
+    if exercise_data.video:
+        parsed = parse_video_url(exercise_data.video.url)
+        video_provider = parsed.provider
+        video_url = parsed.url
+        video_external_id = parsed.external_id
+    assert_video_columns_consistent(video_provider, video_url, video_external_id)
+
     exercise = Exercise(
         coach_id=coach_id,
         owner_type=OwnerType.COACH,
@@ -116,6 +145,9 @@ def create_exercise(
         name=exercise_data.name,
         description=exercise_data.description,
         tags=exercise_data.tags,
+        video_provider=video_provider,
+        video_url=video_url,
+        video_external_id=video_external_id,
     )
     db.add(exercise)
     db.commit()
@@ -205,6 +237,25 @@ def update_exercise(
         return None
 
     update_data = exercise_data.model_dump(exclude_unset=True)
+
+    # Handle video separately — it's a nested object, not a direct column.
+    if "video" in update_data:
+        video_input = update_data.pop("video")
+        if video_input is None:
+            # Explicit null → clear all three columns atomically
+            exercise.video_provider = None
+            exercise.video_url = None
+            exercise.video_external_id = None
+        else:
+            parsed = parse_video_url(video_input["url"])
+            exercise.video_provider = parsed.provider
+            exercise.video_url = parsed.url
+            exercise.video_external_id = parsed.external_id
+        # Invariant: all three columns must end up null or all set.
+        assert_video_columns_consistent(
+            exercise.video_provider, exercise.video_url, exercise.video_external_id
+        )
+
     for field, value in update_data.items():
         setattr(exercise, field, value)
 

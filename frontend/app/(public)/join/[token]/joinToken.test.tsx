@@ -59,7 +59,7 @@ const PREVIEW_RESPONSE = {
   coach_name: 'Estibaliz',
   role: 'ATHLETE',
   email: 'athlete@example.com',
-  expires_at: '2026-03-20T00:00:00Z',
+  expires_at: '2026-04-10T00:00:00Z',
 }
 
 const USER = {
