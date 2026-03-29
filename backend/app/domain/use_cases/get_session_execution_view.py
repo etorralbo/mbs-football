@@ -11,6 +11,7 @@ from typing import Any, Optional
 
 from app.domain.use_cases._session_scope import resolve_session
 from app.models.user_profile import Role
+from app.persistence.repositories.exercise_repository import AbstractExerciseRepository
 from app.persistence.repositories.workout_session_log_repository import (
     AbstractWorkoutSessionLogRepository,
 )
@@ -127,10 +128,12 @@ class GetSessionExecutionViewUseCase:
         session_repo: AbstractWorkoutSessionRepository,
         template_repo: AbstractWorkoutTemplateRepository,
         log_repo: AbstractWorkoutSessionLogRepository,
+        exercise_repo: AbstractExerciseRepository,
     ) -> None:
         self._session_repo = session_repo
         self._template_repo = template_repo
         self._log_repo = log_repo
+        self._exercise_repo = exercise_repo
 
     def execute(self, query: GetSessionExecutionQuery) -> SessionExecutionResult:
         # 1. Authorised session fetch
@@ -174,7 +177,16 @@ class GetSessionExecutionViewUseCase:
 
         if snapshot is not None:
             # ---- Build blocks from snapshot (immutable view) ----
-            block_results = self._blocks_from_snapshot(snapshot, log_index)
+            # Video is supplementary — always reflect the current exercise state
+            # regardless of when the assignment was created.  One extra query for
+            # the full set of exercise IDs in this snapshot.
+            snapshot_exercise_ids = {
+                uuid.UUID(item_data["exercise_id"])
+                for block_data in snapshot.get("blocks", [])
+                for item_data in block_data.get("items", [])
+            }
+            live_video = self._exercise_repo.get_video_by_ids(snapshot_exercise_ids)
+            block_results = self._blocks_from_snapshot(snapshot, log_index, live_video)
             template_title = snapshot.get("title", "")
         else:
             # ---- Fallback: live template (legacy assignments without snapshot) ----
@@ -210,20 +222,29 @@ class GetSessionExecutionViewUseCase:
     def _blocks_from_snapshot(
         snapshot: dict[str, Any],
         log_index: dict[uuid.UUID, list[SetLogOut]],
+        live_video: dict[uuid.UUID, "dict | None"],
     ) -> list[BlockExecutionOut]:
-        """Build execution blocks from a JSONB snapshot stored on the assignment."""
+        """Build execution blocks from a JSONB snapshot stored on the assignment.
+
+        Video is always taken from the live exercise table (live_video) so that
+        videos added after the assignment was created are still visible.  The
+        snapshot video field (if any) is used as a fallback only when the
+        exercise is no longer in the live table.
+        """
         block_results = []
         for block_data in snapshot.get("blocks", []):
             exercise_results = []
             for item_data in block_data.get("items", []):
                 ex_id = uuid.UUID(item_data["exercise_id"])
+                # Prefer live video; fall back to snapshot for deleted exercises
+                video = live_video.get(ex_id, _validated_snapshot_video(item_data.get("video")))
                 exercise_results.append(
                     ExerciseExecutionOut(
                         exercise_id=ex_id,
                         exercise_name=item_data["exercise_name"],
                         prescription=item_data.get("prescription", {}),
                         logs=log_index.get(ex_id, []),
-                        video=_validated_snapshot_video(item_data.get("video")),
+                        video=video,
                     )
                 )
             block_results.append(

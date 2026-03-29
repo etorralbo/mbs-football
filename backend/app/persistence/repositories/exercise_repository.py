@@ -49,6 +49,17 @@ class AbstractExerciseRepository(ABC):
         """Return all exercises visible to this coach (COMPANY + own)."""
         ...
 
+    @abstractmethod
+    def get_video_by_ids(
+        self, exercise_ids: set[uuid.UUID]
+    ) -> dict[uuid.UUID, "dict | None"]:
+        """Return a mapping of exercise_id → video dict (or None) for the given IDs.
+
+        Only fetches the three video columns — no team scoping required because
+        callers already hold authorised exercise IDs from an assignment snapshot.
+        """
+        ...
+
 
 class SqlAlchemyExerciseRepository(AbstractExerciseRepository):
 
@@ -102,3 +113,26 @@ class SqlAlchemyExerciseRepository(AbstractExerciseRepository):
     def get_all_by_coach(self, coach_id: uuid.UUID) -> list[Exercise]:
         stmt = select(Exercise).where(_company_or_own(coach_id))
         return list(self._db.execute(stmt).scalars())
+
+    def get_video_by_ids(
+        self, exercise_ids: set[uuid.UUID]
+    ) -> dict[uuid.UUID, "dict | None"]:
+        if not exercise_ids:
+            return {}
+        stmt = select(
+            Exercise.id,
+            Exercise.video_provider,
+            Exercise.video_url,
+            Exercise.video_external_id,
+        ).where(Exercise.id.in_(exercise_ids))
+        result: dict[uuid.UUID, dict | None] = {}
+        for row in self._db.execute(stmt).all():
+            if row.video_provider and row.video_url and row.video_external_id:
+                result[row.id] = {
+                    "provider": row.video_provider,
+                    "url": row.video_url,
+                    "external_id": row.video_external_id,
+                }
+            else:
+                result[row.id] = None
+        return result
