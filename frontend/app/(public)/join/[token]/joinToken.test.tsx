@@ -59,7 +59,7 @@ const PREVIEW_RESPONSE = {
   coach_name: 'Estibaliz',
   role: 'ATHLETE',
   email: 'athlete@example.com',
-  expires_at: '2026-03-20T00:00:00Z',
+  expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
 }
 
 const USER = {

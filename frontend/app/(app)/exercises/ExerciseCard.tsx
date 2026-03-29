@@ -46,6 +46,9 @@ export default function ExerciseCard({
           {isOfficial && (
             <Badge variant="info">Official</Badge>
           )}
+          {exercise.video && (
+            <Badge variant="default">Video</Badge>
+          )}
           <p className="text-sm font-medium text-white">{exercise.name}</p>
         </div>
 

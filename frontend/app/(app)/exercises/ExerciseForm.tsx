@@ -10,6 +10,7 @@
  *   name:        3–80 chars
  *   description: min 20 chars, required
  *   tags:        at least 1; each tag max 30 chars, lowercase + trimmed
+ *   videoUrl:    optional; must be a valid YouTube URL if provided
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -23,6 +24,8 @@ export interface ExerciseFormValues {
   name: string
   description: string
   tags: string[]
+  /** Empty string means "no video". */
+  videoUrl: string
 }
 
 interface Props {
@@ -65,6 +68,59 @@ export function validateTag(tag: string): string | null {
   if (!t) return 'Tag cannot be empty'
   if (t.length > 30) return 'Tag must be 30 characters or fewer'
   return null
+}
+
+/**
+ * Validate a YouTube URL.
+ * Returns null if valid (or empty — field is optional).
+ * Returns an error string for invalid URLs.
+ *
+ * Only youtube.com and youtu.be are accepted (mirrors backend whitelist).
+ */
+export function validateVideoUrl(url: string): string | null {
+  if (!url.trim()) return null  // optional field
+  try {
+    const parsed = new URL(url.trim())
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return 'Video URL must use http or https'
+    }
+    const host = parsed.hostname.replace(/^(www\.|m\.)/, '')
+    if (host !== 'youtube.com' && host !== 'youtu.be') {
+      return 'Only YouTube URLs are supported'
+    }
+    const id = extractYoutubeId(url.trim())
+    if (!id) return 'Could not find a valid YouTube video ID in the URL'
+    return null
+  } catch {
+    return 'Enter a valid YouTube URL'
+  }
+}
+
+/**
+ * Extract the YouTube video ID from a URL.
+ * Returns null if not found or invalid.
+ * Safe to use for thumbnail preview only — never for embed src.
+ */
+export function extractYoutubeId(url: string): string | null {
+  try {
+    const parsed = new URL(url.trim())
+    const host = parsed.hostname.replace(/^(www\.|m\.)/, '')
+    if (host === 'youtu.be') {
+      const id = parsed.pathname.replace(/^\//, '').split('/')[0]
+      return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null
+    }
+    if (host === 'youtube.com') {
+      if (parsed.pathname.startsWith('/shorts/') || parsed.pathname.startsWith('/embed/')) {
+        const id = parsed.pathname.split('/')[2]
+        return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null
+      }
+      const id = parsed.searchParams.get('v') ?? ''
+      return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null
+    }
+    return null
+  } catch {
+    return null
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -210,11 +266,13 @@ export default function ExerciseForm({
   const [name, setName] = useState(initial?.name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
   const [tags, setTags] = useState<string[]>(initial?.tags ?? [])
+  const [videoUrl, setVideoUrl] = useState(initial?.videoUrl ?? '')
   const [suggestions, setSuggestions] = useState<string[]>([])
 
   const [nameError, setNameError] = useState<string | null>(null)
   const [descError, setDescError] = useState<string | null>(null)
   const [tagsError, setTagsError] = useState<string | null>(null)
+  const [videoUrlError, setVideoUrlError] = useState<string | null>(null)
 
   // Dirty tracking — notify parent when form state diverges from initial values
   const initialRef = useRef(initial)
@@ -223,15 +281,17 @@ export default function ExerciseForm({
     const dirty =
       name !== (init?.name ?? '') ||
       description !== (init?.description ?? '') ||
-      JSON.stringify(tags) !== JSON.stringify(init?.tags ?? [])
+      JSON.stringify(tags) !== JSON.stringify(init?.tags ?? []) ||
+      videoUrl !== (init?.videoUrl ?? '')
     onDirtyChange?.(dirty)
-  }, [name, description, tags, onDirtyChange])
+  }, [name, description, tags, videoUrl, onDirtyChange])
 
   const descLen = description.trim().length
   const isValid =
     !validateName(name) &&
     !validateDescription(description) &&
-    tags.length >= 1
+    tags.length >= 1 &&
+    !validateVideoUrl(videoUrl)
 
   // Fetch tag suggestions once on mount
   useEffect(() => {
@@ -248,6 +308,10 @@ export default function ExerciseForm({
     setDescError(validateDescription(description))
   }
 
+  function handleVideoUrlBlur() {
+    setVideoUrlError(validateVideoUrl(videoUrl))
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
@@ -255,19 +319,25 @@ export default function ExerciseForm({
     const nErr = validateName(name)
     const dErr = validateDescription(description)
     const tErr = tags.length < 1 ? 'At least one tag is required' : null
+    const vErr = validateVideoUrl(videoUrl)
 
     setNameError(nErr)
     setDescError(dErr)
     setTagsError(tErr)
+    setVideoUrlError(vErr)
 
-    if (nErr || dErr || tErr) return
+    if (nErr || dErr || tErr || vErr) return
 
     await onSubmit({
       name: name.trim(),
       description: description.trim(),
       tags,
+      videoUrl: videoUrl.trim(),
     })
   }
+
+  // Derive thumbnail ID for preview — safe, only used for img src (not iframe)
+  const previewId = videoUrl.trim() ? extractYoutubeId(videoUrl) : null
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-4">
@@ -333,6 +403,63 @@ export default function ExerciseForm({
           suggestions={suggestions}
           error={tagsError}
         />
+      </div>
+
+      {/* Video URL */}
+      <div>
+        <label htmlFor="ex-video" className="block text-xs font-medium text-slate-400 mb-1">
+          Video URL <span className="text-slate-600">(optional)</span>
+        </label>
+        <div className="relative flex items-center">
+          <input
+            id="ex-video"
+            type="url"
+            value={videoUrl}
+            onChange={(e) => { setVideoUrl(e.target.value); setVideoUrlError(null) }}
+            onBlur={handleVideoUrlBlur}
+            placeholder="https://www.youtube.com/watch?v=..."
+            aria-describedby={videoUrlError ? 'ex-video-error' : 'ex-video-hint'}
+            aria-invalid={!!videoUrlError}
+            className={`w-full rounded-md border bg-[#0d1420] px-3 py-2 pr-8 text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors ${
+              videoUrlError ? 'border-red-500 focus:border-red-500' : 'border-white/10 focus:border-[#4f9cf9]'
+            }`}
+          />
+          {videoUrl && (
+            <button
+              type="button"
+              onClick={() => { setVideoUrl(''); setVideoUrlError(null) }}
+              aria-label="Remove video URL"
+              className="absolute right-2 text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              ×
+            </button>
+          )}
+        </div>
+        {videoUrlError ? (
+          <p id="ex-video-error" role="alert" className="mt-1 text-xs text-red-400">{videoUrlError}</p>
+        ) : (
+          <p id="ex-video-hint" className="mt-1 text-xs text-slate-600">
+            YouTube URLs only (youtube.com or youtu.be)
+          </p>
+        )}
+
+        {/* Thumbnail preview — shown when URL is valid */}
+        {previewId && !videoUrlError && (
+          <div className="mt-2 flex items-center gap-2">
+            {/* Thumbnail derived from video ID, not from raw user input */}
+            <img
+              src={`https://img.youtube.com/vi/${previewId}/mqdefault.jpg`}
+              alt="Video thumbnail preview"
+              width={120}
+              height={68}
+              className="rounded border border-white/10 object-cover"
+            />
+            <div className="min-w-0">
+              <p className="text-xs text-slate-400 truncate">YouTube video attached</p>
+              <p className="text-xs text-slate-600 truncate font-mono">{previewId}</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Submit error */}

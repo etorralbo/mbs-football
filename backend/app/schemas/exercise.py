@@ -12,11 +12,43 @@ Validation rules (enforced at application layer, mirrored by DB constraints):
 """
 import uuid
 from datetime import datetime
-from typing import Annotated, Optional
+from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.exercise import OwnerType
+from app.utils.video import parse_video_url
+
+
+# ---------------------------------------------------------------------------
+# Video schemas
+# ---------------------------------------------------------------------------
+
+class VideoIn(BaseModel):
+    """Video input schema — accepted on Exercise create/update."""
+
+    provider: Literal["YOUTUBE"]
+    url: str = Field(..., description="YouTube video URL (any supported format)")
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        parse_video_url(v)  # raises ValueError → Pydantic converts to ValidationError
+        return v.strip()
+
+    model_config = ConfigDict(
+        json_schema_extra={"example": {"provider": "YOUTUBE", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcW"}}
+    )
+
+
+class VideoOut(BaseModel):
+    """Video output schema — returned in Exercise responses."""
+
+    provider: Literal["YOUTUBE"]
+    url: str = Field(..., description="Canonical YouTube watch URL")
+    external_id: str = Field(..., description="YouTube video ID (11 chars)")
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ---------------------------------------------------------------------------
@@ -64,6 +96,7 @@ class ExerciseCreate(BaseModel):
         min_length=1,
         description="At least one tag, e.g. ['strength', 'lower-body']",
     )
+    video: Optional[VideoIn] = Field(None, description="Optional YouTube video to attach")
 
     @field_validator("tags")
     @classmethod
@@ -76,6 +109,7 @@ class ExerciseCreate(BaseModel):
                 "name": "Goblet Squat",
                 "description": "Squat pattern holding a dumbbell or kettlebell at chest height. Great for quad development and core stability.",
                 "tags": ["strength", "lower-body"],
+                "video": {"provider": "YOUTUBE", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcW"},
             }
         }
     )
@@ -97,6 +131,14 @@ class ExerciseUpdate(BaseModel):
     description: Optional[str] = Field(None, min_length=20)
     tags: Optional[list[str]] = Field(None, min_length=1)
     video_asset_id: Optional[uuid.UUID] = Field(None)
+    video: Optional[VideoIn] = Field(
+        default=None,
+        description=(
+            "Set to a VideoIn object to attach/update a video. "
+            "Explicitly set to null to remove the video. "
+            "Omit entirely to leave video unchanged."
+        ),
+    )
 
     @field_validator("tags")
     @classmethod
@@ -132,7 +174,8 @@ class ExerciseOut(BaseModel):
     description: str = Field(..., description="Exercise description")
     tags: list[str] = Field(..., description="Categorisation tags, e.g. ['strength', 'lower-body']")
     is_favorite: bool = Field(False, description="True if the requesting coach has bookmarked this exercise")
-    video_asset_id: Optional[uuid.UUID] = Field(None, description="Associated video asset ID")
+    video_asset_id: Optional[uuid.UUID] = Field(None, description="Associated internal video asset ID (legacy)")
+    video: Optional[VideoOut] = Field(None, description="Attached YouTube video, or null if none")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
 

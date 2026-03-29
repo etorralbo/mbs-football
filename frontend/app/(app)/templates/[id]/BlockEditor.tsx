@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { NotFoundError, request } from '@/app/_shared/api/httpClient'
-import type { BlockItem, SetPrescription, WorkoutBlock } from '@/app/_shared/api/types'
+import type { BlockItem, ExerciseVideo, SetPrescription, WorkoutBlock } from '@/app/_shared/api/types'
 import { DashedActionButton } from '@/src/components/DashedActionButton'
+import { VideoModal } from '@/app/_shared/components/VideoModal'
 
 // ---------------------------------------------------------------------------
 // Local type — SetPrescription augmented with a stable client-side ID.
@@ -32,6 +33,7 @@ function SetTable({ item, onDeleted, onItemUpdated }: SetTableProps) {
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [watchingVideo, setWatchingVideo] = useState<ExerciseVideo | null>(null)
 
   // latestSetsRef always holds the current sets value synchronously,
   // eliminating the stale-closure problem in concurrent blur handlers.
@@ -152,17 +154,39 @@ function SetTable({ item, onDeleted, onItemUpdated }: SetTableProps) {
           {item.exercise.name}
           {saving && <span className="text-xs font-normal text-slate-500">Saving…</span>}
         </h4>
-        <button
-          onClick={handleDeleteItem}
-          disabled={deleting}
-          aria-label={`Remove ${item.exercise.name}`}
-          className="shrink-0 rounded p-1 text-slate-600 transition-colors hover:text-slate-400"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-1">
+          {/* Watch demo — only shown when exercise has a video attached */}
+          {item.exercise.video && (
+            <button
+              type="button"
+              onClick={() => setWatchingVideo(item.exercise.video!)}
+              aria-label={`Watch demo for ${item.exercise.name}`}
+              className="shrink-0 rounded px-2 py-1 text-xs text-slate-400 transition-colors hover:bg-white/8 hover:text-white"
+            >
+              ▶ Watch
+            </button>
+          )}
+          <button
+            onClick={handleDeleteItem}
+            disabled={deleting}
+            aria-label={`Remove ${item.exercise.name}`}
+            className="shrink-0 rounded p-1 text-slate-600 transition-colors hover:text-slate-400"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
+
+      {/* Video modal — opened by "Watch demo" button */}
+      {watchingVideo && (
+        <VideoModal
+          video={watchingVideo}
+          title={item.exercise.name}
+          onClose={() => setWatchingVideo(null)}
+        />
+      )}
 
       {/* Sets as grid cards */}
       <div className="space-y-3">

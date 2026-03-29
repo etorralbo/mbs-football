@@ -85,6 +85,11 @@ class Exercise(Base, TimestampMixin):
         ForeignKey("media_assets.id", ondelete="SET NULL"),
         nullable=True,
     )
+    # External video support (YouTube). All three columns are NULL when no video is set.
+    # VARCHAR is used intentionally — avoids PostgreSQL enum migration complexity.
+    video_provider: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    video_url: Mapped[Optional[str]] = mapped_column(String(2048), nullable=True)
+    video_external_id: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
 
     def __repr__(self) -> str:
         return f"<Exercise(id={self.id}, name={self.name}, owner_type={self.owner_type})>"

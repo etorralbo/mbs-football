@@ -52,7 +52,12 @@ export function ExerciseEditorDrawer({
 
   const title = exercise ? `Edit: ${exercise.name}` : 'New exercise'
   const formInitial = exercise
-    ? { name: exercise.name, description: exercise.description, tags: exercise.tags }
+    ? {
+        name: exercise.name,
+        description: exercise.description,
+        tags: exercise.tags,
+        videoUrl: exercise.video?.url ?? '',
+      }
     : undefined
 
   // --- Body scroll lock ---

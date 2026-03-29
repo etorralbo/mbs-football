@@ -301,12 +301,20 @@ export default function ExercisesPage() {
   async function handleFormSubmit(values: ExerciseFormValues) {
     setFormSubmitting(true)
     setFormError(null)
+
+    // Map form values to API payload — videoUrl is a UX field, not a direct API field.
+    const { videoUrl, ...coreValues } = values
+    const payload = {
+      ...coreValues,
+      video: videoUrl ? { provider: 'YOUTUBE' as const, url: videoUrl } : null,
+    }
+
     try {
       if (editingExercise) {
         // Edit
         const updated = await request<Exercise>(`/v1/exercises/${editingExercise.id}`, {
           method: 'PATCH',
-          body: JSON.stringify(values),
+          body: JSON.stringify(payload),
         })
         setExercises((prev) => prev.map((e) => e.id === updated.id ? updated : e))
         showToast('Exercise updated', 'success')
@@ -314,7 +322,7 @@ export default function ExercisesPage() {
         // Create
         const created = await request<Exercise>('/v1/exercises', {
           method: 'POST',
-          body: JSON.stringify(values),
+          body: JSON.stringify(payload),
         })
         setExercises((prev) => [created, ...prev])
         highlightExercise(created.id)
