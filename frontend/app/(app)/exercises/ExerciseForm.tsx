@@ -84,7 +84,7 @@ export function validateVideoUrl(url: string): string | null {
     if (!['http:', 'https:'].includes(parsed.protocol)) {
       return 'Video URL must use http or https'
     }
-    const host = parsed.hostname.replace(/^www\./, '')
+    const host = parsed.hostname.replace(/^(www\.|m\.)/, '')
     if (host !== 'youtube.com' && host !== 'youtu.be') {
       return 'Only YouTube URLs are supported'
     }
@@ -104,13 +104,13 @@ export function validateVideoUrl(url: string): string | null {
 export function extractYoutubeId(url: string): string | null {
   try {
     const parsed = new URL(url.trim())
-    const host = parsed.hostname.replace(/^www\./, '')
+    const host = parsed.hostname.replace(/^(www\.|m\.)/, '')
     if (host === 'youtu.be') {
       const id = parsed.pathname.replace(/^\//, '').split('/')[0]
       return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null
     }
     if (host === 'youtube.com') {
-      if (parsed.pathname.startsWith('/embed/')) {
+      if (parsed.pathname.startsWith('/shorts/') || parsed.pathname.startsWith('/embed/')) {
         const id = parsed.pathname.split('/')[2]
         return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null
       }
