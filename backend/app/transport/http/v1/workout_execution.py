@@ -281,11 +281,18 @@ class SetLogOutSchema(BaseModel):
     done: bool
 
 
+class VideoExecutionOutSchema(BaseModel):
+    provider: str
+    url: str
+    external_id: str
+
+
 class ExerciseExecutionOutSchema(BaseModel):
     exercise_id: uuid.UUID
     exercise_name: str
     prescription: dict
     logs: list[SetLogOutSchema]
+    video: Optional[VideoExecutionOutSchema] = None
 
 
 class BlockExecutionOutSchema(BaseModel):
@@ -349,6 +356,11 @@ def _execution_result_to_out(result: SessionExecutionResult) -> WorkoutSessionEx
                         exercise_id=item.exercise_id,
                         exercise_name=item.exercise_name,
                         prescription=item.prescription,
+                        video=(
+                            VideoExecutionOutSchema(**item.video)
+                            if item.video
+                            else None
+                        ),
                         logs=[
                             SetLogOutSchema(
                                 set_number=s.set_number,

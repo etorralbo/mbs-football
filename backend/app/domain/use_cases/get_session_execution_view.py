@@ -57,6 +57,7 @@ class ExerciseExecutionOut:
     exercise_name: str
     prescription: dict[str, Any]
     logs: list[SetLogOut] = field(default_factory=list)
+    video: Optional[dict[str, Any]] = None  # {"provider", "url", "external_id"} or None
 
 
 @dataclass
@@ -206,6 +207,7 @@ class GetSessionExecutionViewUseCase:
                         exercise_name=item_data["exercise_name"],
                         prescription=item_data.get("prescription", {}),
                         logs=log_index.get(ex_id, []),
+                        video=item_data.get("video"),  # None for legacy snapshots
                     )
                 )
             block_results.append(
@@ -230,12 +232,23 @@ class GetSessionExecutionViewUseCase:
             items = sorted(block.items, key=lambda i: i.order_index)
             exercise_results = []
             for item in items:
+                ex = item.exercise
+                video = (
+                    {
+                        "provider": ex.video_provider,
+                        "url": ex.video_url,
+                        "external_id": ex.video_external_id,
+                    }
+                    if ex.video_provider
+                    else None
+                )
                 exercise_results.append(
                     ExerciseExecutionOut(
                         exercise_id=item.exercise_id,
-                        exercise_name=item.exercise.name,
+                        exercise_name=ex.name,
                         prescription=item.prescription_json or {},
                         logs=log_index.get(item.exercise_id, []),
+                        video=video,
                     )
                 )
             block_results.append(
