@@ -46,6 +46,13 @@ def coach_jwt(coach_a: UserProfile, mock_jwt) -> UserProfile:
 
 
 @pytest.fixture
+def coach_b_jwt(coach_b: UserProfile, mock_jwt) -> UserProfile:
+    """Return coach_b (different tenant) with a mocked JWT active."""
+    mock_jwt(str(coach_b.supabase_user_id))
+    return coach_b
+
+
+@pytest.fixture
 def exercise_no_video(db_session: Session, coach_a: UserProfile) -> Exercise:
     """Exercise with no video — tests backward compat."""
     ex = Exercise(
@@ -270,3 +277,95 @@ class TestGetExerciseVideoBackwardCompat:
         assert body["video"] is not None
         assert body["video"]["provider"] == "YOUTUBE"
         assert body["video"]["external_id"] == _EXPECTED_ID
+
+
+# ---------------------------------------------------------------------------
+# AUTH / TENANT BOUNDARY — 401, 403, 404
+# ---------------------------------------------------------------------------
+
+class TestVideoEndpointAuthBoundaries:
+    """
+    Regression tests for auth and tenant isolation on video-related endpoints.
+
+    Rules (from CLAUDE.md):
+      - Missing/invalid token       => 401
+      - Cross-team resource access  => 404 (do not leak existence)
+    """
+
+    # --- 401: no auth header ---
+
+    def test_create_requires_auth(self, client: TestClient) -> None:
+        payload = {**_BASE_EXERCISE, "name": "Auth Test Create"}
+        resp = client.post("/v1/exercises", json=payload)
+        assert resp.status_code == 401
+
+    def test_patch_requires_auth(
+        self, client: TestClient, db_session, coach_a
+    ) -> None:
+        ex = Exercise(
+            id=uuid.uuid4(),
+            coach_id=coach_a.id,
+            name="Auth Test Patch",
+            description="Exercise for testing that PATCH requires authentication.",
+            tags=["strength"],
+        )
+        db_session.add(ex)
+        db_session.commit()
+        resp = client.patch(f"/v1/exercises/{ex.id}", json={"name": "Updated"})
+        assert resp.status_code == 401
+
+    def test_get_list_requires_auth(self, client: TestClient) -> None:
+        resp = client.get("/v1/exercises")
+        assert resp.status_code == 401
+
+    def test_get_by_id_requires_auth(
+        self, client: TestClient, exercise_no_video: Exercise, coach_a
+    ) -> None:
+        resp = client.get(f"/v1/exercises/{exercise_no_video.id}")
+        assert resp.status_code == 401
+
+    # --- 404: nonexistent exercise ID ---
+
+    def test_patch_nonexistent_returns_404(
+        self, client: TestClient, coach_jwt: UserProfile
+    ) -> None:
+        nonexistent = uuid.uuid4()
+        resp = client.patch(
+            f"/v1/exercises/{nonexistent}",
+            json={"video": {"provider": "YOUTUBE", "url": _VALID_YOUTUBE_URL}},
+            headers=HEADERS,
+        )
+        assert resp.status_code == 404
+
+    def test_get_by_id_nonexistent_returns_404(
+        self, client: TestClient, coach_jwt: UserProfile
+    ) -> None:
+        nonexistent = uuid.uuid4()
+        resp = client.get(f"/v1/exercises/{nonexistent}", headers=HEADERS)
+        assert resp.status_code == 404
+
+    # --- 404: cross-tenant access (do not leak existence) ---
+
+    def test_patch_cross_tenant_returns_404(
+        self,
+        client: TestClient,
+        coach_b_jwt: UserProfile,
+        exercise_no_video: Exercise,
+    ) -> None:
+        """coach_b must not be able to update coach_a's exercise."""
+        resp = client.patch(
+            f"/v1/exercises/{exercise_no_video.id}",
+            json={"video": {"provider": "YOUTUBE", "url": _VALID_YOUTUBE_URL}},
+            headers=HEADERS,
+        )
+        assert resp.status_code == 404
+
+    def test_get_by_id_cross_tenant_returns_404(
+        self,
+        client: TestClient,
+        coach_b_jwt: UserProfile,
+        exercise_no_video: Exercise,
+    ) -> None:
+        """coach_b must not see coach_a's exercise."""
+        resp = client.get(f"/v1/exercises/{exercise_no_video.id}", headers=HEADERS)
+        assert resp.status_code == 404
