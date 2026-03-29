@@ -134,6 +134,15 @@ class CreateWorkoutAssignmentUseCase:
                             "exercise_name": item.exercise.name,
                             "order": item.order_index,
                             "prescription": item.prescription_json or {},
+                            "video": (
+                                {
+                                    "provider": item.exercise.video_provider,
+                                    "url": item.exercise.video_url,
+                                    "external_id": item.exercise.video_external_id,
+                                }
+                                if item.exercise.video_provider
+                                else None
+                            ),
                         }
                         for item in sorted(block.items, key=lambda i: i.order_index)
                     ],

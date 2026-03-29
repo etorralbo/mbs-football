@@ -241,6 +241,7 @@ export interface ExecutionItem {
   exercise_name: string
   prescription: Record<string, unknown>
   logs: ExecutionSetLog[]
+  video?: ExerciseVideo | null
 }
 
 export interface SessionExecutionBlock {

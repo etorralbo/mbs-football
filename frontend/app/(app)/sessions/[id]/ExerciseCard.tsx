@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import { request, ConflictError, ValidationError } from '@/app/_shared/api/httpClient'
-import type { ExecutionItem } from '@/app/_shared/api/types'
+import type { ExecutionItem, ExerciseVideo } from '@/app/_shared/api/types'
 import { parseOpt } from '@/src/features/session-execution/draftState'
 import type { DraftAction, DraftState } from '@/src/features/session-execution/draftState'
 import { Badge } from '@/app/_shared/components/Badge'
+import { VideoModal } from '@/app/_shared/components/VideoModal'
 import { SetRow } from './SetRow'
 
 interface Props {
@@ -58,6 +59,7 @@ export function ExerciseCard({
 }: Props) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [watchingVideo, setWatchingVideo] = useState<ExerciseVideo | null>(null)
 
   const sortedSets = Object.entries(exerciseSets)
     .map(([k, v]) => ({ setNumber: Number(k), draft: v }))
@@ -128,11 +130,29 @@ export function ExerciseCard({
 
   return (
     <div className="rounded-lg border border-white/8 bg-[#131922] p-4">
+      {watchingVideo && (
+        <VideoModal
+          video={watchingVideo}
+          title={item.exercise_name}
+          onClose={() => setWatchingVideo(null)}
+        />
+      )}
+
       {/* Exercise name + prescription */}
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-sm font-semibold text-white">{item.exercise_name}</p>
           <p className="mt-0.5 text-xs text-slate-400">{prescriptionText(item.prescription)}</p>
+          {item.video && (
+            <button
+              type="button"
+              onClick={() => setWatchingVideo(item.video!)}
+              aria-label={`Watch demo for ${item.exercise_name}`}
+              className="mt-1 rounded px-2 py-0.5 text-xs text-slate-400 transition-colors hover:bg-white/8 hover:text-white"
+            >
+              ▶ Watch demo
+            </button>
+          )}
         </div>
 
         {/* Exercise-level done toggle (athlete) or read-only badge (coach / completed) */}

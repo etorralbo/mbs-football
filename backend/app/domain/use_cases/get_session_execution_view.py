@@ -34,6 +34,22 @@ class NotFoundError(Exception):
 # Result DTOs
 # ---------------------------------------------------------------------------
 
+def _validated_snapshot_video(raw: Any) -> Optional[dict[str, Any]]:
+    """Return the video dict only if all required fields are present and non-empty.
+
+    Coerces any partial or malformed snapshot payload to None so that only
+    complete video objects reach ExerciseExecutionOut and the transport layer.
+    """
+    if not isinstance(raw, dict):
+        return None
+    provider = raw.get("provider")
+    url = raw.get("url")
+    external_id = raw.get("external_id")
+    if provider and url and external_id:
+        return {"provider": provider, "url": url, "external_id": external_id}
+    return None
+
+
 def _block_key(name: str) -> str:
     """Derive a stable machine-readable key from a block name.
 
@@ -57,6 +73,7 @@ class ExerciseExecutionOut:
     exercise_name: str
     prescription: dict[str, Any]
     logs: list[SetLogOut] = field(default_factory=list)
+    video: Optional[dict[str, Any]] = None  # {"provider", "url", "external_id"} or None
 
 
 @dataclass
@@ -206,6 +223,7 @@ class GetSessionExecutionViewUseCase:
                         exercise_name=item_data["exercise_name"],
                         prescription=item_data.get("prescription", {}),
                         logs=log_index.get(ex_id, []),
+                        video=_validated_snapshot_video(item_data.get("video")),
                     )
                 )
             block_results.append(
@@ -230,12 +248,23 @@ class GetSessionExecutionViewUseCase:
             items = sorted(block.items, key=lambda i: i.order_index)
             exercise_results = []
             for item in items:
+                ex = item.exercise
+                video = (
+                    {
+                        "provider": ex.video_provider,
+                        "url": ex.video_url,
+                        "external_id": ex.video_external_id,
+                    }
+                    if ex.video_provider
+                    else None
+                )
                 exercise_results.append(
                     ExerciseExecutionOut(
                         exercise_id=item.exercise_id,
-                        exercise_name=item.exercise.name,
+                        exercise_name=ex.name,
                         prescription=item.prescription_json or {},
                         logs=log_index.get(item.exercise_id, []),
+                        video=video,
                     )
                 )
             block_results.append(
