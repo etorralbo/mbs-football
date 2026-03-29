@@ -140,7 +140,7 @@ def assert_video_columns_consistent(
     Any other combination is an invariant violation that should never reach the DB.
     """
     values = (video_provider, video_url, video_external_id)
-    set_count = sum(1 for v in values if v is not None)
+    set_count = sum(1 for v in values if v is not None and (not isinstance(v, str) or v.strip() != ""))
     if set_count not in (0, 3):
         raise ValueError(
             "Incomplete video metadata: video_provider, video_url, and "

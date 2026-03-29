@@ -161,8 +161,17 @@ def test_consistency_all_set_ok() -> None:
     ("YOUTUBE", "https://www.youtube.com/watch?v=dQw4w9WgXcW", None),
     ("YOUTUBE", None, "dQw4w9WgXcW"),
     (None, "https://www.youtube.com/watch?v=dQw4w9WgXcW", "dQw4w9WgXcW"),
+    # mixed: one real value + empty strings → partial → raises
+    ("YOUTUBE", "", ""),
+    ("", "https://www.youtube.com/watch?v=dQw4w9WgXcW", ""),
 ])
 def test_consistency_partial_raises(provider, url, external_id) -> None:
-    """Any partial combination must raise ValueError."""
+    """Any partial combination (including mixed empty/whitespace strings) must raise ValueError."""
     with pytest.raises(ValueError, match="Incomplete video metadata"):
         assert_video_columns_consistent(provider, url, external_id)
+
+
+def test_consistency_all_empty_strings_treated_as_unset() -> None:
+    """All-empty or all-whitespace is equivalent to all-None — no video, no error."""
+    assert_video_columns_consistent("", "", "")
+    assert_video_columns_consistent("  ", "  ", "  ")
