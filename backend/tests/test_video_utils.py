@@ -28,8 +28,8 @@ from app.utils.video import ParsedVideo, assert_video_columns_consistent, parse_
     ("https://www.youtube.com/watch?v=dQw4w9WgXcW&si=abc123def456", "dQw4w9WgXcW"),
     # http:// is also accepted
     ("http://www.youtube.com/watch?v=dQw4w9WgXcW", "dQw4w9WgXcW"),
-    # IDs with hyphens and underscores
-    ("https://www.youtube.com/watch?v=abc-def_1234", "abc-def_1234"),
+    # IDs with hyphens and underscores (must be exactly 11 chars)
+    ("https://www.youtube.com/watch?v=abc-def_123", "abc-def_123"),
     # Leading/trailing whitespace
     ("  https://www.youtube.com/watch?v=dQw4w9WgXcW  ", "dQw4w9WgXcW"),
 ])
