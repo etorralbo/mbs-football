@@ -91,5 +91,22 @@ class Exercise(Base, TimestampMixin):
     video_url: Mapped[Optional[str]] = mapped_column(String(2048), nullable=True)
     video_external_id: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
 
+    @property
+    def video(self) -> dict | None:
+        """Assembled video object for Pydantic ORM serialisation (ExerciseOut).
+
+        Returns a VideoOut-compatible dict when all three columns are set,
+        or None when no video is attached.  This allows ExerciseOut with
+        from_attributes=True to read `exercise.video` directly without any
+        intermediate service layer.
+        """
+        if self.video_provider and self.video_url and self.video_external_id:
+            return {
+                "provider": self.video_provider,
+                "url": self.video_url,
+                "external_id": self.video_external_id,
+            }
+        return None
+
     def __repr__(self) -> str:
         return f"<Exercise(id={self.id}, name={self.name}, owner_type={self.owner_type})>"
