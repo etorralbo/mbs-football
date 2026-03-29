@@ -34,6 +34,22 @@ class NotFoundError(Exception):
 # Result DTOs
 # ---------------------------------------------------------------------------
 
+def _validated_snapshot_video(raw: Any) -> Optional[dict[str, Any]]:
+    """Return the video dict only if all required fields are present and non-empty.
+
+    Coerces any partial or malformed snapshot payload to None so that only
+    complete video objects reach ExerciseExecutionOut and the transport layer.
+    """
+    if not isinstance(raw, dict):
+        return None
+    provider = raw.get("provider")
+    url = raw.get("url")
+    external_id = raw.get("external_id")
+    if provider and url and external_id:
+        return {"provider": provider, "url": url, "external_id": external_id}
+    return None
+
+
 def _block_key(name: str) -> str:
     """Derive a stable machine-readable key from a block name.
 
@@ -207,7 +223,7 @@ class GetSessionExecutionViewUseCase:
                         exercise_name=item_data["exercise_name"],
                         prescription=item_data.get("prescription", {}),
                         logs=log_index.get(ex_id, []),
-                        video=item_data.get("video"),  # None for legacy snapshots
+                        video=_validated_snapshot_video(item_data.get("video")),
                     )
                 )
             block_results.append(
