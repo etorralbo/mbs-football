@@ -24,6 +24,7 @@ vi.mock('@/src/features/activation/useActivationState', () => ({
 }))
 
 import { useActivationState } from '@/src/features/activation/useActivationState'
+import type { AttentionQueueData } from '@/app/_shared/api/types'
 import DashboardPage from './page'
 
 const mockActivation = vi.mocked(useActivationState)
@@ -98,7 +99,7 @@ const ITEM_STALE = {
   exercises_logged_count: 2,
 }
 
-const EMPTY_QUEUE = {
+const EMPTY_QUEUE: AttentionQueueData = {
   overdue: [],
   due_today: [],
   stale: [],
