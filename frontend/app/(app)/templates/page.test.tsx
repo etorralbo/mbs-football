@@ -8,7 +8,6 @@
  * 5. Duplicate highlights the new card inline.
  * 6. Cards show "Last edited" metadata.
  * 7. Quick actions (Edit, Assign, Duplicate) appear on hover.
- * 8. "Incomplete" badge shown for draft templates without description.
  */
 import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
@@ -192,8 +191,7 @@ describe('TemplatesPage — Template cards', () => {
     renderAsCoach(TEMPLATES)
 
     await screen.findByText('Strength A')
-    // Strength A is draft+no description → shows INCOMPLETE instead of DRAFT
-    expect(screen.getByText('INCOMPLETE')).toBeInTheDocument()
+    expect(screen.getByText('DRAFT')).toBeInTheDocument()
     expect(screen.getByText('PUBLISHED')).toBeInTheDocument()
   })
 
@@ -308,40 +306,6 @@ describe('TemplatesPage — quick actions on hover', () => {
   })
 })
 
-describe('TemplatesPage — incomplete state', () => {
-  it('shows INCOMPLETE badge (replacing DRAFT) for draft templates without description', async () => {
-    const templates = [
-      { id: 't1', title: 'Empty Draft', status: 'draft', team_id: 'team1', description: null, created_at: NOW, updated_at: NOW },
-    ]
-    renderAsCoach(templates)
-
-    await screen.findByText('Empty Draft')
-    expect(screen.getByText('INCOMPLETE')).toBeInTheDocument()
-    expect(screen.queryByText('DRAFT')).not.toBeInTheDocument()
-  })
-
-  it('shows DRAFT badge (not INCOMPLETE) for draft templates with description', async () => {
-    const templates = [
-      { id: 't1', title: 'Full Draft', status: 'draft', team_id: 'team1', description: 'Has a description', created_at: NOW, updated_at: NOW },
-    ]
-    renderAsCoach(templates)
-
-    await screen.findByText('Full Draft')
-    expect(screen.getByText('DRAFT')).toBeInTheDocument()
-    expect(screen.queryByText('INCOMPLETE')).not.toBeInTheDocument()
-    expect(screen.queryByText(/add exercises to finish setup/i)).not.toBeInTheDocument()
-  })
-
-  it('does NOT show INCOMPLETE badge for published templates', async () => {
-    const templates = [
-      { id: 't1', title: 'Published', status: 'published', team_id: 'team1', description: null, created_at: NOW, updated_at: NOW },
-    ]
-    renderAsCoach(templates)
-
-    await screen.findByText('Published')
-    expect(screen.queryByText('INCOMPLETE')).not.toBeInTheDocument()
-  })
-})
 
 describe('TemplatesPage — empty state', () => {
   it('shows improved empty state for COACH', async () => {

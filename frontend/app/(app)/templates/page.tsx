@@ -291,9 +291,6 @@ function formatRelativeTime(isoDate: string): string {
 // TemplateCard
 // ---------------------------------------------------------------------------
 
-const isIncomplete = (t: WorkoutTemplate) =>
-  t.status === 'draft' && !t.description
-
 function TemplateCard({
   template,
   highlighted = false,
@@ -309,21 +306,15 @@ function TemplateCard({
   onDuplicate: () => void
   onDelete: () => void
 }) {
-  const incomplete = isIncomplete(template)
-
   return (
     <Link
       href={`/templates/${template.id}`}
       data-highlight={highlighted ? 'true' : undefined}
-      className={`group relative flex flex-col rounded-xl border bg-[#131922] p-5 transition-all duration-150 ease-out cursor-pointer hover:-translate-y-1 hover:border-white/20 hover:bg-[#131922]/80 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1420] active:scale-[0.99] ${incomplete ? 'border-amber-500/20' : 'border-white/8'}`}
+      className="group relative flex flex-col rounded-xl border border-white/8 bg-[#131922] p-5 transition-all duration-150 ease-out cursor-pointer hover:-translate-y-1 hover:border-white/20 hover:bg-[#131922]/80 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f135]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1420] active:scale-[0.99]"
     >
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          {incomplete ? (
-            <Badge variant="incomplete" dot>INCOMPLETE</Badge>
-          ) : (
-            <StatusBadge status={template.status} />
-          )}
+          <StatusBadge status={template.status} />
         </div>
         <div className="flex items-center gap-0.5">
           {/* Quick actions — hidden on mobile, revealed on desktop hover */}
