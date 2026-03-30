@@ -128,6 +128,68 @@ class TestTransactionRollback:
         ).scalars().all()
         assert assignments == [], "Assignments should have been rolled back"
 
+    def test_batch_unauthenticated_returns_401(
+        self,
+        client: TestClient,
+        athlete_a: UserProfile,
+    ):
+        """No Authorization header → 401 before any business logic runs."""
+        resp = client.post(
+            BATCH_ENDPOINT,
+            json={
+                "workout_template_id": str(uuid.uuid4()),
+                "athlete_ids": [str(athlete_a.id)],
+            },
+            # Deliberately omit HEADERS — no token sent
+        )
+
+        assert resp.status_code == 401
+
+    def test_batch_forbidden_returns_403(
+        self,
+        client: TestClient,
+        mock_jwt,
+        athlete_a: UserProfile,
+    ):
+        """Athlete role is forbidden from creating assignments → 403."""
+        mock_jwt(str(athlete_a.supabase_user_id))
+
+        resp = client.post(
+            BATCH_ENDPOINT,
+            json={
+                "workout_template_id": str(uuid.uuid4()),
+                "athlete_ids": [str(athlete_a.id)],
+            },
+            headers=HEADERS,
+        )
+
+        assert resp.status_code == 403
+
+    def test_batch_unknown_template_returns_404(
+        self,
+        client: TestClient,
+        mock_jwt,
+        coach_a: UserProfile,
+        athlete_a: UserProfile,
+    ):
+        """Non-existent template_id → 404 (no IDOR leakage)."""
+        mock_jwt(str(coach_a.supabase_user_id))
+
+        with patch(
+            "app.domain.use_cases.batch_create_workout_assignment._is_template_ready",
+            return_value=True,
+        ):
+            resp = client.post(
+                BATCH_ENDPOINT,
+                json={
+                    "workout_template_id": str(uuid.uuid4()),  # random — does not exist
+                    "athlete_ids": [str(athlete_a.id)],
+                },
+                headers=HEADERS,
+            )
+
+        assert resp.status_code == 404
+
     def test_no_sessions_persisted_when_template_not_ready(
         self,
         client: TestClient,
