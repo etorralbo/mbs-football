@@ -37,3 +37,18 @@ class SqlAlchemyAthleteQueryRepository(AbstractAthleteQueryRepository):
             UserProfile.role == Role.ATHLETE,
         )
         return self._db.execute(stmt).scalar_one_or_none()
+
+    def get_athletes_by_ids_and_team(
+        self,
+        athlete_ids: list[uuid.UUID],
+        team_id: uuid.UUID,
+    ) -> list[UserProfile]:
+        """Batch validation: single query for multiple athlete IDs within team."""
+        if not athlete_ids:
+            return []
+        stmt = select(UserProfile).where(
+            UserProfile.id.in_(athlete_ids),
+            UserProfile.team_id == team_id,
+            UserProfile.role == Role.ATHLETE,
+        )
+        return list(self._db.execute(stmt).scalars())

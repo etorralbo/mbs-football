@@ -105,6 +105,20 @@ class AbstractWorkoutSessionRepository(ABC):
         """Stamp cancelled_at with the current UTC time and commit."""
         ...
 
+    @abstractmethod
+    def create_sessions_for_batch(
+        self,
+        items: list[tuple[uuid.UUID, uuid.UUID]],
+        workout_template_id: uuid.UUID,
+        scheduled_for: Optional[date],
+    ) -> list[WorkoutSession]:
+        """Create one WorkoutSession per (assignment_id, athlete_id) pair and commit once.
+
+        Called by BatchCreateWorkoutAssignmentUseCase after all assignments
+        are flushed, so the entire batch lands in a single transaction.
+        """
+        ...
+
 
 class SqlAlchemyWorkoutSessionRepository(AbstractWorkoutSessionRepository):
 
@@ -244,3 +258,26 @@ class SqlAlchemyWorkoutSessionRepository(AbstractWorkoutSessionRepository):
         session.cancelled_at = datetime.now(tz=timezone.utc)
         self._db.add(session)
         self._db.commit()
+
+    def create_sessions_for_batch(
+        self,
+        items: list[tuple[uuid.UUID, uuid.UUID]],
+        workout_template_id: uuid.UUID,
+        scheduled_for: Optional[date],
+    ) -> list[WorkoutSession]:
+        """Create sessions for multiple (assignment_id, athlete_id) pairs in one commit."""
+        sessions = [
+            WorkoutSession(
+                id=uuid.uuid4(),
+                assignment_id=assignment_id,
+                athlete_id=athlete_id,
+                workout_template_id=workout_template_id,
+                scheduled_for=scheduled_for,
+            )
+            for assignment_id, athlete_id in items
+        ]
+        self._db.add_all(sessions)
+        self._db.commit()
+        for s in sessions:
+            self._db.refresh(s)
+        return sessions
