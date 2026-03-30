@@ -25,8 +25,11 @@ from app.domain.use_cases.create_workout_assignment import (
 from app.domain.use_cases.batch_create_workout_assignment import (
     BatchCreateWorkoutAssignmentCommand,
     BatchCreateWorkoutAssignmentUseCase,
+    DuplicateAssignmentError,
     NotFoundError as BatchNotFoundError,
+    TemplateNotReadyError,
 )
+from app.persistence.unit_of_work import SqlAlchemyUnitOfWork
 from app.persistence.repositories.athlete_query_repository import (
     SqlAlchemyAthleteQueryRepository,
 )
@@ -161,6 +164,7 @@ def create_batch_assignment(
         session_repo=SqlAlchemyWorkoutSessionRepository(db),
         athlete_query_repo=SqlAlchemyAthleteQueryRepository(db),
         event_service=ProductEventService(db),
+        uow=SqlAlchemyUnitOfWork(db),
     )
 
     command = BatchCreateWorkoutAssignmentCommand(
@@ -175,5 +179,11 @@ def create_batch_assignment(
         result = use_case.execute(command)
     except BatchNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except TemplateNotReadyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
+    except DuplicateAssignmentError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
     return BatchAssignWorkoutOut(sessions_created=result.sessions_created)

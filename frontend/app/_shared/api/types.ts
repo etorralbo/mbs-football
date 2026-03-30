@@ -111,6 +111,8 @@ export interface WorkoutBlock {
 
 export interface WorkoutTemplateDetail extends WorkoutTemplate {
   blocks: WorkoutBlock[]
+  /** Server-derived: true iff the template has ≥1 block with ≥1 exercise. */
+  is_ready: boolean
 }
 
 // ---------------------------------------------------------------------------

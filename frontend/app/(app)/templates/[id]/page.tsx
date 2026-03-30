@@ -49,11 +49,6 @@ function getAccentColor(index: number) {
   return BLOCK_ACCENT_COLORS[index % BLOCK_ACCENT_COLORS.length]
 }
 
-// "Ready" = has at least 1 block with at least 1 exercise — safe to assign.
-function isTemplateReady(template: WorkoutTemplateDetail): boolean {
-  return template.blocks.length > 0 && template.blocks.some((b) => b.items.length > 0)
-}
-
 // ---------------------------------------------------------------------------
 // AddBlockForm
 // ---------------------------------------------------------------------------
@@ -306,7 +301,9 @@ export default function TemplateDetailPage() {
   if (notFound || !template)
     return <p className="text-sm text-slate-400">Template not found.</p>
 
-  const ready = isTemplateReady(template)
+  // is_ready is derived server-side (≥1 block, ≥1 exercise) and returned
+  // in the template detail response. Use it directly as the source of truth.
+  const ready = template.is_ready
 
   return (
     <div className="mx-auto max-w-7xl">

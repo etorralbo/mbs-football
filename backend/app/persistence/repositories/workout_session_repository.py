@@ -112,10 +112,10 @@ class AbstractWorkoutSessionRepository(ABC):
         workout_template_id: uuid.UUID,
         scheduled_for: Optional[date],
     ) -> list[WorkoutSession]:
-        """Create one WorkoutSession per (assignment_id, athlete_id) pair and commit once.
+        """Flush one WorkoutSession per (assignment_id, athlete_id) pair.
 
-        Called by BatchCreateWorkoutAssignmentUseCase after all assignments
-        are flushed, so the entire batch lands in a single transaction.
+        Does NOT commit — transaction ownership belongs to
+        BatchCreateWorkoutAssignmentUseCase via AbstractUnitOfWork.
         """
         ...
 
@@ -265,7 +265,12 @@ class SqlAlchemyWorkoutSessionRepository(AbstractWorkoutSessionRepository):
         workout_template_id: uuid.UUID,
         scheduled_for: Optional[date],
     ) -> list[WorkoutSession]:
-        """Create sessions for multiple (assignment_id, athlete_id) pairs in one commit."""
+        """Flush sessions for multiple (assignment_id, athlete_id) pairs.
+
+        Flush only — BatchCreateWorkoutAssignmentUseCase owns the commit via
+        AbstractUnitOfWork, so the entire batch (assignments + sessions + audit
+        event) commits or rolls back atomically.
+        """
         sessions = [
             WorkoutSession(
                 id=uuid.uuid4(),
@@ -277,7 +282,5 @@ class SqlAlchemyWorkoutSessionRepository(AbstractWorkoutSessionRepository):
             for assignment_id, athlete_id in items
         ]
         self._db.add_all(sessions)
-        self._db.commit()
-        for s in sessions:
-            self._db.refresh(s)
+        self._db.flush()  # IDs populated via RETURNING; no commit yet
         return sessions
