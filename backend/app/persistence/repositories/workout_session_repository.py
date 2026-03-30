@@ -17,6 +17,21 @@ from app.models.workout_template import WorkoutTemplate
 
 
 @dataclass
+class AttentionSessionRow:
+    """Lightweight DTO for the attention-queue endpoint."""
+
+    id: uuid.UUID
+    athlete_id: uuid.UUID
+    workout_template_id: uuid.UUID
+    scheduled_for: Optional[date]
+    template_title: str
+    athlete_name: str
+    exercise_count: int
+    exercises_logged_count: int
+    last_log_at: Optional[datetime]  # MAX(log.created_at) — None if no logs yet
+
+
+@dataclass
 class WorkoutSessionRow:
     """Lightweight DTO: session fields + template title + athlete name (fetched via JOIN)."""
 
@@ -103,6 +118,12 @@ class AbstractWorkoutSessionRepository(ABC):
     @abstractmethod
     def cancel(self, session: WorkoutSession) -> None:
         """Stamp cancelled_at with the current UTC time and commit."""
+        ...
+
+    @abstractmethod
+    def get_pending_by_team(self, team_id: uuid.UUID) -> list[AttentionSessionRow]:
+        """Return all non-completed, non-cancelled sessions for the team,
+        enriched with exercise counts and last-log timestamp for attention queue."""
         ...
 
     @abstractmethod
@@ -212,6 +233,50 @@ class SqlAlchemyWorkoutSessionRepository(AbstractWorkoutSessionRepository):
             .where(WorkoutSession.cancelled_at.is_(None))
         )
         return [self._row_from_result(row) for row in self._db.execute(stmt)]
+
+    def _last_log_at_subquery(self):
+        return (
+            select(func.max(WorkoutSessionLog.created_at))
+            .where(WorkoutSessionLog.session_id == WorkoutSession.id)
+            .correlate(WorkoutSession)
+            .scalar_subquery()
+            .label("last_log_at")
+        )
+
+    def get_pending_by_team(self, team_id: uuid.UUID) -> list[AttentionSessionRow]:
+        ex_count = self._exercise_count_subquery()
+        logged_count = self._exercises_logged_subquery()
+        last_log = self._last_log_at_subquery()
+        stmt = (
+            select(
+                WorkoutSession,
+                WorkoutTemplate.title,
+                UserProfile.name,
+                ex_count,
+                logged_count,
+                last_log,
+            )
+            .join(UserProfile, WorkoutSession.athlete_id == UserProfile.id)
+            .join(WorkoutTemplate, WorkoutSession.workout_template_id == WorkoutTemplate.id)
+            .where(UserProfile.team_id == team_id)
+            .where(WorkoutTemplate.team_id == team_id)
+            .where(WorkoutSession.completed_at.is_(None))
+            .where(WorkoutSession.cancelled_at.is_(None))
+        )
+        return [
+            AttentionSessionRow(
+                id=row.WorkoutSession.id,
+                athlete_id=row.WorkoutSession.athlete_id,
+                workout_template_id=row.WorkoutSession.workout_template_id,
+                scheduled_for=row.WorkoutSession.scheduled_for,
+                template_title=row.title,
+                athlete_name=row.name,
+                exercise_count=row.exercise_count or 0,
+                exercises_logged_count=row.exercises_logged_count or 0,
+                last_log_at=row.last_log_at,
+            )
+            for row in self._db.execute(stmt)
+        ]
 
     def get_by_id_and_team(
         self,

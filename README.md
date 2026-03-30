@@ -1,8 +1,8 @@
 # Mettle Performance
 
-A multi-tenant training and coaching platform designed to help coaches plan workouts, assign sessions to athletes, and track training execution in a structured environment.
+A multi-tenant coaching platform for strength and conditioning coaches and their athletes. Coaches plan workout templates, assign sessions to individuals or whole teams, and monitor execution — athletes receive, log, and complete their sessions through a guided interface.
 
-> **Note on repository name:** The repository is named `mbs-football` (the original working title). The product name is **Mettle Performance**. Both names coexist intentionally — infrastructure retains the codename while all user-facing surfaces use the product name.
+> **Note on repository name:** The repository is named `mbs-football` (the original working title). The product name is **Mettle Performance**. Both coexist intentionally — infrastructure retains the codename while all user-facing surfaces use the product name.
 
 ---
 
@@ -27,10 +27,11 @@ The deployed backend uses free-tier hosting. If the application has been inactiv
 |---|---|
 | Quick evaluation guide | [How to Evaluate This Project](#how-to-evaluate-this-project) |
 | Academic context | [Academic Context](#academic-context) |
-| Project description | [Project Description](#project-description) |
-| Main features | [Main Features](#main-features) |
+| Project description | [Project Overview](#project-overview) |
+| Main features | [Key Features](#key-features) |
 | Technology stack | [Technology Stack](#technology-stack) |
 | Architecture | [Architecture Overview](#architecture-overview) |
+| Technical highlights | [Technical Highlights](#technical-highlights) |
 | Project structure | [Project Structure](#project-structure) |
 | Installation and execution | [Running the Project Locally](#running-the-project-locally) |
 | Deployment / public URL | [Deployment](#deployment) |
@@ -41,28 +42,18 @@ The deployed backend uses free-tier hosting. If the application has been inactiv
 
 ## How to Evaluate This Project
 
-If you want to quickly review the functionality of the platform, follow these steps:
+To quickly review the platform end-to-end:
 
-1. Open the deployed application (see [Deployment](#deployment) section).
-2. Create a **coach account** at `/signup`.
-3. Create a **team**.
-4. Create a **workout template** (manually or using the **AI draft** feature).
+1. Open the deployed application (see [Deployment](#deployment)).
+2. Sign up as a **coach** at `/signup` and create a team.
+3. Create a **workout template** — manually via the block editor or using the **AI draft** feature.
+4. Go to **Team** and invite an athlete by email.
+5. In a second browser window, sign up with the invited email and accept the invite — the athlete automatically joins the team.
+6. Back as coach, **assign the template** to the athlete (or the whole team).
+7. As the athlete, open `/sessions`, execute the workout by logging sets/reps/load, and mark it as **completed**.
+8. Return to the coach account — the session appears as completed in the sessions list and the **dashboard attention queue** updates accordingly.
 
-5. Go to the **Team** section and **invite an athlete using their email address**.
-6. Open the invite link (or use another browser/incognito window) and **register the athlete using the same email from the invitation**.  
-   The athlete will automatically join the team.
-7. Switch back to the **coach account**.
-8. **Assign the template** to the athlete.
-
-9. Log in as the **athlete** and open the assigned session in **/sessions**.
-10. **Execute the workout**, logging sets/reps/load.
-11. **Mark the session as completed**.
-
-12. Switch back to the **coach account** and verify that the **session appears as completed**.
-
-This flow demonstrates the core lifecycle of the system:
-
-**Template creation → Athlete invitation → Session assignment → Workout execution → Completion tracking.**
+This flow demonstrates the full lifecycle: **Template → Assignment → Execution → Monitoring**.
 
 ---
 
@@ -70,62 +61,90 @@ This flow demonstrates the core lifecycle of the system:
 
 This project was developed as the final Master's thesis (TFM).
 
-The objective was to design and implement a full-stack web application that demonstrates:
+The objective was to design and implement a production-grade full-stack web application demonstrating:
 
-- Multi-tenant SaaS architecture
-- Role-based access control
-- Modern web frontend development
-- REST API backend design
+- Multi-tenant SaaS architecture with strict tenant isolation
+- Role-based access control (COACH / ATHLETE)
+- Clean architecture with domain-driven use cases
 - AI-assisted functionality integration
-- Automated testing strategies
-
-The project includes both a production-ready application and the full technical documentation required for evaluation.
-
----
-
-## Project Description
-
-Mettle Performance is a web application designed for strength and conditioning coaches and their athletes. It solves the problem of planning, distributing, and tracking training sessions in a structured, multi-tenant environment.
-
-**Coaches** create a team, build an exercise library, design reusable workout templates (manually or with AI assistance), and assign sessions to individual athletes or the entire team. **Athletes** join a team via a secure invite link, view their assigned sessions, execute workouts, and log sets/reps/load in real time.
-
-The platform enforces strict role-based access control (COACH / ATHLETE) and multi-tenant isolation — every query is scoped to the authenticated user's team.
+- Test-driven development with automated test suites
+- Deployment via containerised services
 
 ---
 
-## Main Features
+## Project Overview
 
-### Coach capabilities
+Mettle Performance solves the coordination problem between coaches and athletes in strength and conditioning programmes. Planning, distributing, and tracking training sessions manually — through spreadsheets or messaging apps — is fragmented and error-prone.
 
-- Create and manage a team
-- Build and maintain an exercise library (with tags, search, and favorites)
-- Design workout templates using a block-based editor
-- Generate workout templates using AI assistance (OpenAI-powered draft generation)
-- Assign templates to individual athletes or the entire team
-- Monitor athlete sessions and completion status
-- View activation funnel analytics (team-scoped product events)
-- Generate secure, time-limited invite links for athletes
+The platform provides a structured workflow:
 
-### Athlete capabilities
+1. **Coaches** build a reusable exercise library, design workout templates with a block-based editor (or generate a draft with AI), and assign sessions to individuals or the whole team.
+2. **Athletes** receive assignments, execute sessions guided block by block, and log their actual sets, reps, and load.
+3. **The dashboard** surfaces what needs attention: overdue sessions, sessions due today that haven't started, and stale in-progress work — so coaches act on operational signals, not just reports.
 
-- Join a team via a secure invite link
-- View assigned workout sessions
-- Execute sessions with a guided block-by-block interface
-- Log sets, reps, and load for each exercise
-- Mark sessions as completed
+Every piece of data is scoped to the authenticated user's team. Coaches from different teams never see each other's athletes or sessions.
+
+---
+
+## Key Features
+
+### Planning — Workout Templates
+
+- Block-based template editor (Preparation, Plyometrics, Strength, Conditioning, etc.)
+- Always-editable with **autosave** — no save/cancel mode switching
+- Drag-and-drop block reordering
+- **AI-assisted draft generation**: coach provides a training goal, the system generates block structure and matches exercises from the library via keyword extraction (no LLM involvement in exercise selection)
+- Template readiness validation: a template must have at least one block with at least one exercise before it can be assigned
+
+### Assignment — Sessions
+
+- Assign a template to the **whole team** or **selected athletes** in a single operation
+- **Batch assignment**: one atomic POST creates all sessions and records an audit event — no N+1 writes
+- Duplicate submission protection: the UI disables the submit button after the first click
+- Scheduled date support
+
+### Execution — Athlete Experience
+
+- Guided session execution: block by block, exercise by exercise
+- Log sets, reps, and load in real time
+- Mark session as completed
+- Cancellation by coach (with confirmation)
+
+### Monitoring — Coach Dashboard
+
+- **Attention queue** replacing a KPI-only view — answers "what do I need to act on right now?"
+  - **Overdue**: sessions past their scheduled date that have not been completed
+  - **Due today**: sessions scheduled for today with no logs yet
+  - **Stale**: sessions that have been started but had no log activity for more than 48 hours
+- Each item links directly to the session detail
+- Compact summary counters (overdue / due today / stale)
+- Quick-action links to templates, sessions, exercises, and team management
+
+### Team Management
+
+- Secure invite links (base64url token, 7-day expiry)
+- Athletes join by visiting the invite URL — no manual code entry
+- Coach guard: coaches cannot join via an athlete invite link
+
+### Exercise Library
+
+- Create exercises with name, description, and free-form tags
+- Filter by tag, scope (company-provided vs. coach-created), and favorites
+- Favorites per coach; company exercises are read-only
 
 ---
 
 ## AI Integration
 
-The platform includes an AI-assisted template creation feature (`POST /v1/workout-templates/from-ai`). When a coach provides a training goal (e.g. "upper body strength session"), the system:
+The AI-assisted template creation feature (`POST /v1/workout-templates/from-ai`) works as follows:
 
-1. Sends the goal to an OpenAI-compatible chat API with a structured prompt
-2. The LLM generates a title and intent for each predefined block (Preparation to Movement, Plyometrics, Primary Strength, etc.)
-3. The backend performs keyword-based exercise matching against the team's exercise library — no LLM involvement in exercise selection
-4. Returns a complete draft template that the coach can review and edit before saving
+1. The coach provides a training goal (e.g. "upper body strength, 45 minutes").
+2. The backend sends the goal to an OpenAI-compatible chat API with a structured prompt.
+3. The LLM generates a title and intent for each predefined block.
+4. The backend performs **keyword-based exercise matching** against the team's library — the LLM never selects or names specific exercises.
+5. A complete draft template is returned for the coach to review and edit before saving.
 
-The AI layer is stateless and non-persistent: it generates a draft but never writes directly to the database.
+The AI layer is stateless and non-persistent: it generates a draft but writes nothing to the database until the coach confirms.
 
 ---
 
@@ -142,7 +161,6 @@ The AI layer is stateless and non-persistent: it generates a draft but never wri
 | Vitest | 4.x | Unit and integration testing |
 | React Testing Library | 16.x | Component testing |
 | @dnd-kit | 6.x / 10.x | Drag-and-drop for template builder |
-| Recharts | 3.x | Analytics charts |
 | Supabase JS | 2.x | Authentication client |
 
 ### Backend
@@ -152,12 +170,12 @@ The AI layer is stateless and non-persistent: it generates a draft but never wri
 | FastAPI | 0.115.6 | Web framework |
 | SQLAlchemy | 2.0.36 | ORM |
 | Alembic | 1.14.0 | Database migrations |
-| PostgreSQL | 16 | Database |
+| PostgreSQL | 16 | Primary database |
 | Pydantic | 2.10.3 | Request/response validation |
 | PyJWT | 2.10.1 | JWT verification (ES256 + JWKS) |
 | OpenAI SDK | 1.57.4 | AI template draft generation |
 | psycopg | 3.2.3 | PostgreSQL driver |
-| pytest | 9.x | Testing |
+| pytest | 9.x | Integration testing |
 | Python | 3.12+ | Runtime |
 
 ### Infrastructure
@@ -189,7 +207,7 @@ The AI layer is stateless and non-persistent: it generates a draft but never wri
                 ┌───────────────▼───────────────┐
                 │         Backend (Render)        │
                 │   FastAPI · SQLAlchemy 2.0      │
-                │   Clean architecture layers     │
+                │   Three-layer clean arch        │
                 └───────────────┬───────────────┘
                                 │ SQLAlchemy ORM
                 ┌───────────────▼───────────────┐
@@ -198,13 +216,46 @@ The AI layer is stateless and non-persistent: it generates a draft but never wri
                 └───────────────────────────────┘
 ```
 
-The backend follows a three-layer clean architecture:
+The backend follows a strict three-layer architecture:
 
-- **Transport** (`transport/http/v1/`): FastAPI route handlers — request parsing, dependency injection, HTTP error mapping
-- **Domain** (`domain/use_cases/`): Business logic — one class per use case, no framework dependencies
-- **Persistence** (`persistence/repositories/`): Database access — abstract interfaces + SQLAlchemy implementations
+- **Transport** (`transport/http/v1/`): FastAPI route handlers — request parsing, dependency injection, HTTP error mapping only. No business logic.
+- **Domain** (`domain/use_cases/`): One class per use case. No FastAPI or SQLAlchemy imports — pure Python.
+- **Persistence** (`persistence/repositories/`): Abstract interfaces + SQLAlchemy implementations. Business rules never live here.
 
-Authentication flow: Users authenticate via Supabase → the frontend attaches a Bearer token to every API call → the backend verifies the JWT against Supabase's public JWKS (no Supabase SDK dependency on the backend). Multi-tenant isolation is enforced by resolving `team_id` from the authenticated user's profile on every request.
+**Authentication flow:** Users authenticate via Supabase → the frontend attaches a Bearer token to every API call → the backend verifies the JWT signature against Supabase's public JWKS (no Supabase SDK on the backend). The authenticated user's `team_id` is resolved on every request and used to scope all database queries.
+
+---
+
+## Technical Highlights
+
+### Batch Assignment — One Atomic Operation
+
+Assigning a template to 20 athletes used to require 20 separate API calls. Sprint 1 replaced this with a single `POST /v1/workout-assignments/batch` that creates all assignments and sessions inside one database transaction via the **Unit of Work** pattern. The use case owns the commit; repositories only flush. If anything fails (unknown athlete, wrong team, unready template), nothing is persisted.
+
+### Server-Side Readiness Validation
+
+A template can only be assigned if it has at least one block containing at least one exercise (`is_ready` check). This guard lives in the domain layer — the transport layer delegates and maps the domain error to a 422 response. The frontend reflects readiness state from the API response, so the check is never duplicated across layers.
+
+### Unit of Work for Transactional Integrity
+
+Multi-step write operations (create assignment → create sessions → emit audit event) share a single `AbstractUnitOfWork` context. The use case commits once at the end. If any step raises, the UoW rolls back the entire transaction. This eliminates partial-write states that would require compensating actions.
+
+### Attention Queue — Server-Side Aggregation
+
+The dashboard attention queue (`GET /v1/dashboard/attention`) executes a **single query** with three correlated subqueries per session row:
+- exercise count (from template blocks)
+- logged exercise count (from session logs)
+- last log timestamp (`MAX(created_at)` from session logs)
+
+Classification (overdue / due today / stale) happens in the use case using plain date arithmetic. The three buckets are mutually exclusive: overdue takes priority, then due today (not yet started), then stale (started, no activity > 48 h, not overdue). This avoids N+1 queries and keeps the classification logic testable in isolation.
+
+### Autosave-First Template Editing
+
+The template detail page removes the edit/view mode toggle entirely. Every field change triggers a debounced PATCH request. There is no "Save" button and no risk of losing unsaved work. This simplifies both the UI state machine and the test surface: no mode-switching logic to test or maintain.
+
+### Duplicate Submission Protection
+
+The batch assignment button is disabled immediately on first click (via a `submitting` state flag), preventing double-posts from network latency or impatient users. The backend enforces a unique constraint on `(assignment_id, athlete_id)` as a last line of defence.
 
 ---
 
@@ -212,45 +263,45 @@ Authentication flow: Users authenticate via Supabase → the frontend attaches a
 
 ```
 mbs-football/
-├── backend/                  FastAPI application
+├── backend/                   FastAPI application
 │   ├── app/
-│   │   ├── api/v1/           Route registration
-│   │   ├── core/             Config, dependencies, security (JWT/JWKS), AI client
-│   │   ├── db/               SQLAlchemy engine + session factory
+│   │   ├── api/v1/            Route registration (router.py)
+│   │   ├── core/              Config, dependencies, JWT/JWKS verification
+│   │   ├── db/                SQLAlchemy engine, session factory, base models
 │   │   ├── domain/
-│   │   │   ├── use_cases/    Business logic (one class per use case)
-│   │   │   └── events/       Product analytics events
-│   │   ├── models/           SQLAlchemy ORM models
+│   │   │   ├── use_cases/     Business logic — one class per use case
+│   │   │   └── events/        Product analytics event tracking
+│   │   ├── models/            SQLAlchemy ORM models
 │   │   ├── persistence/
-│   │   │   └── repositories/ DB access (abstract + SQLAlchemy impl)
-│   │   ├── schemas/          Pydantic v2 request/response schemas
-│   │   ├── services/         AI template generation service
-│   │   ├── transport/http/v1 FastAPI route handlers (thin layer)
-│   │   └── main.py           Application entry point
-│   ├── alembic/              Database migration scripts
-│   ├── scripts/              Utility scripts (seed data, etc.)
-│   ├── tests/                pytest integration tests
+│   │   │   └── repositories/  Abstract interfaces + SQLAlchemy implementations
+│   │   ├── services/          AI template generation service
+│   │   ├── transport/http/v1/ FastAPI route handlers (thin transport layer)
+│   │   └── main.py            Application entry point
+│   ├── alembic/               Database migration scripts
+│   ├── scripts/               Utility scripts (seed exercises, etc.)
+│   ├── tests/                 pytest integration tests (~500 tests)
 │   ├── Dockerfile
-│   ├── entrypoint.sh         Container startup (migrations + server)
+│   ├── entrypoint.sh          Container startup: runs migrations then starts server
 │   └── requirements.txt
 │
-├── frontend/                 Next.js application
+├── frontend/                  Next.js application
 │   ├── app/
-│   │   ├── (public)/         Unauthenticated routes: /login, /signup
-│   │   ├── (app)/            Authenticated routes:
-│   │   │   ├── dashboard/      Coach analytics dashboard
-│   │   │   ├── exercises/      Exercise library (CRUD, tags, favorites)
-│   │   │   ├── templates/      Template builder (blocks, drag-and-drop, AI)
-│   │   │   ├── sessions/       Workout sessions (list + execution)
-│   │   │   ├── team/           Team management
-│   │   │   └── onboarding/     Role selection + team creation/join
-│   │   └── _shared/          Auth helpers, API client, shared components
+│   │   ├── (public)/          Unauthenticated routes: /login, /signup, /join
+│   │   ├── (app)/             Authenticated routes:
+│   │   │   ├── dashboard/       Attention queue (overdue, due today, stale)
+│   │   │   ├── exercises/       Exercise library (CRUD, tags, favorites)
+│   │   │   ├── templates/       Template builder (blocks, drag-and-drop, AI draft)
+│   │   │   ├── sessions/        Workout sessions (list, calendar, execution)
+│   │   │   ├── team/            Team management + invite link generation
+│   │   │   └── onboarding/      Role selection + team creation/join
+│   │   └── _shared/           Auth context, API client, shared UI components
+│   ├── src/features/          Feature hooks and shared frontend logic
 │   ├── vitest.config.ts
 │   └── Dockerfile
 │
-├── docs/                     Architecture decision records
-├── docker-compose.yml        Local full-stack environment
-└── CLAUDE.md                 AI assistant instructions
+├── docs/                      Project documentation and slides
+├── docker-compose.yml         Local full-stack environment
+└── CLAUDE.md                  AI assistant project instructions
 ```
 
 ---
@@ -263,42 +314,46 @@ mbs-football/
 - Node.js 20+
 - Python 3.12+
 
-### Backend setup
+### Backend
 
 ```bash
 # 1. Clone the repository
-git clone <repo-url>
+git clone https://github.com/etorralbo/mbs-football.git
 cd mbs-football
 
 # 2. Configure environment variables
-cp backend/.env.example backend/.env   # fill in Supabase URL and DATABASE_URL
+cp backend/.env.example backend/.env
+# Edit backend/.env — set DATABASE_URL and SUPABASE_URL
 
 # 3. Start PostgreSQL and backend via Docker
 docker compose up -d db backend
 
-# 4. Apply database migrations
+# 4. Apply database migrations (runs automatically on container start,
+#    but can also be run manually)
 docker compose exec backend alembic upgrade head
 
-# 5. (Optional) Seed default exercises for AI draft suggestions
+# 5. (Optional) Seed default exercises for AI template suggestions
 docker compose exec backend python scripts/seed_default_exercises.py <team-uuid>
 
 # 6. Run backend tests
 docker compose up -d db
-cd backend && pytest -q
+cd backend && python -m pytest -q
 ```
 
-The backend runs at http://localhost:8000. API docs are available at http://localhost:8000/docs.
+The backend runs at **http://localhost:8000**.
+Interactive API docs: **http://localhost:8000/docs**
 
 #### Backend environment variables
 
 | Variable | Required | Description |
 |---|---|---|
 | `DATABASE_URL` | Yes | PostgreSQL connection string (`postgresql+psycopg://...`) |
-| `SUPABASE_URL` | Yes | Supabase project URL |
+| `SUPABASE_URL` | Yes | Supabase project URL (used for JWKS endpoint) |
+| `OPENAI_API_KEY` | No | Required only for AI template draft feature |
 | `FRONTEND_URL` | No | Used to build invite URLs (default: `http://localhost:3000`) |
 | `ENV` | No | `local` or `production` (default: `local`) |
 
-### Frontend setup
+### Frontend
 
 ```bash
 # 1. Configure environment variables
@@ -311,7 +366,7 @@ npm install
 npm run dev
 ```
 
-The frontend runs at http://localhost:3000.
+The frontend runs at **http://localhost:3000**.
 
 #### Frontend environment variables
 
@@ -319,16 +374,16 @@ The frontend runs at http://localhost:3000.
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anonymous (public) key |
-| `NEXT_PUBLIC_API_BASE_URL` | Yes | Backend URL (`http://localhost:8000` locally) |
+| `NEXT_PUBLIC_API_BASE_URL` | Yes | Backend base URL (`http://localhost:8000` locally) |
 
 ### Running tests
 
 ```bash
-# Backend tests
-cd backend && pytest -q
+# Backend integration tests (~500 tests, requires a running Postgres)
+cd backend && python -m pytest -q
 
-# Frontend tests
-cd frontend && npm test
+# Frontend unit/component tests (~490 tests)
+cd frontend && npx vitest run
 ```
 
 ---
@@ -336,7 +391,6 @@ cd frontend && npm test
 ## Deployment
 
 The application is deployed and publicly accessible.
-Evaluators can access the running system using the URLs below.
 
 | Service | Platform | URL |
 |---|---|---|
@@ -345,39 +399,39 @@ Evaluators can access the running system using the URLs below.
 | Database | Render | Managed PostgreSQL 16 |
 | Authentication | Supabase | Managed auth service |
 
+**Deployment notes:**
+
 - The **frontend** deploys automatically to Vercel on every push to `main`.
-- The **backend** runs as a Docker container on Render. On startup, `entrypoint.sh` runs `alembic upgrade head` before starting the server — if migrations fail, the container exits and the application never starts.
-- Environment variables (`DATABASE_URL`, `SUPABASE_URL`, etc.) are configured in each platform's dashboard.
+- The **backend** runs as a Docker container on Render. On container startup, `entrypoint.sh` runs `alembic upgrade head` before starting the server. If migrations fail, the container exits immediately — the server never starts in a broken state.
+- All secrets (`DATABASE_URL`, `SUPABASE_URL`, `OPENAI_API_KEY`) are configured via each platform's environment variable dashboard, never committed to the repository.
 
 ---
 
-## Demo Workflow
+## Roadmap
 
-To test the main functionality end-to-end:
-
-1. **Sign up** at `/signup` with an email and password
-2. **Choose role**: select "I'm a coach" on the onboarding screen
-3. **Create a team**: enter a team name on `/create-team`
-4. **Add exercises**: go to `/exercises` and create exercises (or seed defaults via the script)
-5. **Create a template**: go to `/templates`, create a new template — either manually using the block editor or via "AI Draft" by providing a training goal
-6. **Invite an athlete**: go to `/team`, generate an invite link, and share it
-7. **Athlete joins**: the athlete signs up and visits the invite link to join the team
-8. **Assign a session**: back as coach, assign the template to the athlete (or the whole team)
-9. **Execute the session**: as the athlete, go to `/sessions`, open the assigned session, log sets/reps/load, and mark it as completed
-10. **Review**: as the coach, verify the session shows as completed in the sessions list
+| Sprint | Status | Scope |
+|---|---|---|
+| Sprint 1 — Core flow | Complete | Always-editable templates, autosave, inline assignment, batch assignment, readiness validation, Unit of Work, duplicate submission protection |
+| Sprint 2 — Operational dashboard | Complete | Attention queue (overdue / due today / stale), server-side aggregation endpoint, actionable per-session rows |
+| Sprint 3 — Athlete UX | Planned | Simplified session execution flow, progress indicators, mobile layout improvements |
+| Sprint 4 — Analytics depth | Planned | Completion rate trends, load progression charts, team performance summary |
+| Sprint 5 — Subscriptions | Planned | Billing integration, plan limits, coach account management |
 
 ---
 
 ## Slides Presentation
 
-<!-- TODO: add link to the slides file once included in the repository -->
+The slides for the TFM presentation are available at: [`docs/08032026_MettlePerformance_Sliders.pdf`](docs/08032026_MettlePerformance_Sliders.pdf)
 
-The slides for the TFM presentation are available at: `docs/08032026_MettlePerformance_Sliders.pdf`
+---
+
+## License
+
+This project is developed as academic coursework (TFM). All rights reserved.
 
 ---
 
 ## Author
 
-Estibaliz Torralbo
-
+**Estibaliz Torralbo**
 Master's Thesis (TFM) — 2026

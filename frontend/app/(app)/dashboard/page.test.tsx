@@ -24,6 +24,7 @@ vi.mock('@/src/features/activation/useActivationState', () => ({
 }))
 
 import { useActivationState } from '@/src/features/activation/useActivationState'
+import type { AttentionQueueData } from '@/app/_shared/api/types'
 import DashboardPage from './page'
 
 const mockActivation = vi.mocked(useActivationState)
@@ -65,59 +66,53 @@ const ATHLETE_STATE = {
   nextAction: null,
 }
 
-const SESSION_TODAY = {
-  id: 'sess-today',
-  assignment_id: 'a-1',
+const ITEM_OVERDUE = {
+  id: 'sess-overdue',
   athlete_id: 'ath-1',
-  athlete_name: 'Alice',
   workout_template_id: 'tpl-1',
+  athlete_name: 'Charlie',
+  template_title: 'Recovery',
+  scheduled_for: pastStr(2),
+  exercise_count: 4,
+  exercises_logged_count: 0,
+}
+
+const ITEM_TODAY = {
+  id: 'sess-today',
+  athlete_id: 'ath-2',
+  workout_template_id: 'tpl-2',
+  athlete_name: 'Alice',
   template_title: 'Strength A',
   scheduled_for: todayStr(),
-  completed_at: null,
-  cancelled_at: null,
   exercise_count: 6,
   exercises_logged_count: 0,
 }
 
-const SESSION_UPCOMING = {
-  ...SESSION_TODAY,
-  id: 'sess-up',
+const ITEM_STALE = {
+  id: 'sess-stale',
+  athlete_id: 'ath-3',
+  workout_template_id: 'tpl-3',
   athlete_name: 'Bob',
   template_title: 'Speed Work',
   scheduled_for: futureStr(2),
+  exercise_count: 5,
+  exercises_logged_count: 2,
 }
 
-const SESSION_OVERDUE = {
-  ...SESSION_TODAY,
-  id: 'sess-overdue',
-  athlete_name: 'Charlie',
-  template_title: 'Recovery',
-  scheduled_for: pastStr(2),
-}
-
-const SESSION_COMPLETED = {
-  ...SESSION_TODAY,
-  id: 'sess-done',
-  athlete_name: 'Diana',
-  template_title: 'Power',
-  completed_at: '2026-03-05T10:00:00Z',
-}
-
-const SESSION_COMPLETED_THIS_WEEK = {
-  ...SESSION_TODAY,
-  id: 'sess-week',
-  athlete_name: 'Eve',
-  template_title: 'Agility',
-  completed_at: new Date().toISOString(),
+const EMPTY_QUEUE: AttentionQueueData = {
+  overdue: [],
+  due_today: [],
+  stale: [],
+  summary: { total_overdue: 0, total_due_today: 0, total_stale: 0 },
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function setupCoach(sessions: unknown[] = []) {
+function setupCoach(queue = EMPTY_QUEUE) {
   mockActivation.mockReturnValue(COACH_STATE)
-  mockRequest.mockResolvedValue(sessions)
+  mockRequest.mockResolvedValue(queue)
 }
 
 // ---------------------------------------------------------------------------
@@ -130,44 +125,19 @@ afterEach(() => {
 })
 
 describe('DashboardPage — coach access', () => {
-  it('renders KPI cards with correct counts', async () => {
-    setupCoach([
-      SESSION_TODAY,
-      SESSION_UPCOMING,
-      SESSION_OVERDUE,
-      SESSION_COMPLETED_THIS_WEEK,
-    ])
-
+  it('renders three attention sections', async () => {
+    setupCoach()
     render(<DashboardPage />)
 
     await waitFor(() => {
-      expect(within(screen.getByTestId('kpi-today')).getByText('1')).toBeInTheDocument()
+      expect(screen.getByRole('region', { name: /overdue sessions/i })).toBeInTheDocument()
     })
-
-    expect(within(screen.getByTestId('kpi-upcoming')).getByText('1')).toBeInTheDocument()
-    expect(within(screen.getByTestId('kpi-overdue')).getByText('1')).toBeInTheDocument()
-  })
-
-  it('renders upcoming sessions section with next 5', async () => {
-    const sessions = [
-      SESSION_TODAY,
-      SESSION_UPCOMING,
-      { ...SESSION_UPCOMING, id: 'sess-up2', template_title: 'Sprint', scheduled_for: futureStr(4) },
-    ]
-    setupCoach(sessions)
-
-    render(<DashboardPage />)
-
-    await waitFor(() => {
-      expect(screen.getByText('Strength A')).toBeInTheDocument()
-    })
-    expect(screen.getByText('Speed Work')).toBeInTheDocument()
-    expect(screen.getByText('Sprint')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: /due today/i })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: /stale in-progress/i })).toBeInTheDocument()
   })
 
   it('renders quick action links', async () => {
-    setupCoach([])
-
+    setupCoach()
     render(<DashboardPage />)
 
     await waitFor(() => {
@@ -177,39 +147,89 @@ describe('DashboardPage — coach access', () => {
     expect(screen.getByRole('link', { name: /manage team/i })).toHaveAttribute('href', '/team')
     expect(screen.getByRole('link', { name: /view sessions/i })).toHaveAttribute('href', '/sessions')
   })
+})
 
-  it('shows overdue attention alert when overdue sessions exist', async () => {
-    setupCoach([SESSION_OVERDUE])
-
+describe('DashboardPage — attention sections', () => {
+  it('shows overdue session in overdue section', async () => {
+    setupCoach({ ...EMPTY_QUEUE, overdue: [ITEM_OVERDUE], summary: { total_overdue: 1, total_due_today: 0, total_stale: 0 } })
     render(<DashboardPage />)
 
     await waitFor(() => {
-      expect(screen.getByText(/overdue session/i)).toBeInTheDocument()
+      expect(screen.getByText('Recovery')).toBeInTheDocument()
     })
+    expect(screen.getByText(/Charlie/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /view →/i })).toHaveAttribute('href', '/sessions/sess-overdue')
+  })
+
+  it('shows due-today session in due today section', async () => {
+    setupCoach({ ...EMPTY_QUEUE, due_today: [ITEM_TODAY], summary: { total_overdue: 0, total_due_today: 1, total_stale: 0 } })
+    render(<DashboardPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Strength A')).toBeInTheDocument()
+    })
+    expect(screen.getByText(/Alice/)).toBeInTheDocument()
+  })
+
+  it('shows stale session in stale section', async () => {
+    setupCoach({ ...EMPTY_QUEUE, stale: [ITEM_STALE], summary: { total_overdue: 0, total_due_today: 0, total_stale: 1 } })
+    render(<DashboardPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Speed Work')).toBeInTheDocument()
+    })
+    expect(screen.getByText(/Bob/)).toBeInTheDocument()
+  })
+
+  it('shows empty-state messages for each empty section', async () => {
+    setupCoach()
+    render(<DashboardPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/no overdue sessions/i)).toBeInTheDocument()
+    })
+    expect(screen.getByText(/nothing due today/i)).toBeInTheDocument()
+    expect(screen.getByText(/no stale sessions/i)).toBeInTheDocument()
+  })
+
+  it('shows "nothing needs attention" when all sections are empty', async () => {
+    setupCoach()
+    render(<DashboardPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/nothing needs attention right now/i)).toBeInTheDocument()
+    })
+  })
+})
+
+describe('DashboardPage — summary cards', () => {
+  it('summary cards reflect counts from the queue', async () => {
+    const queue = {
+      overdue: [ITEM_OVERDUE],
+      due_today: [ITEM_TODAY],
+      stale: [],
+      summary: { total_overdue: 1, total_due_today: 1, total_stale: 0 },
+    }
+    setupCoach(queue)
+    render(<DashboardPage />)
+
+    await waitFor(() => {
+      expect(within(screen.getByTestId('summary-overdue')).getByText('1')).toBeInTheDocument()
+    })
+    expect(within(screen.getByTestId('summary-due-today')).getByText('1')).toBeInTheDocument()
+    expect(within(screen.getByTestId('summary-stale')).getByText('0')).toBeInTheDocument()
   })
 })
 
 describe('DashboardPage — athlete redirect', () => {
   it('redirects athlete to /sessions', async () => {
     mockActivation.mockReturnValue(ATHLETE_STATE)
-    mockRequest.mockResolvedValue([])
+    mockRequest.mockResolvedValue(EMPTY_QUEUE)
 
     render(<DashboardPage />)
 
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/sessions')
-    })
-  })
-})
-
-describe('DashboardPage — empty state', () => {
-  it('shows empty state message when no sessions', async () => {
-    setupCoach([])
-
-    render(<DashboardPage />)
-
-    await waitFor(() => {
-      expect(screen.getByText(/no sessions yet/i)).toBeInTheDocument()
     })
   })
 })

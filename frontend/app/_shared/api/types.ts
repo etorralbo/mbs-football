@@ -152,6 +152,35 @@ export const BLOCK_NAMES = [
 
 export type BlockName = (typeof BLOCK_NAMES)[number]
 
+// ---------------------------------------------------------------------------
+// Dashboard attention queue (Sprint 2)
+// ---------------------------------------------------------------------------
+
+export interface AttentionItem {
+  id: string
+  athlete_id: string
+  workout_template_id: string
+  scheduled_for: string | null
+  template_title: string
+  athlete_name: string
+  exercise_count: number
+  exercises_logged_count: number
+}
+
+export interface AttentionSummary {
+  total_overdue: number
+  total_due_today: number
+  total_stale: number
+}
+
+/** Shape returned by GET /v1/dashboard/attention */
+export interface AttentionQueueData {
+  overdue: AttentionItem[]
+  due_today: AttentionItem[]
+  stale: AttentionItem[]
+  summary: AttentionSummary
+}
+
 /** Shape returned by GET /v1/workout-sessions (list) */
 export interface WorkoutSessionSummary {
   id: string

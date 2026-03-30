@@ -7,6 +7,7 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints import ai, exercises, workout_builder, workout_templates
 from app.transport.http.v1 import analytics as analytics_transport
+from app.transport.http.v1 import dashboard as dashboard_transport
 from app.transport.http.v1 import athletes as athletes_transport
 from app.transport.http.v1 import invites as invites_transport
 from app.transport.http.v1 import me as me_transport
@@ -38,6 +39,8 @@ api_router.include_router(teams_transport.router)
 api_router.include_router(invites_transport.router)
 # transport layer — analytics (coach only)
 api_router.include_router(analytics_transport.router)
+# transport layer — dashboard attention queue (coach only)
+api_router.include_router(dashboard_transport.router)
 # transport layer — athletes roster (coach only)
 api_router.include_router(athletes_transport.router)
 # transport layer — workout assignments + sessions + execution logs
