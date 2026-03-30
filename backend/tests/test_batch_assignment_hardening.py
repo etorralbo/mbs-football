@@ -91,6 +91,11 @@ class TestTransactionRollback:
         """
         mock_jwt(str(coach_a.supabase_user_id))
 
+        # Capture PKs before any API call that may trigger a rollback, to
+        # avoid DetachedInstanceError / ObjectDeletedError on post-call access.
+        template_id = template_empty.id
+        athlete_id = athlete_a.id
+
         # Patch the session repo's create_sessions_for_batch to raise after
         # assignments have been flushed (simulating a mid-transaction failure).
         with patch(
@@ -106,8 +111,8 @@ class TestTransactionRollback:
                 resp = client.post(
                     BATCH_ENDPOINT,
                     json={
-                        "workout_template_id": str(template_empty.id),
-                        "athlete_ids": [str(athlete_a.id)],
+                        "workout_template_id": str(template_id),
+                        "athlete_ids": [str(athlete_id)],
                     },
                     headers=HEADERS,
                 )
@@ -117,7 +122,7 @@ class TestTransactionRollback:
         # Verify no WorkoutAssignment was committed for this template
         assignments = db_session.execute(
             select(WorkoutAssignment).where(
-                WorkoutAssignment.workout_template_id == template_empty.id
+                WorkoutAssignment.workout_template_id == template_id
             )
         ).scalars().all()
         assert assignments == [], "Assignments should have been rolled back"
@@ -134,11 +139,16 @@ class TestTransactionRollback:
         """TemplateNotReadyError (before any write) → 422, zero sessions in DB."""
         mock_jwt(str(coach_a.supabase_user_id))
 
+        # Capture PKs before any API call that may trigger a rollback, to
+        # avoid DetachedInstanceError / ObjectDeletedError on post-call access.
+        template_id = template_empty.id
+        athlete_id = athlete_a.id
+
         resp = client.post(
             BATCH_ENDPOINT,
             json={
-                "workout_template_id": str(template_empty.id),
-                "athlete_ids": [str(athlete_a.id)],
+                "workout_template_id": str(template_id),
+                "athlete_ids": [str(athlete_id)],
             },
             headers=HEADERS,
         )
@@ -148,7 +158,7 @@ class TestTransactionRollback:
         sessions = db_session.execute(
             select(WorkoutSession)
             .join(WorkoutAssignment, WorkoutSession.assignment_id == WorkoutAssignment.id)
-            .where(WorkoutAssignment.workout_template_id == template_empty.id)
+            .where(WorkoutAssignment.workout_template_id == template_id)
         ).scalars().all()
         assert sessions == []
 

@@ -17,7 +17,16 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models import Role, Team, UserProfile, WorkoutTemplate, Membership
+from app.models import (
+    BlockExercise,
+    Exercise,
+    Membership,
+    Role,
+    Team,
+    UserProfile,
+    WorkoutBlock,
+    WorkoutTemplate,
+)
 
 BATCH_ENDPOINT = "/v1/workout-assignments/batch"
 
@@ -27,13 +36,43 @@ BATCH_ENDPOINT = "/v1/workout-assignments/batch"
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-def workout_template_a(db_session: Session, team_a: Team) -> WorkoutTemplate:
+def workout_template_a(
+    db_session: Session, team_a: Team, coach_a: UserProfile
+) -> WorkoutTemplate:
+    """A ready template: has ≥1 block with ≥1 exercise (required by readiness guard)."""
     template = WorkoutTemplate(
         id=uuid.uuid4(),
         team_id=team_a.id,
         title="Batch Test Workout",
     )
     db_session.add(template)
+    db_session.flush()
+
+    block = WorkoutBlock(
+        id=uuid.uuid4(),
+        workout_template_id=template.id,
+        order_index=0,
+        name="Main Block",
+    )
+    db_session.add(block)
+    db_session.flush()
+
+    exercise = Exercise(
+        id=uuid.uuid4(),
+        coach_id=coach_a.id,
+        name="Batch Test Exercise",
+        description="Exercise created for batch assignment tests",
+        tags=[],
+    )
+    db_session.add(exercise)
+    db_session.flush()
+
+    db_session.add(BlockExercise(
+        id=uuid.uuid4(),
+        workout_block_id=block.id,
+        exercise_id=exercise.id,
+        order_index=0,
+    ))
     db_session.commit()
     db_session.refresh(template)
     return template
