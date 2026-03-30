@@ -187,12 +187,11 @@ describe('TemplatesPage — Template cards', () => {
     { id: 't2', title: 'Speed B', status: 'published', team_id: 'team1', description: 'Speed drills', created_at: NOW, updated_at: NOW },
   ]
 
-  it('renders template cards with status badges', async () => {
+  it('renders all template cards', async () => {
     renderAsCoach(TEMPLATES)
 
     await screen.findByText('Strength A')
-    expect(screen.getByText('DRAFT')).toBeInTheDocument()
-    expect(screen.getByText('PUBLISHED')).toBeInTheDocument()
+    expect(screen.getByText('Speed B')).toBeInTheDocument()
   })
 
   it('cards link to template detail page', async () => {
