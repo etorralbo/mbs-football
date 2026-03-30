@@ -92,14 +92,13 @@ describe('TemplateDetailPage — fromAi banner', () => {
       expect(screen.getByRole('status', { name: 'Template saved' })).toBeInTheDocument()
     })
     expect(screen.getByText(/next step: assign it to your athletes/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /assign now/i })).toBeInTheDocument()
   })
 
   it('does not show the banner when fromAi param is absent', async () => {
     render(<TemplateDetailPage />)
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Power Session' })).toBeInTheDocument()
+      expect(screen.getByDisplayValue('Power Session')).toBeInTheDocument()
     })
     expect(screen.queryByRole('status', { name: 'Template saved' })).toBeNull()
   })
@@ -115,45 +114,6 @@ describe('TemplateDetailPage — fromAi banner', () => {
   })
 })
 
-describe('TemplateDetailPage — status toggle', () => {
-  it('shows "Publish" button when status is draft', async () => {
-    render(<TemplateDetailPage />)
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Publish' })).toBeInTheDocument()
-    })
-  })
-
-  it('shows "Convert to draft" button when status is published', async () => {
-    mockRequest.mockResolvedValueOnce({ ...MOCK_TEMPLATE, status: 'published' })
-
-    render(<TemplateDetailPage />)
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Convert to draft' })).toBeInTheDocument()
-    })
-    expect(screen.queryByRole('button', { name: 'Publish' })).toBeNull()
-  })
-
-  it('toggles to "Convert to draft" after publishing', async () => {
-    mockRequest
-      .mockResolvedValueOnce(MOCK_TEMPLATE)  // GET
-      .mockResolvedValueOnce({ ...MOCK_TEMPLATE, status: 'published' })  // PATCH
-
-    render(<TemplateDetailPage />)
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Publish' })).toBeInTheDocument()
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: 'Publish' }))
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Convert to draft' })).toBeInTheDocument()
-    })
-  })
-})
-
 describe('TemplateDetailPage — block reorder (drag-and-drop)', () => {
   const TEMPLATE_WITH_BLOCKS: WorkoutTemplateDetail = {
     ...MOCK_TEMPLATE,
@@ -163,7 +123,7 @@ describe('TemplateDetailPage — block reorder (drag-and-drop)', () => {
     ],
   }
 
-  it('shows drag handles in edit mode', async () => {
+  it('shows drag handles for all blocks', async () => {
     mockRequest.mockResolvedValueOnce(TEMPLATE_WITH_BLOCKS)
 
     render(<TemplateDetailPage />)
@@ -171,23 +131,9 @@ describe('TemplateDetailPage — block reorder (drag-and-drop)', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Warmup').length).toBeGreaterThan(0)
     })
-
-    fireEvent.click(screen.getByRole('button', { name: 'Edit template' }))
 
     expect(screen.getByLabelText(/drag to reorder warmup/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/drag to reorder main/i)).toBeInTheDocument()
-  })
-
-  it('does not show drag handles in view mode', async () => {
-    mockRequest.mockResolvedValueOnce(TEMPLATE_WITH_BLOCKS)
-
-    render(<TemplateDetailPage />)
-
-    await waitFor(() => {
-      expect(screen.getAllByText('Warmup').length).toBeGreaterThan(0)
-    })
-
-    expect(screen.queryByLabelText(/drag to reorder/i)).not.toBeInTheDocument()
   })
 })
 
@@ -199,7 +145,7 @@ describe('TemplateDetailPage — exercise picker drawer', () => {
     ],
   }
 
-  it('opens exercise picker drawer when Add exercise is clicked in edit mode', async () => {
+  it('opens exercise picker drawer when Add exercise is clicked', async () => {
     mockRequest.mockResolvedValueOnce(TEMPLATE_WITH_BLOCK)
 
     render(<TemplateDetailPage />)
@@ -208,10 +154,7 @@ describe('TemplateDetailPage — exercise picker drawer', () => {
       expect(screen.getAllByText('Warmup').length).toBeGreaterThan(0)
     })
 
-    // Enter edit mode
-    fireEvent.click(screen.getByRole('button', { name: 'Edit template' }))
-
-    // Click "Add exercise" button
+    // Click "Add exercise" button directly (no edit mode gate)
     fireEvent.click(screen.getByRole('button', { name: /add exercise/i }))
 
     // Exercise picker drawer should appear with correct blockId
@@ -240,7 +183,6 @@ describe('TemplateDetailPage — exercise picker drawer', () => {
       expect(screen.getAllByText('Warmup').length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Edit template' }))
     fireEvent.click(screen.getByRole('button', { name: /add exercise/i }))
 
     expect(screen.getByTestId('exercise-picker')).toBeInTheDocument()

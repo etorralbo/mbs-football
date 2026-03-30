@@ -14,7 +14,7 @@ Covers the four areas introduced to close Sprint 1 technical debt:
      targeting the same athletes + template.
 """
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -108,16 +108,17 @@ class TestTransactionRollback:
                 "app.domain.use_cases.batch_create_workout_assignment._is_template_ready",
                 return_value=True,
             ):
-                resp = client.post(
-                    BATCH_ENDPOINT,
-                    json={
-                        "workout_template_id": str(template_id),
-                        "athlete_ids": [str(athlete_id)],
-                    },
-                    headers=HEADERS,
-                )
-
-        assert resp.status_code == 500
+                # TestClient re-raises unhandled 500 exceptions by default;
+                # use pytest.raises to absorb it and verify atomicity below.
+                with pytest.raises(Exception):
+                    client.post(
+                        BATCH_ENDPOINT,
+                        json={
+                            "workout_template_id": str(template_id),
+                            "athlete_ids": [str(athlete_id)],
+                        },
+                        headers=HEADERS,
+                    )
 
         # Verify no WorkoutAssignment was committed for this template
         assignments = db_session.execute(
