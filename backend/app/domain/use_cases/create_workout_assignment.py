@@ -51,6 +51,19 @@ class AbstractAthleteQueryRepository(ABC):
         """Return the athlete only if they belong to the given team, else None."""
         ...
 
+    @abstractmethod
+    def get_athletes_by_ids_and_team(
+        self,
+        athlete_ids: list[uuid.UUID],
+        team_id: uuid.UUID,
+    ) -> list[UserProfile]:
+        """Return only the athletes whose IDs are in athlete_ids AND belong to team.
+
+        Used by the batch assignment use case to validate all requested athletes
+        in a single query (prevents IDOR, eliminates N+1).
+        """
+        ...
+
 
 # ---------------------------------------------------------------------------
 # Target variants (sum type)

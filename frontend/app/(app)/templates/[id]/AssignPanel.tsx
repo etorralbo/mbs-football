@@ -11,16 +11,22 @@ interface Athlete {
 
 interface AssignPanelProps {
   templateId: string
+  /** Derived from template state — enables assign button when template has blocks + exercises. */
+  templateReady?: boolean
 }
 
 type Mode = 'team' | 'athletes'
 
-interface AssignmentResult {
+interface SingleAssignmentResult {
   assignment_id: string
   sessions_created: number
 }
 
-export function AssignPanel({ templateId }: AssignPanelProps) {
+interface BatchAssignmentResult {
+  sessions_created: number
+}
+
+export function AssignPanel({ templateId, templateReady = true }: AssignPanelProps) {
   const [athletes, setAthletes] = useState<Athlete[]>([])
   const [fetchStatus, setFetchStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [mode, setMode] = useState<Mode>('team')
@@ -74,7 +80,8 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
 
     try {
       if (mode === 'team') {
-        const result = await request<AssignmentResult>('/v1/workout-assignments', {
+        // Team assignment: single call (backend creates sessions for all athletes)
+        const result = await request<SingleAssignmentResult>('/v1/workout-assignments', {
           method: 'POST',
           body: JSON.stringify({
             workout_template_id: templateId,
@@ -88,37 +95,22 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
         )
         setShowGoToSessions(true)
       } else {
+        // Batch athlete assignment: single API call instead of N concurrent calls
         const athleteIds = [...selected]
-        const results = await Promise.allSettled(
-          athleteIds.map((athleteId) =>
-            request<AssignmentResult>('/v1/workout-assignments', {
-              method: 'POST',
-              body: JSON.stringify({
-                workout_template_id: templateId,
-                target: { type: 'athlete', athlete_id: athleteId },
-                scheduled_for: scheduledFor || null,
-              }),
-            }),
-          ),
+        const result = await request<BatchAssignmentResult>('/v1/workout-assignments/batch', {
+          method: 'POST',
+          body: JSON.stringify({
+            workout_template_id: templateId,
+            athlete_ids: athleteIds,
+            scheduled_for: scheduledFor || null,
+          }),
+        })
+        setScheduledFor(new Date().toLocaleDateString('en-CA'))
+        setSelected(new Set())
+        setSuccess(
+          `Assigned to ${athleteIds.length} athlete${athleteIds.length !== 1 ? 's' : ''} — ${result.sessions_created} session${result.sessions_created !== 1 ? 's' : ''} created.`,
         )
-
-        const successes = results.filter(
-          (r): r is PromiseFulfilledResult<AssignmentResult> => r.status === 'fulfilled',
-        )
-        const successCount = successes.length
-        const failCount = results.length - successCount
-        const totalSessions = successes.reduce((sum, r) => sum + r.value.sessions_created, 0)
-
-        if (successCount > 0) {
-          setScheduledFor(new Date().toLocaleDateString('en-CA'))
-          setSelected(new Set())
-          setSuccess(
-            `Assigned to ${successCount} athlete${successCount !== 1 ? 's' : ''} — ${totalSessions} session${totalSessions !== 1 ? 's' : ''} created.${failCount > 0 ? ` (${failCount} failed)` : ''}`,
-          )
-          setShowGoToSessions(true)
-        } else {
-          setError('All assignments failed. Please try again.')
-        }
+        setShowGoToSessions(true)
       }
     } catch {
       setError('Could not create assignment. Please try again.')
@@ -131,6 +123,7 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
   const isTeamEmpty = teamCount === 0
   const canSubmit =
     !loading &&
+    templateReady &&
     fetchStatus === 'success' &&
     (mode === 'team' ? !isTeamEmpty : selectedCount > 0)
 
@@ -138,9 +131,10 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
 
   function getButtonLabel(): string {
     if (loading) return 'Assigning…'
+    if (!templateReady) return 'Add exercises to assign'
     if (mode === 'athletes' && selectedCount === 0) return 'Select athletes to assign'
     if (targetCount === 0) return 'Assign workout'
-    return `Assign workout to ${targetCount} athlete${targetCount !== 1 ? 's' : ''}`
+    return `Assign to ${targetCount} athlete${targetCount !== 1 ? 's' : ''}`
   }
 
   return (
@@ -148,6 +142,15 @@ export function AssignPanel({ templateId }: AssignPanelProps) {
       <p className="text-xs text-slate-400">
         Create sessions for athletes so they can view and complete this workout.
       </p>
+
+      {/* Not-ready hint */}
+      {!templateReady && (
+        <div className="rounded-xl border border-amber-800/30 bg-amber-900/10 px-4 py-3">
+          <p className="text-xs text-amber-400">
+            Add at least one block with one exercise before assigning.
+          </p>
+        </div>
+      )}
 
       {/* Mode selector */}
       <div className="space-y-3">
