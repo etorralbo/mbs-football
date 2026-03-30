@@ -259,6 +259,7 @@ class SqlAlchemyWorkoutSessionRepository(AbstractWorkoutSessionRepository):
             .join(UserProfile, WorkoutSession.athlete_id == UserProfile.id)
             .join(WorkoutTemplate, WorkoutSession.workout_template_id == WorkoutTemplate.id)
             .where(UserProfile.team_id == team_id)
+            .where(WorkoutTemplate.team_id == team_id)
             .where(WorkoutSession.completed_at.is_(None))
             .where(WorkoutSession.cancelled_at.is_(None))
         )
