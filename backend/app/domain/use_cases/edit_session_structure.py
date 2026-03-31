@@ -50,9 +50,27 @@ class ExerciseHasLogsError(Exception):
     """Cannot remove an exercise that the athlete has already logged."""
 
 
+class BlockHasLogsError(Exception):
+    """Cannot remove a block when any exercise in it has athlete logs."""
+
+
 # ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
+
+@dataclass
+class AddBlockCommand:
+    session_id: uuid.UUID
+    name: str
+    requesting_team_id: uuid.UUID
+
+
+@dataclass
+class RemoveBlockCommand:
+    session_id: uuid.UUID
+    block_index: int
+    requesting_team_id: uuid.UUID
+
 
 @dataclass
 class UpdatePrescriptionCommand:
@@ -155,6 +173,39 @@ class EditSessionStructureUseCase:
                 f"Exercise {command.exercise_id} not found in session {command.session_id}"
             )
 
+        self._session_repo.update_session_structure(session, structure)
+
+    def add_block(self, command: AddBlockCommand) -> None:
+        """Append a new empty block to the session structure."""
+        session = self._get_session_or_raise(command.session_id, command.requesting_team_id)
+        structure = self._ensure_structure(session)
+        blocks = structure.setdefault("blocks", [])
+        new_order = max((b.get("order", 0) for b in blocks), default=-1) + 1
+        blocks.append({"name": command.name, "order": new_order, "items": []})
+        self._session_repo.update_session_structure(session, structure)
+
+    def remove_block(self, command: RemoveBlockCommand) -> None:
+        """Remove a block (and all its exercises) from the session.
+
+        Raises BlockNotFoundError if block_index is out of range.
+        Raises BlockHasLogsError if any exercise in the block has athlete logs.
+        """
+        session = self._get_session_or_raise(command.session_id, command.requesting_team_id)
+        structure = self._ensure_structure(session)
+        blocks = structure.get("blocks", [])
+        if command.block_index < 0 or command.block_index >= len(blocks):
+            raise BlockNotFoundError(
+                f"block_index {command.block_index} out of range "
+                f"(session has {len(blocks)} block(s))"
+            )
+        block = blocks[command.block_index]
+        for item in block.get("items", []):
+            ex_id = uuid.UUID(item["exercise_id"])
+            if self._log_repo.has_logs_for_exercise(command.session_id, ex_id):
+                raise BlockHasLogsError(
+                    f"Exercise {ex_id} in this block has athlete logs — cannot remove block."
+                )
+        structure["blocks"] = [b for i, b in enumerate(blocks) if i != command.block_index]
         self._session_repo.update_session_structure(session, structure)
 
     def add_exercise(self, command: AddExerciseCommand) -> None:

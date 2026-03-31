@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { request } from '@/app/_shared/api/httpClient'
+import { DashedActionButton } from '@/src/components/DashedActionButton'
 
 // ---------------------------------------------------------------------------
 // PrescriptionEditor
@@ -62,6 +63,14 @@ export function PrescriptionEditor({
 
   function updateSet(index: number, field: 'reps' | 'weight' | 'rpe', value: string) {
     setSets((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)))
+  }
+
+  function addSet() {
+    setSets((prev) => [...prev, { reps: '', weight: '', rpe: '' }])
+  }
+
+  function removeSet(index: number) {
+    setSets((prev) => prev.filter((_, i) => i !== index))
   }
 
   async function handleSave() {
@@ -139,9 +148,23 @@ export function PrescriptionEditor({
               aria-label={`Prescribed set ${i + 1} rpe`}
               className="w-20 rounded-md border border-white/10 bg-[#131922] px-2 py-1.5 text-sm text-white placeholder:text-slate-600 focus:border-[#4f9cf9] focus:outline-none focus:ring-1 focus:ring-[#4f9cf9] disabled:opacity-40"
             />
+            <button
+              onClick={() => removeSet(i)}
+              disabled={sets.length <= 1 || saving}
+              aria-label={`Remove set ${i + 1}`}
+              className="rounded p-0.5 text-slate-600 transition-colors hover:text-red-400 disabled:opacity-20"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         ))}
       </div>
+
+      <DashedActionButton size="sm" onClick={addSet} disabled={saving} className="mt-3 px-4 py-1.5">
+        Add set
+      </DashedActionButton>
 
       {error && (
         <p role="alert" className="mt-2 text-xs text-red-400">

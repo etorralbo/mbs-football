@@ -2,15 +2,20 @@
  * Tests for coach session customization flow.
  *
  * Covers:
- * 1. Coach sees "Customize session" button; athlete does not
- * 2. "Customize session" toggles edit mode controls
- * 3. Inline prescription update — PATCH called, editor closes
- * 4. Prescription save failure — error shown
- * 5. Remove exercise success — DELETE called
- * 6. Remove exercise 409 conflict — user-friendly error shown, card stays
- * 7. Add exercise flow — picker opens, exercise tap calls POST
- * 8. "Customized" badge appears after a successful structural change
- * 9. Athlete sees no edit controls
+ *  1. Coach sees "Customize session" button; athlete does not
+ *  2. "Customize session" toggles edit mode controls
+ *  3. Inline prescription update — PATCH called, editor closes
+ *  4. Prescription save failure — error shown
+ *  5. Remove exercise success — DELETE called
+ *  6. Remove exercise 409 conflict — user-friendly error shown, card stays
+ *  7. Add exercise flow — picker opens, exercise tap calls POST
+ *  8. "Customized" badge appears after a successful structural change
+ *  9. Athlete sees no edit controls
+ * 10. Scoping copy visibility
+ * 11. Failed add exercise — picker stays open
+ * 12. Add/remove sets in PrescriptionEditor
+ * 13. Add block flow
+ * 14. Remove block flow
  */
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
@@ -164,7 +169,7 @@ describe('Edit mode toggle', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /edit prescription/i })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /remove/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^remove$/i })).toBeInTheDocument()
     })
   })
 
@@ -484,6 +489,169 @@ describe('Failed add exercise', () => {
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(/could not add exercise/i)
       expect(screen.getByRole('dialog', { name: /add exercise to primary strength/i })).toBeInTheDocument()
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 12. Add/remove sets in PrescriptionEditor
+// ---------------------------------------------------------------------------
+
+describe('PrescriptionEditor — add/remove sets', () => {
+  it('"Add set" button appears when editing a prescription', async () => {
+    renderAsCoach()
+    fireEvent.click(await screen.findByRole('button', { name: /customize session/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /edit prescription/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /add set/i })).toBeInTheDocument()
+    })
+  })
+
+  it('clicking "Add set" adds a new set row', async () => {
+    renderAsCoach()
+    fireEvent.click(await screen.findByRole('button', { name: /customize session/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /edit prescription/i }))
+
+    // BASE_EXECUTION has 2 sets → 2 "Prescribed set N reps" inputs
+    await screen.findByLabelText(/prescribed set 1 reps/i)
+    expect(screen.queryByLabelText(/prescribed set 3 reps/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /add set/i }))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/prescribed set 3 reps/i)).toBeInTheDocument()
+    })
+  })
+
+  it('"Remove set" is disabled when only one set remains', async () => {
+    // Use execution with a single-set prescription
+    const singleSetExecution: SessionExecution = {
+      ...BASE_EXECUTION,
+      blocks: [{
+        ...BASE_EXECUTION.blocks[0],
+        items: [{
+          ...BASE_EXECUTION.blocks[0].items[0],
+          prescription: { sets: [{ order: 0, reps: 5, weight: 100, rpe: 8 }] },
+        }],
+      }],
+    }
+    renderAsCoach(singleSetExecution)
+    fireEvent.click(await screen.findByRole('button', { name: /customize session/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /edit prescription/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /remove set 1/i })).toBeDisabled()
+    })
+  })
+
+  it('clicking "Remove set" removes the row', async () => {
+    renderAsCoach()
+    fireEvent.click(await screen.findByRole('button', { name: /customize session/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /edit prescription/i }))
+
+    // BASE_EXECUTION has 2 sets
+    await screen.findByLabelText(/prescribed set 2 reps/i)
+
+    fireEvent.click(screen.getByRole('button', { name: /remove set 2/i }))
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText(/prescribed set 2 reps/i)).toBeNull()
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 13. Add block flow
+// ---------------------------------------------------------------------------
+
+describe('Add block', () => {
+  it('"Add block" button appears in edit mode', async () => {
+    renderAsCoach()
+    fireEvent.click(await screen.findByRole('button', { name: /customize session/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /add block/i })).toBeInTheDocument()
+    })
+  })
+
+  it('clicking "Add block" shows the block creation form', async () => {
+    renderAsCoach()
+    fireEvent.click(await screen.findByRole('button', { name: /customize session/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /add block/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /create block/i })).toBeInTheDocument()
+    })
+  })
+
+  it('creating a block calls POST /structure/blocks and refreshes', async () => {
+    renderAsCoach()
+    // POST succeeds; refresh GET
+    mockRequest
+      .mockResolvedValueOnce(undefined)             // POST 201
+      .mockResolvedValueOnce(CUSTOMIZED_EXECUTION)  // refresh GET
+
+    fireEvent.click(await screen.findByRole('button', { name: /customize session/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /add block/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /create block/i }))
+
+    await waitFor(() => {
+      const postCalls = mockRequest.mock.calls.filter(
+        (call) =>
+          typeof call[0] === 'string' &&
+          call[0].includes('/structure/blocks') &&
+          (call[1] as Record<string, string>)?.method === 'POST',
+      )
+      expect(postCalls).toHaveLength(1)
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 14. Remove block flow
+// ---------------------------------------------------------------------------
+
+describe('Remove block', () => {
+  it('"Remove block" button appears per block in edit mode', async () => {
+    renderAsCoach()
+    fireEvent.click(await screen.findByRole('button', { name: /customize session/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /remove block/i })).toBeInTheDocument()
+    })
+  })
+
+  it('removing a block calls DELETE /structure/blocks/0 and refreshes', async () => {
+    renderAsCoach()
+    mockRequest
+      .mockResolvedValueOnce(undefined)             // DELETE 204
+      .mockResolvedValueOnce(CUSTOMIZED_EXECUTION)  // refresh GET
+
+    fireEvent.click(await screen.findByRole('button', { name: /customize session/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /remove block/i }))
+
+    await waitFor(() => {
+      const deleteCalls = mockRequest.mock.calls.filter(
+        (call) =>
+          typeof call[0] === 'string' &&
+          call[0].includes('/structure/blocks/0') &&
+          (call[1] as Record<string, string>)?.method === 'DELETE',
+      )
+      expect(deleteCalls).toHaveLength(1)
+    })
+  })
+
+  it('shows 409 error message when block has logged exercises', async () => {
+    renderAsCoach()
+    const { ConflictError } = await import('@/app/_shared/api/httpClient')
+    mockRequest.mockRejectedValueOnce(new ConflictError())
+
+    fireEvent.click(await screen.findByRole('button', { name: /customize session/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /remove block/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/athlete logs/i)
     })
   })
 })

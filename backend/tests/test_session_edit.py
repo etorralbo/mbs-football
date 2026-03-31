@@ -599,3 +599,154 @@ class TestAddExercise:
             headers=HEADERS,
         )
         assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Tests — Add block
+# ---------------------------------------------------------------------------
+
+class TestAddBlock:
+
+    def test_coach_can_add_block(
+        self, client: TestClient, session_with_snapshot, coach_a, mock_jwt,
+    ):
+        mock_jwt(str(coach_a.supabase_user_id))
+        resp = client.post(
+            f"/v1/workout-sessions/{session_with_snapshot.id}/structure/blocks",
+            json={"name": "Recovery"},
+            headers=HEADERS,
+        )
+        assert resp.status_code == 201
+
+    def test_added_block_appears_in_execution_view(
+        self, client: TestClient, session_with_snapshot, coach_a, mock_jwt,
+    ):
+        mock_jwt(str(coach_a.supabase_user_id))
+        client.post(
+            f"/v1/workout-sessions/{session_with_snapshot.id}/structure/blocks",
+            json={"name": "Recovery"},
+            headers=HEADERS,
+        )
+        resp = client.get(
+            f"/v1/workout-sessions/{session_with_snapshot.id}/execution",
+            headers=HEADERS,
+        )
+        assert resp.status_code == 200
+        block_names = [b["name"] for b in resp.json()["blocks"]]
+        assert "Recovery" in block_names
+
+    def test_athlete_cannot_add_block(
+        self, client: TestClient, mock_jwt, athlete_a, session_with_snapshot,
+    ):
+        mock_jwt(str(athlete_a.supabase_user_id))
+        resp = client.post(
+            f"/v1/workout-sessions/{session_with_snapshot.id}/structure/blocks",
+            json={"name": "Recovery"},
+            headers=HEADERS,
+        )
+        assert resp.status_code == 403
+
+    def test_unauthenticated_cannot_add_block(
+        self, client: TestClient, session_with_snapshot,
+    ):
+        resp = client.post(
+            f"/v1/workout-sessions/{session_with_snapshot.id}/structure/blocks",
+            json={"name": "Recovery"},
+        )
+        assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Tests — Remove block
+# ---------------------------------------------------------------------------
+
+class TestRemoveBlock:
+
+    def _add_block(self, client, session_id, name, headers):
+        """Helper: add a block and return its index (always appended at end)."""
+        client.post(
+            f"/v1/workout-sessions/{session_id}/structure/blocks",
+            json={"name": name},
+            headers=headers,
+        )
+
+    def test_coach_can_remove_empty_block(
+        self, client: TestClient, session_with_snapshot, coach_a, mock_jwt,
+    ):
+        mock_jwt(str(coach_a.supabase_user_id))
+        # Add a new block (will be at index 1)
+        self._add_block(client, session_with_snapshot.id, "Recovery", HEADERS)
+        resp = client.delete(
+            f"/v1/workout-sessions/{session_with_snapshot.id}/structure/blocks/1",
+            headers=HEADERS,
+        )
+        assert resp.status_code == 204
+
+    def test_removed_block_absent_from_execution_view(
+        self, client: TestClient, session_with_snapshot, coach_a, mock_jwt,
+    ):
+        mock_jwt(str(coach_a.supabase_user_id))
+        self._add_block(client, session_with_snapshot.id, "Recovery", HEADERS)
+        client.delete(
+            f"/v1/workout-sessions/{session_with_snapshot.id}/structure/blocks/1",
+            headers=HEADERS,
+        )
+        resp = client.get(
+            f"/v1/workout-sessions/{session_with_snapshot.id}/execution",
+            headers=HEADERS,
+        )
+        assert resp.status_code == 200
+        block_names = [b["name"] for b in resp.json()["blocks"]]
+        assert "Recovery" not in block_names
+
+    def test_remove_block_with_logged_exercise_returns_409(
+        self,
+        client: TestClient,
+        db_session: Session,
+        session_with_snapshot,
+        ex_squat,
+        athlete_a,
+        team_a,
+        coach_a,
+        mock_jwt,
+    ):
+        """Cannot remove a block when its exercises have athlete logs."""
+        log = WorkoutSessionLog(
+            id=uuid.uuid4(), team_id=team_a.id,
+            session_id=session_with_snapshot.id,
+            block_name="Main Block", exercise_id=ex_squat.id,
+            created_by_profile_id=athlete_a.id,
+        )
+        db_session.add(log)
+        db_session.flush()
+        db_session.add(WorkoutSessionLogEntry(
+            id=uuid.uuid4(), log_id=log.id, set_number=1, reps=5, weight=100.0,
+        ))
+        db_session.commit()
+
+        mock_jwt(str(coach_a.supabase_user_id))
+        resp = client.delete(
+            f"/v1/workout-sessions/{session_with_snapshot.id}/structure/blocks/0",
+            headers=HEADERS,
+        )
+        assert resp.status_code == 409
+
+    def test_remove_block_out_of_range_returns_404(
+        self, client: TestClient, session_with_snapshot, coach_a, mock_jwt,
+    ):
+        mock_jwt(str(coach_a.supabase_user_id))
+        resp = client.delete(
+            f"/v1/workout-sessions/{session_with_snapshot.id}/structure/blocks/99",
+            headers=HEADERS,
+        )
+        assert resp.status_code == 404
+
+    def test_athlete_cannot_remove_block(
+        self, client: TestClient, mock_jwt, athlete_a, session_with_snapshot,
+    ):
+        mock_jwt(str(athlete_a.supabase_user_id))
+        resp = client.delete(
+            f"/v1/workout-sessions/{session_with_snapshot.id}/structure/blocks/0",
+            headers=HEADERS,
+        )
+        assert resp.status_code == 403
