@@ -285,10 +285,11 @@ describe('AssignPanel — team submit', () => {
     fireEvent.click(getSubmitButton())
 
     await waitFor(() => {
-      expect(screen.getByRole('status')).toHaveTextContent(/whole team/i)
+      expect(screen.getByRole('status')).toHaveTextContent(/assigned successfully/i)
     })
     expect(screen.getByRole('status')).toHaveTextContent('3 sessions created')
-    expect(screen.getByRole('link', { name: /go to sessions/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /go to dashboard/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /view sessions/i })).toBeInTheDocument()
 
     expect(mockRequest).toHaveBeenCalledWith(
       '/v1/workout-assignments',
@@ -327,7 +328,8 @@ describe('AssignPanel — athletes submit', () => {
       expect(screen.getByRole('status')).toHaveTextContent('2 athletes')
     })
     expect(screen.getByRole('status')).toHaveTextContent('5 sessions created')
-    expect(screen.getByRole('link', { name: /go to sessions/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /go to dashboard/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /view sessions/i })).toBeInTheDocument()
 
     expect(mockRequest).toHaveBeenCalledWith(
       '/v1/workout-assignments/batch',

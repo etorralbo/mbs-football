@@ -429,6 +429,100 @@ function NewTemplateDropdown({
 }
 
 // ---------------------------------------------------------------------------
+// CoachEmptyState — improved empty state with "Start from example" CTA
+// ---------------------------------------------------------------------------
+
+function CoachEmptyState({
+  onCreateFromScratch,
+  onCreatedFromSample,
+}: {
+  onCreateFromScratch: () => void
+  onCreatedFromSample: (template: WorkoutTemplate) => void
+}) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleStartFromExample() {
+    setLoading(true)
+    setError(null)
+    try {
+      const template = await request<WorkoutTemplate>('/v1/workout-templates/sample', {
+        method: 'POST',
+      })
+      onCreatedFromSample(template)
+    } catch {
+      setError('Could not create example template. Please try again.')
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="mt-12 flex flex-col items-center text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/8">
+        <svg
+          className="h-5 w-5 text-slate-400"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M12 4v16m8-8H4"
+          />
+        </svg>
+      </div>
+      <p className="mt-3 text-sm font-medium text-white">Create your first workout in minutes</p>
+      <p className="mt-1 text-sm text-slate-400">
+        Design structured sessions your athletes can follow step by step.
+      </p>
+
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+        <button
+          onClick={handleStartFromExample}
+          disabled={loading}
+          className="inline-flex items-center gap-2 rounded-lg bg-[#c8f135] px-5 py-2.5 text-sm font-bold text-[#0a0d14] transition-all hover:brightness-105 disabled:opacity-50"
+        >
+          {loading ? (
+            <>
+              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Creating…
+            </>
+          ) : (
+            <>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              Start from example
+            </>
+          )}
+        </button>
+        <button
+          onClick={onCreateFromScratch}
+          className="text-sm font-medium text-slate-400 hover:text-white"
+        >
+          Start from scratch
+        </button>
+      </div>
+
+      {error && (
+        <p role="alert" className="mt-3 text-xs text-red-400">{error}</p>
+      )}
+
+      <p className="mt-4 text-xs text-slate-600">
+        Example includes a Full Body Strength block with 4 exercises ready to customise
+      </p>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // TemplatesPage
 // ---------------------------------------------------------------------------
 
@@ -570,10 +664,11 @@ export default function TemplatesPage() {
             description="Templates are created by your coach."
           />
         ) : (
-          <EmptyState
-            title="You don&apos;t have any templates yet."
-            description="Templates help you design structured workouts for your athletes."
-            primaryAction={{ label: 'Create your first template', onClick: () => setShowDrawer(true) }}
+          <CoachEmptyState
+            onCreateFromScratch={() => setShowDrawer(true)}
+            onCreatedFromSample={(template) => {
+              router.push(`/templates/${template.id}`)
+            }}
           />
         )
       )}

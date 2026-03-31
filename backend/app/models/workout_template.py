@@ -17,6 +17,13 @@ class WorkoutTemplate(Base, TimestampMixin):
     __tablename__ = "workout_templates"
     __table_args__ = (
         Index("uix_templates_team_title", "team_id", text("lower(title)"), unique=True),
+        Index(
+            "uix_workout_templates_team_system_key",
+            "team_id",
+            "system_template_key",
+            unique=True,
+            postgresql_where=text("system_template_key IS NOT NULL"),
+        ),
     )
 
     team_id: Mapped[uuid.UUID] = mapped_column(
@@ -30,6 +37,7 @@ class WorkoutTemplate(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="draft", server_default="draft"
     )
+    system_template_key: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
 
     # Relationship to blocks ordered by order_index
     blocks: Mapped[list["WorkoutBlock"]] = relationship(

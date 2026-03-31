@@ -34,9 +34,9 @@ const mockActivation = vi.mocked(useActivationState)
 // Fixtures
 // ---------------------------------------------------------------------------
 
-const ANON_STATE = { isLoading: false, error: null, role: null, steps: [], nextAction: null }
-const COACH_STATE = { isLoading: false, error: null, role: 'COACH' as const, steps: [], nextAction: null }
-const ATHLETE_STATE = { isLoading: false, error: null, role: 'ATHLETE' as const, steps: [], nextAction: null }
+const ANON_STATE = { isLoading: false, error: null, role: null, steps: [], nextAction: null, allComplete: false }
+const COACH_STATE = { isLoading: false, error: null, role: 'COACH' as const, steps: [], nextAction: null, allComplete: false }
+const ATHLETE_STATE = { isLoading: false, error: null, role: 'ATHLETE' as const, steps: [], nextAction: null, allComplete: false }
 
 const ALICE_SESSION: WorkoutSessionSummary = {
   id: 'sess-a',

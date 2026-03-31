@@ -91,7 +91,7 @@ export function AssignPanel({ templateId, templateReady = true }: AssignPanelPro
         })
         setScheduledFor(new Date().toLocaleDateString('en-CA'))
         setSuccess(
-          `Assigned to whole team — ${result.sessions_created} session${result.sessions_created !== 1 ? 's' : ''} created.`,
+          `Workout assigned successfully — ${result.sessions_created} session${result.sessions_created !== 1 ? 's' : ''} created. Your athletes can start now.`,
         )
         setShowGoToSessions(true)
       } else {
@@ -108,7 +108,7 @@ export function AssignPanel({ templateId, templateReady = true }: AssignPanelPro
         setScheduledFor(new Date().toLocaleDateString('en-CA'))
         setSelected(new Set())
         setSuccess(
-          `Assigned to ${athleteIds.length} athlete${athleteIds.length !== 1 ? 's' : ''} — ${result.sessions_created} session${result.sessions_created !== 1 ? 's' : ''} created.`,
+          `Workout assigned successfully to ${athleteIds.length} athlete${athleteIds.length !== 1 ? 's' : ''} — ${result.sessions_created} session${result.sessions_created !== 1 ? 's' : ''} created. Your athletes can start now.`,
         )
         setShowGoToSessions(true)
       }
@@ -280,12 +280,23 @@ export function AssignPanel({ templateId, templateReady = true }: AssignPanelPro
       )}
 
       {success && (
-        <div>
-          <p role="status" className="text-sm text-emerald-400">{success}</p>
+        <div className="rounded-lg border border-emerald-800/40 bg-emerald-900/20 p-3">
+          <p role="status" className="text-sm font-medium text-emerald-400">{success}</p>
           {showGoToSessions && (
-            <Link href="/sessions" className="mt-1 inline-block text-xs text-[#137fec] hover:underline">
-              Go to sessions →
-            </Link>
+            <div className="mt-2 flex flex-wrap gap-3">
+              <Link
+                href="/dashboard"
+                className="text-xs font-medium text-[#137fec] hover:underline"
+              >
+                Go to dashboard →
+              </Link>
+              <Link
+                href="/sessions"
+                className="text-xs text-slate-400 hover:text-white"
+              >
+                View sessions
+              </Link>
+            </div>
           )}
         </div>
       )}
