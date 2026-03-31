@@ -22,6 +22,7 @@ import { ExerciseCard } from './ExerciseCard'
 import { CompletionBar } from './CompletionBar'
 import { PrescriptionEditor } from './PrescriptionEditor'
 import { SessionExercisePicker } from './SessionExercisePicker'
+import { AddSessionBlockForm } from './AddSessionBlockForm'
 
 export default function SessionDetailPage() {
   const { id } = useParams() as { id: string }
@@ -55,6 +56,11 @@ export default function SessionDetailPage() {
   const [removeError, setRemoveError] = useState<{ exerciseId: string; message: string } | null>(null)
   const [removing, setRemoving] = useState<string | null>(null)  // exerciseId being removed
   const [refreshError, setRefreshError] = useState(false)
+
+  // ── Block-level edit state
+  const [addingBlock, setAddingBlock] = useState(false)
+  const [removingBlock, setRemovingBlock] = useState<number | null>(null)
+  const [removeBlockError, setRemoveBlockError] = useState<{ blockIndex: number; message: string } | null>(null)
 
   // Re-fetch execution and re-hydrate draft after structural changes.
   // Throws on network/API failure — callers use safeRefresh for UI error handling.
@@ -98,6 +104,30 @@ export default function SessionDetailPage() {
     // Step 2: delete succeeded; refresh the local view.
     await safeRefresh()
     setRemoving(null)
+  }
+
+  async function handleRemoveBlock(blockIndex: number) {
+    setRemoveBlockError(null)
+    setRemovingBlock(blockIndex)
+    try {
+      await request(
+        `/v1/workout-sessions/${id}/structure/blocks/${blockIndex}`,
+        { method: 'DELETE' },
+      )
+    } catch (err) {
+      if (err instanceof ConflictError) {
+        setRemoveBlockError({
+          blockIndex,
+          message: "Some exercises in this block have athlete logs and can't be removed.",
+        })
+      } else {
+        setRemoveBlockError({ blockIndex, message: 'Failed to remove block. Please try again.' })
+      }
+      setRemovingBlock(null)
+      return
+    }
+    await safeRefresh()
+    setRemovingBlock(null)
   }
 
   // ── Track in-flight saves to gate the CompletionBar
@@ -226,6 +256,8 @@ export default function SessionDetailPage() {
                 setEditMode((v) => !v)
                 setEditingExercise(null)
                 setRemoveError(null)
+                setAddingBlock(false)
+                setRemoveBlockError(null)
               }}
               className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4f9cf9]/50 ${
                 editMode
@@ -257,6 +289,26 @@ export default function SessionDetailPage() {
       <div className="mt-8 space-y-8 pb-24">
         {execution.blocks.map((block, blockIndex) => (
           <BlockSection key={block.key} name={block.name}>
+            {/* Block-level remove controls — coach edit mode */}
+            {isCoach && editMode && (
+              <div className="mb-2 flex items-center justify-end">
+                <button
+                  onClick={() => handleRemoveBlock(blockIndex)}
+                  disabled={removingBlock === blockIndex}
+                  className="rounded-md px-2.5 py-1 text-xs text-red-400 transition-colors hover:bg-red-400/10 hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50 disabled:opacity-40"
+                >
+                  {removingBlock === blockIndex ? 'Removing…' : 'Remove block'}
+                </button>
+              </div>
+            )}
+
+            {/* Block remove error */}
+            {removeBlockError?.blockIndex === blockIndex && (
+              <p role="alert" className="mb-2 text-xs text-red-400">
+                {removeBlockError.message}
+              </p>
+            )}
+
             {block.items.map((item) => {
               const exerciseSets = draft[item.exercise_id]
               if (!exerciseSets) return null
@@ -300,7 +352,7 @@ export default function SessionDetailPage() {
                     </div>
                   )}
 
-                  {/* Remove error */}
+                  {/* Remove exercise error */}
                   {exerciseRemoveError && (
                     <p role="alert" className="px-1 text-xs text-red-400">
                       {exerciseRemoveError}
@@ -338,6 +390,29 @@ export default function SessionDetailPage() {
             )}
           </BlockSection>
         ))}
+
+        {/* Add block — coach edit mode only */}
+        {isCoach && editMode && !addingBlock && (
+          <button
+            onClick={() => setAddingBlock(true)}
+            className="flex w-full items-center gap-2 rounded-lg border border-dashed border-white/15 px-4 py-3 text-xs text-slate-500 transition-colors hover:border-white/25 hover:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4f9cf9]/50"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Add block
+          </button>
+        )}
+        {isCoach && editMode && addingBlock && (
+          <AddSessionBlockForm
+            sessionId={id}
+            onCreated={async () => {
+              setAddingBlock(false)
+              await safeRefresh()
+            }}
+            onCancel={() => setAddingBlock(false)}
+          />
+        )}
       </div>
 
       {/* Sticky completion bar — only for pending sessions viewed by an athlete */}

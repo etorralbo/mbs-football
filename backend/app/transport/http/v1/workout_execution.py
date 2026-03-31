@@ -41,12 +41,15 @@ from app.domain.use_cases.get_workout_session_detail import (
     WorkoutSessionDetailResult,
 )
 from app.domain.use_cases.edit_session_structure import (
+    AddBlockCommand,
     AddExerciseCommand,
+    BlockHasLogsError,
     BlockNotFoundError,
     EditSessionStructureUseCase,
     ExerciseHasLogsError,
     ExerciseNotFoundError,
     ExerciseNotInSessionError,
+    RemoveBlockCommand,
     RemoveExerciseCommand,
     SessionNotFoundError as EditSessionNotFoundError,
     UpdatePrescriptionCommand,
@@ -512,6 +515,10 @@ class AddExerciseIn(BaseModel):
     sets: list[dict] = []
 
 
+class AddBlockIn(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+
+
 def _build_edit_structure_use_case(db: Session) -> EditSessionStructureUseCase:
     return EditSessionStructureUseCase(
         session_repo=SqlAlchemyWorkoutSessionRepository(db),
@@ -606,3 +613,57 @@ def add_session_exercise(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except (ExerciseNotFoundError, BlockNotFoundError) as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@router.post(
+    "/{session_id}/structure/blocks",
+    status_code=status.HTTP_201_CREATED,
+)
+def add_session_block(
+    session_id: uuid.UUID,
+    payload: AddBlockIn,
+    current_user: Annotated[CurrentUser, Depends(require_coach)],
+    db: Session = Depends(get_db),
+) -> None:
+    """Add a new empty block to a session (COACH only)."""
+    use_case = _build_edit_structure_use_case(db)
+    command = AddBlockCommand(
+        session_id=session_id,
+        name=payload.name,
+        requesting_team_id=current_user.team_id,
+    )
+    try:
+        use_case.add_block(command)
+    except EditSessionNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@router.delete(
+    "/{session_id}/structure/blocks/{block_index}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def remove_session_block(
+    session_id: uuid.UUID,
+    block_index: int,
+    current_user: Annotated[CurrentUser, Depends(require_coach)],
+    db: Session = Depends(get_db),
+) -> None:
+    """Remove a block and all its exercises from a session (COACH only).
+
+    Returns 409 if any exercise in the block has athlete logs.
+    Returns 404 if block_index is out of range.
+    """
+    use_case = _build_edit_structure_use_case(db)
+    command = RemoveBlockCommand(
+        session_id=session_id,
+        block_index=block_index,
+        requesting_team_id=current_user.team_id,
+    )
+    try:
+        use_case.remove_block(command)
+    except EditSessionNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except BlockNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except BlockHasLogsError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
