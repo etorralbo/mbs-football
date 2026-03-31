@@ -3,10 +3,9 @@
 Creates template + block + 4 sample exercises atomically.
 
 Idempotency:
-    If a template named SAMPLE_TEMPLATE_TITLE already exists for this team,
-    the existing template id is returned without creating a duplicate.  This
-    prevents accidental multi-creation when users click "Start from example"
-    more than once (e.g. double-tap before the redirect fires).
+    If a template with system_template_key == SAMPLE_KEY already exists for
+    this team, the existing template id is returned without creating a
+    duplicate.  The key is stable even if the coach renames the template title.
 
 Exercise normalisation:
     Lookup is case-insensitive and trims whitespace, so a coach who already has
@@ -52,6 +51,7 @@ SAMPLE_EXERCISES = [
     },
 ]
 
+SAMPLE_KEY = "full_body_strength_v1"
 SAMPLE_TEMPLATE_TITLE = "Full Body Strength Workout"
 SAMPLE_BLOCK_NAME = "Main Circuit"
 
@@ -75,8 +75,10 @@ class CreateSampleTemplateUseCase:
     """
     Creates a complete sample template with one block and 4 exercises.
 
-    Idempotent: if a template named SAMPLE_TEMPLATE_TITLE already exists for
-    this team, returns it immediately without writing anything new.
+    Idempotent: if a template with system_template_key == SAMPLE_KEY already
+    exists for this team, returns it immediately without writing anything new.
+    The lookup is key-based so renaming the template title does not break
+    idempotency.
 
     Exercises are created as COACH-owned exercises for this coach if they do
     not already exist (normalised lookup: case-insensitive + trimmed).
@@ -89,12 +91,11 @@ class CreateSampleTemplateUseCase:
         self, team_id: uuid.UUID, coach_id: uuid.UUID
     ) -> CreateSampleTemplateResult:
         # --- Idempotency guard -------------------------------------------------
-        # Return the existing template rather than creating a duplicate.  This
-        # protects against double-taps / rapid retries from the frontend.
+        # Lookup by stable key, not title — title is editable by the coach.
         existing_template = self._db.execute(
             select(WorkoutTemplate).where(
                 WorkoutTemplate.team_id == team_id,
-                WorkoutTemplate.title == SAMPLE_TEMPLATE_TITLE,
+                WorkoutTemplate.system_template_key == SAMPLE_KEY,
             )
         ).scalar_one_or_none()
 
@@ -107,6 +108,7 @@ class CreateSampleTemplateUseCase:
         template = WorkoutTemplate(
             team_id=team_id,
             title=SAMPLE_TEMPLATE_TITLE,
+            system_template_key=SAMPLE_KEY,
         )
         self._db.add(template)
         self._db.flush()

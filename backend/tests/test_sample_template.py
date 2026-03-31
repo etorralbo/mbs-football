@@ -207,3 +207,68 @@ class TestCreateSampleTemplate:
         ).scalars().all()
         # 2 pre-existing reused + 2 new (Romanian Deadlift + Plank Hold) = 4 total
         assert len(exercises) == 4
+
+    def test_system_template_key_is_stored(
+        self, client: TestClient, sample_coach, db_session: Session
+    ):
+        """Created template carries the stable system_template_key."""
+        from sqlalchemy import select
+        from app.models.workout_template import WorkoutTemplate
+
+        resp = client.post("/v1/workout-templates/sample", headers=HEADERS)
+        assert resp.status_code == 201
+        template_id = resp.json()["id"]
+
+        template = db_session.execute(
+            select(WorkoutTemplate).where(WorkoutTemplate.id == template_id)
+        ).scalar_one()
+        assert template.system_template_key == "full_body_strength_v1"
+
+    def test_idempotency_survives_title_rename(
+        self, client: TestClient, sample_coach, db_session: Session
+    ):
+        """Renaming the template title does not break idempotency on the next call."""
+        from sqlalchemy import select
+        from app.models.workout_template import WorkoutTemplate
+
+        resp1 = client.post("/v1/workout-templates/sample", headers=HEADERS)
+        assert resp1.status_code == 201
+        template_id = resp1.json()["id"]
+
+        # Coach renames the template
+        template = db_session.execute(
+            select(WorkoutTemplate).where(WorkoutTemplate.id == template_id)
+        ).scalar_one()
+        template.title = "My Custom Name"
+        db_session.commit()
+
+        # Second call must still find the existing template by key, not title
+        resp2 = client.post("/v1/workout-templates/sample", headers=HEADERS)
+        assert resp2.status_code == 200
+        assert resp2.json()["id"] == template_id
+
+        # Still only one template
+        templates = db_session.execute(
+            select(WorkoutTemplate).where(
+                WorkoutTemplate.team_id == sample_coach.team_id
+            )
+        ).scalars().all()
+        assert len(templates) == 1
+
+    def test_normal_templates_have_null_system_key(
+        self, client: TestClient, sample_coach, db_session: Session
+    ):
+        """Templates created via regular flow have system_template_key = NULL."""
+        from sqlalchemy import select
+        from app.models.workout_template import WorkoutTemplate
+
+        # Create a regular template directly
+        regular = WorkoutTemplate(
+            team_id=sample_coach.team_id,
+            title="Coach Custom Template",
+        )
+        db_session.add(regular)
+        db_session.commit()
+        db_session.refresh(regular)
+
+        assert regular.system_template_key is None
