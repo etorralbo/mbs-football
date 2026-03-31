@@ -93,6 +93,7 @@ class SessionExecutionResult:
     template_title: str
     athlete_profile_id: uuid.UUID
     scheduled_for: Optional[date]
+    has_session_structure: bool = False
     blocks: list[BlockExecutionOut] = field(default_factory=list)
 
 
@@ -216,6 +217,7 @@ class GetSessionExecutionViewUseCase:
             template_title=template_title,
             athlete_profile_id=session.athlete_id,
             scheduled_for=session.scheduled_for,
+            has_session_structure=session.session_structure is not None,
             blocks=block_results,
         )
 

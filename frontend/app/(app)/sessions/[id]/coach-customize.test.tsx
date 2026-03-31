@@ -60,6 +60,7 @@ const BASE_EXECUTION: SessionExecution = {
   template_title: 'Power Session',
   athlete_profile_id: 'ath-1',
   scheduled_for: null,
+  has_session_structure: false,
   blocks: [
     {
       name: 'Primary Strength',
@@ -81,6 +82,9 @@ const BASE_EXECUTION: SessionExecution = {
     },
   ],
 }
+
+// Execution returned after a structural edit — backend now has session_structure set
+const CUSTOMIZED_EXECUTION: SessionExecution = { ...BASE_EXECUTION, has_session_structure: true }
 
 const LIBRARY_EXERCISES = [
   {
@@ -213,9 +217,9 @@ describe('Prescription editing', () => {
     mockUseAuth.mockReturnValue({ role: 'COACH', loading: false })
     // Explicit sequence: initial GET → PATCH → refresh GET
     mockRequest
-      .mockResolvedValueOnce(BASE_EXECUTION)  // initial GET /execution
-      .mockResolvedValueOnce(undefined)       // PATCH /structure/exercises/ex-1
-      .mockResolvedValueOnce(BASE_EXECUTION)  // refresh GET /execution
+      .mockResolvedValueOnce(BASE_EXECUTION)        // initial GET /execution
+      .mockResolvedValueOnce(undefined)             // PATCH /structure/exercises/ex-1
+      .mockResolvedValueOnce(CUSTOMIZED_EXECUTION)  // refresh GET /execution
     render(<SessionDetailPage />)
 
     fireEvent.click(await screen.findByRole('button', { name: /customize session/i }))
@@ -286,10 +290,10 @@ describe('Prescription editing', () => {
 describe('Remove exercise', () => {
   it('successful removal calls DELETE endpoint', async () => {
     renderAsCoach()
-    // PATCH not called; DELETE succeeds; refresh GET
+    // DELETE succeeds; refresh GET
     mockRequest
-      .mockResolvedValueOnce(undefined)      // DELETE 204
-      .mockResolvedValueOnce(BASE_EXECUTION) // refresh GET
+      .mockResolvedValueOnce(undefined)            // DELETE 204
+      .mockResolvedValueOnce(CUSTOMIZED_EXECUTION) // refresh GET
 
     fireEvent.click(await screen.findByRole('button', { name: /customize session/i }))
     fireEvent.click(await screen.findByRole('button', { name: /^remove$/i }))
@@ -353,8 +357,8 @@ describe('Add exercise flow', () => {
 
     // Schedule POST success + refresh GET
     mockRequest
-      .mockResolvedValueOnce(undefined)      // POST 201
-      .mockResolvedValueOnce(BASE_EXECUTION) // refresh GET
+      .mockResolvedValueOnce(undefined)            // POST 201
+      .mockResolvedValueOnce(CUSTOMIZED_EXECUTION) // refresh GET
 
     fireEvent.click(screen.getByRole('button', { name: /add deadlift/i }))
 
@@ -383,6 +387,11 @@ describe('Add exercise flow', () => {
 // ---------------------------------------------------------------------------
 
 describe('"Customized" badge', () => {
+  it('is shown on page load for an already-customized session', async () => {
+    renderAsCoach(CUSTOMIZED_EXECUTION)
+    expect(await screen.findByText('Customized')).toBeInTheDocument()
+  })
+
   it('is NOT shown before any edits', async () => {
     renderAsCoach()
     await screen.findByRole('button', { name: /customize session/i })
@@ -391,10 +400,10 @@ describe('"Customized" badge', () => {
 
   it('appears after a successful prescription save', async () => {
     renderAsCoach()
-    // PATCH succeeds; refresh GET
+    // PATCH succeeds; refresh GET returns has_session_structure: true
     mockRequest
-      .mockResolvedValueOnce(undefined)      // PATCH 204
-      .mockResolvedValueOnce(BASE_EXECUTION) // refresh GET
+      .mockResolvedValueOnce(undefined)            // PATCH 204
+      .mockResolvedValueOnce(CUSTOMIZED_EXECUTION) // refresh GET
 
     fireEvent.click(await screen.findByRole('button', { name: /customize session/i }))
     fireEvent.click(await screen.findByRole('button', { name: /edit prescription/i }))
@@ -408,14 +417,73 @@ describe('"Customized" badge', () => {
   it('appears after a successful exercise removal', async () => {
     renderAsCoach()
     mockRequest
-      .mockResolvedValueOnce(undefined)      // DELETE 204
-      .mockResolvedValueOnce(BASE_EXECUTION) // refresh GET
+      .mockResolvedValueOnce(undefined)            // DELETE 204
+      .mockResolvedValueOnce(CUSTOMIZED_EXECUTION) // refresh GET
 
     fireEvent.click(await screen.findByRole('button', { name: /customize session/i }))
     fireEvent.click(await screen.findByRole('button', { name: /^remove$/i }))
 
     await waitFor(() => {
       expect(screen.getByText('Customized')).toBeInTheDocument()
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 9. Scoping copy
+// ---------------------------------------------------------------------------
+
+describe('Scoping copy', () => {
+  it('is shown for coach when edit mode is active', async () => {
+    renderAsCoach()
+    fireEvent.click(await screen.findByRole('button', { name: /customize session/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/changes here only affect this athlete/i)).toBeInTheDocument()
+    })
+  })
+
+  it('is hidden when edit mode is toggled off', async () => {
+    renderAsCoach()
+    fireEvent.click(await screen.findByRole('button', { name: /customize session/i }))
+    await screen.findByText(/changes here only affect this athlete/i)
+
+    fireEvent.click(screen.getByRole('button', { name: /done editing/i }))
+
+    await waitFor(() => {
+      expect(screen.queryByText(/changes here only affect this athlete/i)).toBeNull()
+    })
+  })
+
+  it('is never shown for athletes', async () => {
+    renderAsAthlete()
+    await screen.findByRole('heading', { name: 'Power Session' })
+    expect(screen.queryByText(/changes here only affect this athlete/i)).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 10. Failed add exercise — picker stays open with error
+// ---------------------------------------------------------------------------
+
+describe('Failed add exercise', () => {
+  it('shows error in picker and keeps drawer open when POST fails', async () => {
+    renderAsCoach()
+    mockRequest.mockResolvedValueOnce(LIBRARY_EXERCISES)  // GET /exercises
+
+    fireEvent.click(await screen.findByRole('button', { name: /customize session/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /add exercise to primary strength/i }))
+
+    // Wait for exercises to load
+    await screen.findByRole('button', { name: /add deadlift/i })
+
+    // POST fails
+    mockRequest.mockRejectedValueOnce(new Error('server error'))
+    fireEvent.click(screen.getByRole('button', { name: /add deadlift/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/could not add exercise/i)
+      expect(screen.getByRole('dialog', { name: /add exercise to primary strength/i })).toBeInTheDocument()
     })
   })
 })

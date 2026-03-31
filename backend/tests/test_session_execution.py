@@ -281,6 +281,33 @@ class TestSessionExecutionShape:
         assert item["prescription"]["sets"][0]["reps"] == 5
         assert item["prescription"]["sets"][0]["weight"] == 85.0
 
+    def test_has_session_structure_false_for_pristine_session(
+        self, client: TestClient, mock_jwt, coach_a, session_a,
+    ):
+        """A session with no structural edits must return has_session_structure=False."""
+        mock_jwt(str(coach_a.supabase_user_id))
+        data = client.get(
+            f"/v1/workout-sessions/{session_a.id}/execution",
+            headers=HEADERS,
+        ).json()
+
+        assert data["has_session_structure"] is False
+
+    def test_has_session_structure_true_when_customized(
+        self, client: TestClient, mock_jwt, coach_a, session_a, db_session: Session,
+    ):
+        """After session_structure is set on the model, has_session_structure must be True."""
+        session_a.session_structure = {"blocks": [], "title": "custom"}
+        db_session.commit()
+
+        mock_jwt(str(coach_a.supabase_user_id))
+        data = client.get(
+            f"/v1/workout-sessions/{session_a.id}/execution",
+            headers=HEADERS,
+        ).json()
+
+        assert data["has_session_structure"] is True
+
 
 # ---------------------------------------------------------------------------
 # Tests — Ordering

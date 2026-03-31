@@ -320,6 +320,7 @@ class WorkoutSessionExecutionOut(BaseModel):
     template_title: str
     athlete_profile_id: uuid.UUID
     scheduled_for: Optional[date]
+    has_session_structure: bool
     blocks: list[BlockExecutionOutSchema]
 
 
@@ -358,6 +359,7 @@ def _execution_result_to_out(result: SessionExecutionResult) -> WorkoutSessionEx
         template_title=result.template_title,
         athlete_profile_id=result.athlete_profile_id,
         scheduled_for=result.scheduled_for,
+        has_session_structure=result.has_session_structure,
         blocks=[
             BlockExecutionOutSchema(
                 name=block.name,

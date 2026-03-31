@@ -43,6 +43,7 @@ const EMPTY_EXECUTION: SessionExecution = {
   template_title: 'Power Session',
   athlete_profile_id: 'ath-1',
   scheduled_for: null,
+  has_session_structure: false,
   blocks: [],
 }
 

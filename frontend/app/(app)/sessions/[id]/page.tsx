@@ -50,29 +50,39 @@ export default function SessionDetailPage() {
 
   // ── Coach: session customization state
   const [editMode, setEditMode] = useState(false)
-  const [isCustomized, setIsCustomized] = useState(false)
   const [editingExercise, setEditingExercise] = useState<string | null>(null)
   const [pickerForBlock, setPickerForBlock] = useState<number | null>(null)
   const [removeError, setRemoveError] = useState<{ exerciseId: string; message: string } | null>(null)
   const [removing, setRemoving] = useState<string | null>(null)  // exerciseId being removed
+  const [refreshError, setRefreshError] = useState(false)
 
-  // Re-fetch execution and re-hydrate draft after structural changes
+  // Re-fetch execution and re-hydrate draft after structural changes.
+  // Throws on network/API failure — callers use safeRefresh for UI error handling.
   async function refreshExecution() {
     const data = await getSessionExecution(id)
     setLocalExecution(data)
     dispatch({ type: 'HYDRATE', execution: data })
-    setIsCustomized(true)
+  }
+
+  // Wraps refreshExecution with error state so callers stay simple.
+  async function safeRefresh() {
+    try {
+      await refreshExecution()
+      setRefreshError(false)
+    } catch {
+      setRefreshError(true)
+    }
   }
 
   async function handleRemoveExercise(exerciseId: string) {
     setRemoveError(null)
     setRemoving(exerciseId)
+    // Step 1: attempt the delete — failure here means the exercise was NOT removed.
     try {
       await request(
         `/v1/workout-sessions/${id}/structure/exercises/${exerciseId}`,
         { method: 'DELETE' },
       )
-      await refreshExecution()
     } catch (err) {
       if (err instanceof ConflictError) {
         setRemoveError({
@@ -82,9 +92,12 @@ export default function SessionDetailPage() {
       } else {
         setRemoveError({ exerciseId, message: 'Failed to remove exercise. Please try again.' })
       }
-    } finally {
       setRemoving(null)
+      return
     }
+    // Step 2: delete succeeded; refresh the local view.
+    await safeRefresh()
+    setRemoving(null)
   }
 
   // ── Track in-flight saves to gate the CompletionBar
@@ -168,6 +181,7 @@ export default function SessionDetailPage() {
   const execution = localExecution!
   const isCompleted = execution.status === 'completed'
   const isCoach = role === 'COACH'
+  const isCustomized = execution.has_session_structure
   const isReadOnly = isCompleted || isCoach
   const progress = progressFromDraft(execution, draft)
   const canComplete = canMarkCompleted(draft) && savingExercises.size === 0
@@ -197,29 +211,45 @@ export default function SessionDetailPage() {
 
       {/* Coach: customize controls */}
       {isCoach && !isCompleted && (
-        <div className="mt-4 flex items-center gap-3">
-          {isCustomized && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#4f9cf9]/30 bg-[#4f9cf9]/10 px-2.5 py-1 text-xs font-medium text-[#4f9cf9]">
-              <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                <path fillRule="evenodd" d="M11.983 1.907a.75.75 0 00-1.292-.657l-8.5 9.5A.75.75 0 002.75 12h6.572l-1.305 6.093a.75.75 0 001.292.657l8.5-9.5A.75.75 0 0017.25 8h-6.572l1.305-6.093z" clipRule="evenodd" />
-              </svg>
-              Customized
-            </span>
+        <div className="mt-4">
+          <div className="flex items-center gap-3">
+            {isCustomized && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#4f9cf9]/30 bg-[#4f9cf9]/10 px-2.5 py-1 text-xs font-medium text-[#4f9cf9]">
+                <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                  <path fillRule="evenodd" d="M11.983 1.907a.75.75 0 00-1.292-.657l-8.5 9.5A.75.75 0 002.75 12h6.572l-1.305 6.093a.75.75 0 001.292.657l8.5-9.5A.75.75 0 0017.25 8h-6.572l1.305-6.093z" clipRule="evenodd" />
+                </svg>
+                Customized
+              </span>
+            )}
+            <button
+              onClick={() => {
+                setEditMode((v) => !v)
+                setEditingExercise(null)
+                setRemoveError(null)
+              }}
+              className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4f9cf9]/50 ${
+                editMode
+                  ? 'bg-white/10 text-white hover:bg-white/15'
+                  : 'bg-[#4f9cf9]/15 text-[#4f9cf9] hover:bg-[#4f9cf9]/25'
+              }`}
+            >
+              {editMode ? 'Done editing' : 'Customize session'}
+            </button>
+          </div>
+
+          {/* Scoping copy — reassures coach that edits don't touch the template */}
+          {editMode && (
+            <p className="mt-1.5 text-xs text-slate-500">
+              Changes here only affect this athlete&apos;s session.
+            </p>
           )}
-          <button
-            onClick={() => {
-              setEditMode((v) => !v)
-              setEditingExercise(null)
-              setRemoveError(null)
-            }}
-            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4f9cf9]/50 ${
-              editMode
-                ? 'bg-white/10 text-white hover:bg-white/15'
-                : 'bg-[#4f9cf9]/15 text-[#4f9cf9] hover:bg-[#4f9cf9]/25'
-            }`}
-          >
-            {editMode ? 'Done editing' : 'Customize session'}
-          </button>
+
+          {/* Refresh error — shown when a structural edit saved but the page view failed to update */}
+          {refreshError && (
+            <p role="alert" className="mt-1.5 text-xs text-amber-400">
+              Could not refresh session data. Reload the page to see the latest changes.
+            </p>
+          )}
         </div>
       )}
 
@@ -285,7 +315,7 @@ export default function SessionDetailPage() {
                       currentPrescription={item.prescription}
                       onSaved={async () => {
                         setEditingExercise(null)
-                        await refreshExecution()
+                        await safeRefresh()
                       }}
                       onCancel={() => setEditingExercise(null)}
                     />
@@ -332,7 +362,7 @@ export default function SessionDetailPage() {
           onClose={() => setPickerForBlock(null)}
           onExerciseAdded={async () => {
             setPickerForBlock(null)
-            await refreshExecution()
+            await safeRefresh()
           }}
         />
       )}

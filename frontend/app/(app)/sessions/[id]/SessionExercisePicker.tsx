@@ -94,6 +94,7 @@ export function SessionExercisePicker({
       onExerciseAdded()
     } catch {
       setAddError('Could not add exercise. Please try again.')
+    } finally {
       setAdding(false)
     }
   }
