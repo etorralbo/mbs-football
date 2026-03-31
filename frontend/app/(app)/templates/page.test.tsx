@@ -46,7 +46,7 @@ vi.mock('next/link', () => ({
 }))
 
 vi.mock('@/src/features/activation/useActivationState', () => ({
-  useActivationState: () => ({ role: 'COACH', steps: [], nextAction: null, isLoading: false, error: null }),
+  useActivationState: () => ({ role: 'COACH', steps: [], nextAction: null, isLoading: false, error: null, allComplete: false }),
 }))
 
 vi.mock('./AiDraftPanel', () => ({ AiDraftPanel: () => null }))
@@ -307,11 +307,34 @@ describe('TemplatesPage — quick actions on hover', () => {
 
 
 describe('TemplatesPage — empty state', () => {
-  it('shows improved empty state for COACH', async () => {
+  it('shows actionable empty state for COACH with two CTAs', async () => {
     renderAsCoach()
 
-    await screen.findByText(/you don.t have any templates yet/i)
-    expect(screen.getByText(/templates help you design/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /create your first template/i })).toBeInTheDocument()
+    await screen.findByText(/create your first workout in minutes/i)
+    expect(screen.getByText(/design structured sessions/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /start from example/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /start from scratch/i })).toBeInTheDocument()
+  })
+
+  it('"Start from example" calls POST /v1/workout-templates/sample and redirects', async () => {
+    mockUseAuth.mockReturnValue({
+      role: 'COACH', loading: false, me: null, activeTeamId: null, error: null, refreshMe: vi.fn(),
+    })
+    const SAMPLE_TEMPLATE = { id: 'sample-1', title: 'Full Body Strength Workout', status: 'draft', team_id: 'team1', description: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+    mockRequest
+      .mockResolvedValueOnce([])           // initial GET /v1/workout-templates
+      .mockResolvedValueOnce(SAMPLE_TEMPLATE) // POST /v1/workout-templates/sample
+
+    render(<TemplatesPage />)
+    await screen.findByText(/start from example/i)
+    fireEvent.click(screen.getByRole('button', { name: /start from example/i }))
+
+    await waitFor(() => {
+      expect(mockRequest).toHaveBeenCalledWith(
+        '/v1/workout-templates/sample',
+        expect.objectContaining({ method: 'POST' }),
+      )
+      expect(mockPush).toHaveBeenCalledWith('/templates/sample-1')
+    })
   })
 })

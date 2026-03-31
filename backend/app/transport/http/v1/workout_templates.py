@@ -2,11 +2,12 @@
 
 Exposes:
     POST /workout-templates/from-ai
+    POST /workout-templates/sample
 """
 import uuid
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -14,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.core.dependencies import CurrentUser, require_coach
 from app.db.session import get_db
 from app.domain.events.service import ProductEventService
+from app.domain.use_cases.create_sample_template import CreateSampleTemplateUseCase
 from app.domain.use_cases.create_workout_template_from_ai import (
     BlockCommand,
     BlockItemCommand,
@@ -125,3 +127,49 @@ def create_from_ai(
         raise
 
     return WorkoutTemplateCreatedOut(id=result.id)
+
+
+# ---------------------------------------------------------------------------
+# Sample template
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/sample",
+    response_model=WorkoutTemplateCreatedOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={200: {"model": WorkoutTemplateCreatedOut}},
+    summary="Create (or return existing) sample template (Coach only)",
+)
+def create_sample_template(
+    current_user: Annotated[CurrentUser, Depends(require_coach)],
+    db: Session = Depends(get_db),
+) -> Response:
+    """
+    Instantly creates a complete 'Full Body Strength' template with one block
+    and 4 pre-seeded exercises.  Intended for first-time coaches who want
+    a starting point without building from scratch.
+
+    Idempotent: if a sample template already exists for this team, returns it
+    (HTTP 200) instead of creating a duplicate.  A fresh creation returns 201.
+    """
+    use_case = CreateSampleTemplateUseCase(db)
+    try:
+        result = use_case.execute(
+            team_id=current_user.team_id,
+            coach_id=current_user.user_id,
+        )
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Could not create sample template. Please try again.",
+        )
+
+    http_status = status.HTTP_201_CREATED if result.created else status.HTTP_200_OK
+    body = WorkoutTemplateCreatedOut(id=result.id)
+    return Response(
+        content=body.model_dump_json(),
+        status_code=http_status,
+        media_type="application/json",
+    )

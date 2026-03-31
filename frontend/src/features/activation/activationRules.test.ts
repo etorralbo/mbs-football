@@ -68,6 +68,22 @@ describe("computeActivation — COACH", () => {
     expect(result.nextAction).toBeNull()
     expect(result.steps.every((s) => s.completed)).toBe(true)
   })
+
+  it("allComplete is true only when template + session both exist", () => {
+    expect(computeActivation(coachBase).allComplete).toBe(true)
+  })
+
+  it("allComplete is false when sessions exist but no templates", () => {
+    expect(
+      computeActivation({ ...coachBase, templatesCount: 0 }).allComplete,
+    ).toBe(false)
+  })
+
+  it("allComplete is false when templates exist but no sessions", () => {
+    expect(
+      computeActivation({ ...coachBase, sessionsCount: 0 }).allComplete,
+    ).toBe(false)
+  })
 })
 
 describe("computeActivation — ATHLETE", () => {
@@ -105,5 +121,15 @@ describe("computeActivation — ATHLETE", () => {
 
     expect(result.nextAction).toBeNull()
     expect(result.steps.every((s) => s.completed)).toBe(true)
+  })
+
+  it("allComplete is true when athlete has completed a session", () => {
+    expect(computeActivation(athleteBase).allComplete).toBe(true)
+  })
+
+  it("allComplete is false when athlete has sessions but none completed", () => {
+    expect(
+      computeActivation({ ...athleteBase, hasCompletedSession: false }).allComplete,
+    ).toBe(false)
   })
 })

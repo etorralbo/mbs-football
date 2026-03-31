@@ -56,6 +56,7 @@ const COACH_STATE = {
   role: 'COACH' as const,
   steps: [],
   nextAction: null,
+  allComplete: false,
 }
 
 const ATHLETE_STATE = {
@@ -64,6 +65,7 @@ const ATHLETE_STATE = {
   role: 'ATHLETE' as const,
   steps: [],
   nextAction: null,
+  allComplete: false,
 }
 
 const ITEM_OVERDUE = {

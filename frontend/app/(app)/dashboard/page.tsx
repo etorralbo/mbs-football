@@ -7,6 +7,7 @@ import { request } from '@/app/_shared/api/httpClient'
 import { handleApiError } from '@/app/_shared/api/handleApiError'
 import { SkeletonList } from '@/app/_shared/components/Skeleton'
 import { useActivationState } from '@/src/features/activation/useActivationState'
+import { OnboardingBanner } from '@/src/features/activation/OnboardingBanner'
 import type { AttentionItem, AttentionQueueData } from '@/app/_shared/api/types'
 
 // ---------------------------------------------------------------------------
@@ -79,7 +80,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
-  const { role, isLoading: activationLoading } = useActivationState()
+  const { role, isLoading: activationLoading, steps, nextAction } = useActivationState()
 
   useEffect(() => {
     if (!activationLoading && role && role !== 'COACH') {
@@ -117,6 +118,13 @@ export default function DashboardPage() {
   return (
     <>
       <h1 className="text-xl font-semibold text-white">Dashboard</h1>
+
+      {/* Onboarding guide — only visible while steps are incomplete */}
+      {!activationLoading && steps.length > 0 && nextAction && (
+        <div className="mt-4">
+          <OnboardingBanner steps={steps} nextAction={nextAction} />
+        </div>
+      )}
 
       {loading && (
         <div className="mt-6">

@@ -16,6 +16,8 @@ export type ActivationStep = {
 export type ActivationResult = {
   steps: ActivationStep[]
   nextAction: ActivationStep | null
+  /** True only when every step is completed and real data exists (template + session). */
+  allComplete: boolean
 }
 
 export function computeActivation(input: ActivationInput): ActivationResult {
@@ -42,8 +44,10 @@ export function computeActivation(input: ActivationInput): ActivationResult {
     ]
 
     const next = steps.find((s) => !s.completed) ?? null
+    // "done" requires real data: at least one template AND at least one session.
+    const allComplete = next === null && input.templatesCount > 0 && input.sessionsCount > 0
 
-    return { steps, nextAction: next }
+    return { steps, nextAction: next, allComplete }
   }
 
   if (input.role === "ATHLETE") {
@@ -69,9 +73,10 @@ export function computeActivation(input: ActivationInput): ActivationResult {
     ]
 
     const next = steps.find((s) => !s.completed) ?? null
+    const allComplete = next === null && input.hasCompletedSession
 
-    return { steps, nextAction: next }
+    return { steps, nextAction: next, allComplete }
   }
 
-  return { steps: [], nextAction: null }
+  return { steps: [], nextAction: null, allComplete: false }
 }

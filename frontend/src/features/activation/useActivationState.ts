@@ -12,6 +12,8 @@ export type ActivationState = {
   role: 'COACH' | 'ATHLETE' | null
   steps: ActivationStep[]
   nextAction: ActivationStep | null
+  /** True only when every onboarding step is complete with real data. */
+  allComplete: boolean
 }
 
 const SECONDARY_TIMEOUT_MS = 2000
@@ -36,6 +38,7 @@ export function useActivationState(): ActivationState {
     role: null,
     steps: [],
     nextAction: null,
+    allComplete: false,
   })
 
   useEffect(() => {
@@ -64,6 +67,7 @@ export function useActivationState(): ActivationState {
           role: null,
           steps: [],
           nextAction: null,
+          allComplete: false,
         })
         return
       }
@@ -84,11 +88,11 @@ export function useActivationState(): ActivationState {
 
       // No role means the user hasn't completed onboarding yet.
       if (!role) {
-        setState({ isLoading: false, error: null, role: null, steps: [], nextAction: null })
+        setState({ isLoading: false, error: null, role: null, steps: [], nextAction: null, allComplete: false })
         return
       }
 
-      const { steps, nextAction } = computeActivation({
+      const { steps, nextAction, allComplete } = computeActivation({
         role,
         hasMembership,
         templatesCount: templates.length,
@@ -96,7 +100,7 @@ export function useActivationState(): ActivationState {
         hasCompletedSession: sessions.some((s) => s.completed_at !== null),
       })
 
-      setState({ isLoading: false, error: null, role, steps, nextAction })
+      setState({ isLoading: false, error: null, role, steps, nextAction, allComplete })
     }
 
     load()

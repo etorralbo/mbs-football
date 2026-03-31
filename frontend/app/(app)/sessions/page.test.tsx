@@ -42,6 +42,7 @@ const baseActivationState = {
   error: null,
   steps: [],
   nextAction: null,
+  allComplete: false,
 }
 
 const PENDING_SESSION = {
@@ -66,7 +67,7 @@ const COMPLETED_SESSION = {
   completed_at: '2026-02-01T10:00:00Z',
 }
 
-const ACTIVATION_ATHLETE = { isLoading: false, error: null, steps: [], nextAction: null, role: 'ATHLETE' as const }
+const ACTIVATION_ATHLETE = { isLoading: false, error: null, steps: [], nextAction: null, role: 'ATHLETE' as const, allComplete: false }
 
 describe('SessionsPage — session list CTAs', () => {
   afterEach(() => {
