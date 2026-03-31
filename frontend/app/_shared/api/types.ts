@@ -289,6 +289,8 @@ export interface SessionExecution {
   template_title: string
   athlete_profile_id: string
   scheduled_for: string | null
+  /** True when the coach has saved at least one structural edit (session_structure is non-null). */
+  has_session_structure: boolean
   blocks: SessionExecutionBlock[]
 }
 

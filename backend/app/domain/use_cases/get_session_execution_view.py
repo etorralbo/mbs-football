@@ -93,6 +93,7 @@ class SessionExecutionResult:
     template_title: str
     athlete_profile_id: uuid.UUID
     scheduled_for: Optional[date]
+    has_session_structure: bool = False
     blocks: list[BlockExecutionOut] = field(default_factory=list)
 
 
@@ -147,9 +148,14 @@ class GetSessionExecutionViewUseCase:
         if session is None:
             raise NotFoundError(f"Session {query.session_id} not found")
 
-        # 2. Check for snapshot on the assignment (new assignments store one).
-        #    Legacy assignments (NULL snapshot) fall back to the live template.
-        snapshot = session.assignment.template_snapshot if session.assignment else None
+        # 2. Resolve the structure to render.
+        #    Priority: session_structure (coach-edited) > template_snapshot > live template.
+        #    session_structure is set only when a coach has customised this session;
+        #    it is a copy of the snapshot mutated in-place (copy-on-write).
+        if session.session_structure is not None:
+            snapshot = session.session_structure
+        else:
+            snapshot = session.assignment.template_snapshot if session.assignment else None
 
         # 3. All logs for this session (entries pre-loaded, ordered by set_number)
         logs = self._log_repo.list_by_session(session.id)
@@ -211,6 +217,7 @@ class GetSessionExecutionViewUseCase:
             template_title=template_title,
             athlete_profile_id=session.athlete_id,
             scheduled_for=session.scheduled_for,
+            has_session_structure=session.session_structure is not None,
             blocks=block_results,
         )
 

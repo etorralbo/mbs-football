@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, exists, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.workout_session_log import WorkoutSessionLog
@@ -78,6 +78,15 @@ class AbstractWorkoutSessionLogRepository(ABC):
         session_id: uuid.UUID,
     ) -> list[WorkoutSessionLog]:
         """Return all logs for the session ordered by created_at, entries pre-loaded."""
+        ...
+
+    @abstractmethod
+    def has_logs_for_exercise(
+        self,
+        session_id: uuid.UUID,
+        exercise_id: uuid.UUID,
+    ) -> bool:
+        """True if any log row exists for this (session, exercise) pair."""
         ...
 
 
@@ -201,3 +210,16 @@ class SqlAlchemyWorkoutSessionLogRepository(AbstractWorkoutSessionLogRepository)
             .order_by(WorkoutSessionLog.created_at)
         )
         return list(self._db.execute(stmt).scalars())
+
+    def has_logs_for_exercise(
+        self,
+        session_id: uuid.UUID,
+        exercise_id: uuid.UUID,
+    ) -> bool:
+        stmt = select(
+            exists().where(
+                WorkoutSessionLog.session_id == session_id,
+                WorkoutSessionLog.exercise_id == exercise_id,
+            )
+        )
+        return bool(self._db.execute(stmt).scalar())

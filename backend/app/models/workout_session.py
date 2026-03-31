@@ -1,10 +1,10 @@
 """WorkoutSession model — one session per athlete per WorkoutAssignment."""
 import uuid
 from datetime import date, datetime
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy import Date, DateTime, ForeignKey, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
@@ -52,6 +52,14 @@ class WorkoutSession(Base, TimestampMixin):
     )
     cancelled_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+
+    # Coach-editable snapshot of the session structure.
+    # NULL = pristine (use assignment.template_snapshot for rendering).
+    # Non-null = coach has customized this session; use this instead.
+    # Initialized on first edit by copying assignment.template_snapshot (copy-on-write).
+    session_structure: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=True,
     )
 
     assignment: Mapped["WorkoutAssignment"] = relationship(

@@ -18,6 +18,7 @@ const EXECUTION_EMPTY: SessionExecution = {
   template_title: 'Sprint Power',
   athlete_profile_id: 'ath-1',
   scheduled_for: null,
+  has_session_structure: false,
   blocks: [
     {
       name: 'Primary Strength',

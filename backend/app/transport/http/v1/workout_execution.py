@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import CurrentUser, require_any_role, require_athlete
+from app.core.dependencies import CurrentUser, require_any_role, require_athlete, require_coach
 from app.db.session import get_db
 from app.domain.events.service import ProductEventService
 from app.domain.use_cases.create_workout_session_log import (
@@ -39,6 +39,17 @@ from app.domain.use_cases.get_workout_session_detail import (
     SessionLogEntryItem,
     SessionLogItem,
     WorkoutSessionDetailResult,
+)
+from app.domain.use_cases.edit_session_structure import (
+    AddExerciseCommand,
+    BlockNotFoundError,
+    EditSessionStructureUseCase,
+    ExerciseHasLogsError,
+    ExerciseNotFoundError,
+    ExerciseNotInSessionError,
+    RemoveExerciseCommand,
+    SessionNotFoundError as EditSessionNotFoundError,
+    UpdatePrescriptionCommand,
 )
 from app.domain.use_cases.get_session_execution_view import (
     BlockExecutionOut,
@@ -309,6 +320,7 @@ class WorkoutSessionExecutionOut(BaseModel):
     template_title: str
     athlete_profile_id: uuid.UUID
     scheduled_for: Optional[date]
+    has_session_structure: bool
     blocks: list[BlockExecutionOutSchema]
 
 
@@ -347,6 +359,7 @@ def _execution_result_to_out(result: SessionExecutionResult) -> WorkoutSessionEx
         template_title=result.template_title,
         athlete_profile_id=result.athlete_profile_id,
         scheduled_for=result.scheduled_for,
+        has_session_structure=result.has_session_structure,
         blocks=[
             BlockExecutionOutSchema(
                 name=block.name,
@@ -483,3 +496,113 @@ def get_session_execution(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
     return _execution_result_to_out(result)
+
+
+# ---------------------------------------------------------------------------
+# Session structure editing — COACH only
+# ---------------------------------------------------------------------------
+
+class UpdatePrescriptionIn(BaseModel):
+    sets: list[dict]
+
+
+class AddExerciseIn(BaseModel):
+    exercise_id: uuid.UUID
+    block_index: int
+    sets: list[dict] = []
+
+
+def _build_edit_structure_use_case(db: Session) -> EditSessionStructureUseCase:
+    return EditSessionStructureUseCase(
+        session_repo=SqlAlchemyWorkoutSessionRepository(db),
+        log_repo=SqlAlchemyWorkoutSessionLogRepository(db),
+        exercise_repo=SqlAlchemyExerciseRepository(db),
+    )
+
+
+@router.patch(
+    "/{session_id}/structure/exercises/{exercise_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def update_session_exercise_prescription(
+    session_id: uuid.UUID,
+    exercise_id: uuid.UUID,
+    payload: UpdatePrescriptionIn,
+    current_user: Annotated[CurrentUser, Depends(require_coach)],
+    db: Session = Depends(get_db),
+) -> None:
+    """Replace the prescription for one exercise in a session (COACH only)."""
+    use_case = _build_edit_structure_use_case(db)
+    command = UpdatePrescriptionCommand(
+        session_id=session_id,
+        exercise_id=exercise_id,
+        sets=payload.sets,
+        requesting_team_id=current_user.team_id,
+    )
+    try:
+        use_case.update_prescription(command)
+    except EditSessionNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except ExerciseNotInSessionError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@router.delete(
+    "/{session_id}/structure/exercises/{exercise_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def remove_session_exercise(
+    session_id: uuid.UUID,
+    exercise_id: uuid.UUID,
+    current_user: Annotated[CurrentUser, Depends(require_coach)],
+    db: Session = Depends(get_db),
+) -> None:
+    """Remove an exercise from a session (COACH only).
+
+    Returns 409 if the athlete has already logged sets for this exercise.
+    """
+    use_case = _build_edit_structure_use_case(db)
+    command = RemoveExerciseCommand(
+        session_id=session_id,
+        exercise_id=exercise_id,
+        requesting_team_id=current_user.team_id,
+    )
+    try:
+        use_case.remove_exercise(command)
+    except EditSessionNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except ExerciseHasLogsError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    except ExerciseNotInSessionError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@router.post(
+    "/{session_id}/structure/exercises",
+    status_code=status.HTTP_201_CREATED,
+)
+def add_session_exercise(
+    session_id: uuid.UUID,
+    payload: AddExerciseIn,
+    current_user: Annotated[CurrentUser, Depends(require_coach)],
+    db: Session = Depends(get_db),
+) -> None:
+    """Add an exercise to a session block (COACH only).
+
+    Returns 404 if the exercise is not accessible to the team or the
+    block_index is out of range.
+    """
+    use_case = _build_edit_structure_use_case(db)
+    command = AddExerciseCommand(
+        session_id=session_id,
+        exercise_id=payload.exercise_id,
+        block_index=payload.block_index,
+        sets=payload.sets,
+        requesting_team_id=current_user.team_id,
+    )
+    try:
+        use_case.add_exercise(command)
+    except EditSessionNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except (ExerciseNotFoundError, BlockNotFoundError) as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))

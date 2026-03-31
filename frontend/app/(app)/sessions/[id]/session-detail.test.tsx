@@ -41,6 +41,7 @@ const EMPTY_EXECUTION: SessionExecution = {
   template_title: 'Power Session',
   athlete_profile_id: 'ap-1',
   scheduled_for: '2026-02-25',
+  has_session_structure: false,
   blocks: [],
 }
 
