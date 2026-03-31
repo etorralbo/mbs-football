@@ -127,6 +127,13 @@ class AbstractWorkoutSessionRepository(ABC):
         ...
 
     @abstractmethod
+    def update_session_structure(
+        self, session: WorkoutSession, structure: dict
+    ) -> None:
+        """Persist the coach-edited session_structure and commit."""
+        ...
+
+    @abstractmethod
     def create_sessions_for_batch(
         self,
         items: list[tuple[uuid.UUID, uuid.UUID]],
@@ -145,6 +152,13 @@ class SqlAlchemyWorkoutSessionRepository(AbstractWorkoutSessionRepository):
 
     def __init__(self, db: Session) -> None:
         self._db = db
+
+    def update_session_structure(
+        self, session: WorkoutSession, structure: dict
+    ) -> None:
+        session.session_structure = structure
+        self._db.add(session)
+        self._db.commit()
 
     def create_bulk(
         self,
